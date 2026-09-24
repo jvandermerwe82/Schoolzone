@@ -57,6 +57,25 @@ export const unaidedOnlyAbilityAdjuster: LabAbilityAdjuster = ({
   return beforeAbility + kFactor(beforeAttempts) * ((correct ? 1 : 0) - predicted);
 };
 
+export function reliabilityWeightedAbilityAdjuster(
+  hintedWeight: number,
+  rapidWeight = 0,
+): LabAbilityAdjuster {
+  const hintedW = Math.max(0, Math.min(1, hintedWeight));
+  const rapidW = Math.max(0, Math.min(1, rapidWeight));
+  return ({
+    beforeAbility,
+    beforeAttempts,
+    predicted,
+    correct,
+    hinted,
+    rapid,
+  }) => {
+    const weight = rapid ? rapidW : hinted ? hintedW : 1;
+    return beforeAbility + kFactor(beforeAttempts) * weight * ((correct ? 1 : 0) - predicted);
+  };
+}
+
 export const currentBrainPolicy: LabPolicy = (profile, learner, step, now, rng) => {
   const skill = getSkill(learner.skillId);
   const plan = planNext(
