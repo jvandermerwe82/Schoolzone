@@ -18,13 +18,14 @@ import { Home } from './ui/Home';
 import { ParentArea, type ParentTools } from './ui/ParentArea';
 import { Practice, type TutorFn } from './ui/Practice';
 import { ProfilePicker } from './ui/ProfilePicker';
-import { syncTeacherHomeworkIntent } from './curriculum/australia-teacher-objectives';
+import { isStructuredHomework, syncTeacherHomeworkIntent } from './curriculum/australia-teacher-objectives';
+import { structuredHomeworkRoute, type AustralianPracticeRoute } from './curriculum/australia-intent-routing';
 
 type Screen =
   | { name: 'profiles' }
   | { name: 'home' }
-  | { name: 'practice'; subject: SubjectId; focus?: string }
-  | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second'; focus?: string }
+  | { name: 'practice'; subject: SubjectId; focus?: string; teacherRoute?: AustralianPracticeRoute }
+  | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second'; focus?: string; teacherRoute?: AustralianPracticeRoute }
   | { name: 'dashboard' }
   | { name: 'info' }
   | { name: 'leaderboard' }
@@ -188,12 +189,12 @@ export function App() {
   }, [mode, currentKey, onHome]);
 
   /** Start practising a subject (optionally a particular skill), with the checkpoint first if it's due. */
-  const startPractice = (subject: SubjectId, focus?: string) => {
+  const startPractice = (subject: SubjectId, focus?: string, teacherRoute?: AustralianPracticeRoute) => {
     if (!current) return;
     const due = checkpointDue(current, subject, Date.now());
     setScreen(due && !deferred.has(`${current.id}:${subject}`)
-      ? { name: 'checkpoint', subject, form: due.form, which: due.which, focus }
-      : { name: 'practice', subject, focus });
+      ? { name: 'checkpoint', subject, form: due.form, which: due.which, focus, teacherRoute }
+      : { name: 'practice', subject, focus, teacherRoute });
   };
   const loadBoard = useCallback((period: 'week' | 'all') => api.leaderboard(currentKey!, period), [currentKey]);
 
@@ -301,10 +302,24 @@ export function App() {
     case 'practice':
       return (
         <Practice
-          key={`${current.id}-${screen.subject}`}
+          key={`${current.id}-${screen.subject}-${screen.teacherRoute?.activeCanonicalNodeId ?? 'general'}`}
           profile={current}
           subject={screen.subject}
           focusSkill={screen.focus}
+          teacherRoute={screen.teacherRoute}
+          onNextTeacherMission={screen.teacherRoute ? (profile) => {
+            if (homework && isStructuredHomework(homework)) {
+              const route = structuredHomeworkRoute(profile, homework);
+              setScreen({
+                name: 'practice',
+                subject: route.subject,
+                focus: route.practiceSkillId,
+                teacherRoute: route,
+              });
+            } else {
+              setScreen({ name: 'home' });
+            }
+          } : undefined}
           onUpdate={updateProfile}
           items={items}
           onItems={setItems}
@@ -321,10 +336,23 @@ export function App() {
           subject={screen.subject}
           form={screen.form}
           which={screen.which}
-          onFinish={(p) => { updateProfile(p); setScreen({ name: 'practice', subject: screen.subject, focus: screen.focus }); }}
+          onFinish={(p) => {
+            updateProfile(p);
+            setScreen({
+              name: 'practice',
+              subject: screen.subject,
+              focus: screen.focus,
+              teacherRoute: screen.teacherRoute,
+            });
+          }}
           onLater={() => {
             setDeferred((d) => new Set(d).add(`${current.id}:${screen.subject}`));
-            setScreen({ name: 'practice', subject: screen.subject, focus: screen.focus });
+            setScreen({
+              name: 'practice',
+              subject: screen.subject,
+              focus: screen.focus,
+              teacherRoute: screen.teacherRoute,
+            });
           }}
         />
       );
