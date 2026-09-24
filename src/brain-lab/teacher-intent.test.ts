@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareTeacherIntentPolicies,
+  evaluateTeacherIntentLabGate,
   runTeacherIntentBenchmark,
   teacherDualEvidenceChallengers,
   teacherEvidenceChallengers,
@@ -156,6 +157,24 @@ describe('Brain Lab teacher-intent efficiency', () => {
       'recent-8-skill-mastered',
     ]);
     expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
+  });
+
+  it('passes the locked teacher-intent routing regression gate', () => {
+    const population = teacherIntentPopulation(120);
+    const comparison24 = compareTeacherIntentPolicies({
+      population,
+      horizonQuestions: 24,
+      seed: 20260925,
+    });
+    const routeAware48 = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions: 48,
+      seed: 20260925,
+    });
+    expect(evaluateTeacherIntentLabGate(comparison24, routeAware48)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('reports completion and learner-friction metrics separately', () => {
