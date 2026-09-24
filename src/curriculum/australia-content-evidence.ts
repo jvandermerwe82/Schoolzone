@@ -45,6 +45,7 @@ export function australianEvidenceForQuestion(
   yearLevel?: '4' | '5' | '6',
 ): CanonicalEvidenceTarget[] {
   const p = question.prompt;
+  const content = `${question.prompt} ${question.answer}`;
 
   switch (question.skillId) {
     // ---- existing maths foundations ----
@@ -135,40 +136,40 @@ export function australianEvidenceForQuestion(
 
     // ---- science ----
     case 'living-things':
-      if (has(p, 'food chain', 'producer', 'herbivore')) {
+      if (has(content, 'food chain', 'producer', 'herbivore')) {
         return [target('science.ecology.roles-food-chains', 'supporting', 'The question contributes evidence about organism roles or food-chain relationships.')];
       }
       return [];
 
     case 'materials':
-      if (has(p, 'solid', 'liquid', 'gas', 'particles', 'melts', 'melting', 'boil', 'condensation', 'evaporation', 'steam')) {
+      if (has(content, 'solid', 'liquid', 'gas', 'particles', 'melts', 'melting', 'boil', 'condensation', 'evaporation', 'steam')) {
         return [target('science.matter.particle-states', 'supporting', 'States-of-matter knowledge supports the Year 5 particle-model node.')];
       }
-      if (has(p, 'material', 'raincoat', 'glass', 'natural material')) {
+      if (has(content, 'material', 'raincoat', 'glass', 'natural material')) {
         return [target('science.materials.properties-use', 'supporting', 'The question links material properties or origin to use.')];
       }
-      if (has(p, 'conducts electricity')) {
+      if (has(content, 'conducts electricity', 'conductor')) {
         return [target('science.electricity.energy-circuits', 'supporting', 'Conductor knowledge supports the Year 6 electrical-circuit node.')];
       }
       return [];
 
     case 'forces-energy':
-      if (has(p, 'gravity', 'friction', 'magnet', 'newton')) {
+      if (has(content, 'gravity', 'friction', 'magnet', 'newton')) {
         return [target('science.forces.friction-gravity-magnetism', 'direct', 'The question directly tests frictional, gravitational or magnetic forces.')];
       }
-      if (has(p, 'shadow', 'light')) {
+      if (has(content, 'shadow', 'light')) {
         return [target('science.light.travel-shadows-reflection-refraction', 'supporting', 'The question supports light-source or shadow reasoning, but may not cover reflection/refraction.')];
       }
-      if (has(p, 'circuit', 'switch')) {
+      if (has(content, 'circuit', 'switch')) {
         return [target('science.electricity.energy-circuits', 'supporting', 'The question directly supports simple circuit behaviour.')];
       }
       return [];
 
     case 'earth-space':
-      if (has(p, 'water cycle', 'cloud', 'precipitation')) {
+      if (has(content, 'water cycle', 'cloud', 'precipitation')) {
         return [target('science.earth.water-cycle', 'supporting', 'The question contributes evidence about water-cycle processes.')];
       }
-      if (has(p, 'sun', 'planet', 'earth', 'day and night', 'seasons', 'moon')) {
+      if (has(content, 'sun', 'planet', 'earth', 'day and night', 'seasons', 'moon')) {
         return [target('science.space.earth-sun-cycles', 'supporting', 'The question contributes to Earth/Sun/planet and observable-cycle understanding.')];
       }
       return [];
