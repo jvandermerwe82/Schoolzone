@@ -31,6 +31,7 @@ import {
   runTeacherIntentBenchmark,
   teacherEvidenceChallengers,
   teacherHybridEvidenceChallengers,
+  teacherRecoveryEvidenceChallengers,
   teacherIntentHorizonCurve,
   teacherIntentPopulation,
 } from '../src/brain-lab/teacher-intent';
@@ -100,6 +101,11 @@ const teacherIntentHybridEvidence = teacherHybridEvidenceChallengers(
   teacherIntentLifetime48,
   { horizonQuestions: 48, seed: 20260925 },
 );
+const teacherIntentRecoveryEvidence = teacherRecoveryEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -144,6 +150,7 @@ process.stdout.write(JSON.stringify({
     lifetime48: teacherIntentLifetime48,
     evidenceChallengers: teacherIntentEvidence,
     guardedEvidenceChallengers: teacherIntentHybridEvidence,
+    recoveryEvidenceChallengers: teacherIntentRecoveryEvidence,
   },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
