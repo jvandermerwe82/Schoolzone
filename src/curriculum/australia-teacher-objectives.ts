@@ -157,7 +157,12 @@ export function syncTeacherHomeworkIntent(
   const teacherIntents = state.intents.filter((intent) => intent.source === 'teacher');
   const other = state.intents.filter((intent) => intent.source !== 'teacher');
   const yearLevel = learnerYear && learnerYear >= 4 && learnerYear <= 6 ? String(learnerYear) : null;
-  const curriculumState = homework && isStructuredHomework(homework) && yearLevel
+  const sameCurriculum = yearLevel && state.curriculum
+    && state.curriculum.jurisdiction === 'AU'
+    && state.curriculum.curriculumId === 'au-ac-v9'
+    && state.curriculum.curriculumVersion === '9.0'
+    && state.curriculum.yearLevel === yearLevel;
+  const curriculumState = homework && isStructuredHomework(homework) && yearLevel && !sameCurriculum
     ? {
         ...state,
         curriculum: {
