@@ -8,6 +8,7 @@ import type { Profile, SubjectId } from '../brain/types';
 import { dayStreak, playerLevel } from '../brain/xp';
 import { checkpointDue } from '../content/checkpoint';
 import { getSkill, SUBJECTS } from '../content/skills';
+import { isStructuredHomework } from '../curriculum/australia-teacher-objectives';
 
 interface Props {
   profile: Profile;
@@ -101,6 +102,24 @@ export function Home({ profile, offline, homework, onPractice, onDashboard, onPa
 
       <h2 className="section-title">Choose a zone</h2>
       {homework && (() => {
+        if (isStructuredHomework(homework)) {
+          const skill = getSkill(homework.practiceSkillId);
+          const done = isMastered(skillState(profile, skill.id));
+          return (
+            <button className="homework-banner" onClick={() => onPractice(skill.subject, skill.id)}>
+              <span aria-hidden>📌</span>
+              <span>
+                <strong>From your teacher: Year {homework.yearLevel} · {homework.objective}</strong>
+                <small>
+                  {homework.note || 'SchoolZone will personalise the route to this objective.'}
+                  {homework.dueAt ? ` Due ${new Date(homework.dueAt).toLocaleDateString()}.` : ""}
+                  {done ? ' You may already know much of this route.' : ''}
+                </small>
+              </span>
+              <span className="zone-play">Go ▶</span>
+            </button>
+          );
+        }
         const skill = getSkill(homework.skillId);
         const done = isMastered(skillState(profile, skill.id));
         return (
