@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ClassView as View, SkillStatus } from '../api';
-import { SKILLS, SUBJECTS } from '../content/skills';
+import { SKILLS } from '../content/skills';
+import { AUSTRALIAN_TEACHER_OBJECTIVES, isStructuredHomework, type TeacherIntentPriority } from '../curriculum/australia-teacher-objectives';
 
 export interface ClassTools {
   classView: (schoolId: string) => Promise<View>;
-  setHomework: (schoolId: string, skillId: string, note: string) => Promise<unknown>;
+  setHomework: (schoolId: string, objectiveId: string, note: string, priority: TeacherIntentPriority, dueAt: number | null) => Promise<unknown>;
   clearHomework: (schoolId: string) => Promise<unknown>;
 }
 
@@ -21,8 +22,10 @@ const ago = (t: number | null) => {
 export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools: ClassTools; onBack: () => void }) {
   const [view, setView] = useState<View | null>(null);
   const [error, setError] = useState('');
-  const [skillId, setSkillId] = useState(Y6[0].id);
+  const [objectiveId, setObjectiveId] = useState(AUSTRALIAN_TEACHER_OBJECTIVES[0].id);
   const [note, setNote] = useState('');
+  const [priority, setPriority] = useState<TeacherIntentPriority>(2);
+  const [dueDate, setDueDate] = useState('');
   const load = () => tools.classView(schoolId).then(setView).catch((e: Error) => setError(e.message));
   useEffect(() => { void load(); }, [schoolId]); // reload when the school changes
 
@@ -32,7 +35,8 @@ export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools
   };
 
   if (!view) return <main className="page"><p className="loading">{error || 'Loading…'}</p></main>;
-  const hw = view.homework ? SKILLS.find((s) => s.id === view.homework!.skillId) : null;
+  const structured = view.homework && isStructuredHomework(view.homework) ? view.homework : null;
+  const legacy = view.homework && !isStructuredHomework(view.homework) ? SKILLS.find((s) => s.id === view.homework!.skillId) : null;
   // Skills with the most pupils struggling or still learning first.
   const needsWork = [...view.summary.skills].sort((a, b) => (b.struggling * 2 + b.learning) - (a.struggling * 2 + a.learning));
 
@@ -51,29 +55,53 @@ export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools
       </p>
 
       <section className="card">
-        <h2>📌 Homework topic</h2>
-        {hw ? (
-          <p>Set: <strong>{hw.emoji} {hw.name}</strong>{view.homework!.note && <> · "{view.homework!.note}"</>} <small className="muted">({ago(view.homework!.setAt)})</small></p>
-        ) : <p className="muted">No topic set. Pupils see the topic on their home screen and can practise it in one tap.</p>}
-        <form className="form" onSubmit={(e) => { e.preventDefault(); void act(() => tools.setHomework(schoolId, skillId, note)); }}>
-          <label>Topic
-            <select value={skillId} onChange={(e) => setSkillId(e.target.value)}>
-              {SUBJECTS.map((sub) => (
-                <optgroup key={sub.id} label={sub.name}>
-                  {Y6.filter((s) => s.subject === sub.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        <h2>📌 Learning objective</h2>
+        {structured ? (
+          <p>
+            Set: <strong>Year {structured.yearLevel} {structured.objective}</strong>
+            {structured.note && <> · "{structured.note}"</>}
+            <small className="muted"> ({ago(structured.setAt)}{structured.dueAt ? ` · due ${new Date(structured.dueAt).toLocaleDateString()}` : ""})</small>
+          </p>
+        ) : legacy ? (
+          <p>Legacy topic: <strong>{legacy.emoji} {legacy.name}</strong>{view.homework!.note && <> · "{view.homework!.note}"</>}</p>
+        ) : (
+          <p className="muted">No objective set. SchoolZone will personalise the route to the objective for each pupil.</p>
+        )}
+        <form className="form" onSubmit={(e) => {
+          e.preventDefault();
+          const dueAt = dueDate ? new Date(`${dueDate}T23:59:59`).getTime() : null;
+          void act(() => tools.setHomework(schoolId, objectiveId, note, priority, dueAt));
+        }}>
+          <label>Australian Curriculum objective
+            <select value={objectiveId} onChange={(e) => setObjectiveId(e.target.value)}>
+              {(["4", "5", "6"] as const).map((year) => (
+                <optgroup key={year} label={`Year ${year}`}>
+                  {AUSTRALIAN_TEACHER_OBJECTIVES.filter((item) => item.yearLevel === year).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.subject === 'maths' ? 'Maths' : item.subject === 'english' ? 'English' : 'Science'} · {item.title}
+                    </option>
+                  ))}
                 </optgroup>
               ))}
             </select>
           </label>
-          <label>Note for pupils (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={140} placeholder="e.g. Ready for Friday's quiz!" /></label>
+          <label>Priority
+            <select value={priority} onChange={(e) => setPriority(Number(e.target.value) as TeacherIntentPriority)}>
+              <option value={1}>High</option>
+              <option value={2}>Normal</option>
+              <option value={3}>Low</option>
+            </select>
+          </label>
+          <label>Due date (optional)<input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>
+          <label>Note for pupils (optional)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={140} placeholder="e.g. Focus for Friday" /></label>
+          <p className="muted small">The objective is fixed. SchoolZone can teach missing prerequisites first and then return the pupil to the objective.</p>
           <div className="row">
-            <button type="submit" className="primary">Set topic</button>
-            {hw && <button type="button" onClick={() => void act(() => tools.clearHomework(schoolId))}>Clear topic</button>}
+            <button type="submit" className="primary">Assign objective</button>
+            {view.homework && <button type="button" onClick={() => void act(() => tools.clearHomework(schoolId))}>Clear objective</button>}
           </div>
         </form>
         {error && <p className="error" role="alert">{error}</p>}
       </section>
-
       {view.pupils.length > 0 && (
         <>
           <section className="card">
