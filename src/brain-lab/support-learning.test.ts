@@ -7,6 +7,7 @@ import {
   roundRobinSupportPolicy,
   runSupportBenchmark,
   runSupportLearner,
+  supportWeightChallengers,
 } from './support-learning';
 import { syntheticPopulation } from './synthetic';
 
@@ -53,6 +54,21 @@ describe('Brain Lab support learning', () => {
       pass: true,
       failures: [],
     });
+  });
+
+  it('can compare faster confidence challengers without changing the production baseline', () => {
+    const population = syntheticPopulation(25);
+    const current = runSupportBenchmark('current', currentSupportPolicy, {
+      population,
+      trialsPerLearner: 15,
+      seed: 54,
+    });
+    const challengers = supportWeightChallengers(population, current, {
+      trialsPerLearner: 15,
+      seed: 54,
+    });
+    expect(challengers.map((item) => item.outcomeWeightScale)).toEqual([1.25, 1.5, 1.75, 2]);
+    expect(challengers.every((item) => item.benchmark.learnerCount === current.learnerCount)).toBe(true);
   });
 
   it('can compare current support intelligence to historical success memory alone', () => {
