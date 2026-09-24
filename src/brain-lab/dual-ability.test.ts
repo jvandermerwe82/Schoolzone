@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  blendedAbilityBenchmark,
   productionRuns,
   SHADOW_ABILITY_GRID,
   shadowAbilityBenchmark,
@@ -40,6 +41,19 @@ describe('dual-state shadow ability lab', () => {
     expect(clean.learnerCount).toBe(weighted.learnerCount);
     expect(Number.isFinite(clean.finalAbilityMae)).toBe(true);
     expect(Number.isFinite(weighted.finalAbilityMae)).toBe(true);
+  });
+
+  it('can ensemble the shadow state with production ability without mutating either trajectory', () => {
+    const runs = productionRuns(syntheticPopulation(12), 20, 48);
+    const before = JSON.stringify(runs);
+    const result = blendedAbilityBenchmark(runs, {
+      name: 'blend',
+      hintedWeight: 0.9,
+      rapidWeight: 0.05,
+      shadowShare: 0.5,
+    });
+    expect(Number.isFinite(result.finalAbilityMae)).toBe(true);
+    expect(JSON.stringify(runs)).toBe(before);
   });
 
   it('reports a learning curve rather than only a final score', () => {
