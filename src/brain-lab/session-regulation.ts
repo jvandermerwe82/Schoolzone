@@ -312,3 +312,89 @@ export function compareSessionRegulation(
     },
   };
 }
+
+
+export const SESSION_REGULATION_THRESHOLDS = {
+  minUsefulLearningRate: 0.70,
+  minUsefulLearningRateAdvantage: 0.04,
+  maxRapidGuessRate: 0.045,
+  minRapidGuessRateReduction: 0.015,
+  maxEarlyStopRate: 0.15,
+  minMissionCompletionRate: 0.85,
+  minFatigueThresholdAlignmentRate: 0.85,
+  minUsefulCorrectRetentionRatio: 0.98,
+} as const;
+
+export interface SessionRegulationGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateSessionRegulationGate(
+  comparison: SessionRegulationComparison,
+): SessionRegulationGate {
+  const failures: string[] = [];
+  const adaptive = comparison.adaptive;
+  const fixed = comparison.fixed10;
+  const usefulCorrectRetentionRatio = fixed.meanUsefulCorrect === 0
+    ? 1
+    : adaptive.meanUsefulCorrect / fixed.meanUsefulCorrect;
+
+  if (adaptive.usefulLearningRate < SESSION_REGULATION_THRESHOLDS.minUsefulLearningRate) {
+    failures.push(
+      `useful learning rate ${adaptive.usefulLearningRate.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minUsefulLearningRate}`,
+    );
+  }
+  if (
+    comparison.delta.usefulLearningRate
+    < SESSION_REGULATION_THRESHOLDS.minUsefulLearningRateAdvantage
+  ) {
+    failures.push(
+      `useful learning-rate advantage ${comparison.delta.usefulLearningRate.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minUsefulLearningRateAdvantage}`,
+    );
+  }
+  if (adaptive.rapidGuessRate > SESSION_REGULATION_THRESHOLDS.maxRapidGuessRate) {
+    failures.push(
+      `rapid-guess rate ${adaptive.rapidGuessRate.toFixed(3)} exceeds ${SESSION_REGULATION_THRESHOLDS.maxRapidGuessRate}`,
+    );
+  }
+  if (
+    comparison.delta.rapidGuessRate
+    < SESSION_REGULATION_THRESHOLDS.minRapidGuessRateReduction
+  ) {
+    failures.push(
+      `rapid-guess reduction ${comparison.delta.rapidGuessRate.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minRapidGuessRateReduction}`,
+    );
+  }
+  if (adaptive.earlyStopRate > SESSION_REGULATION_THRESHOLDS.maxEarlyStopRate) {
+    failures.push(
+      `early-stop rate ${adaptive.earlyStopRate.toFixed(3)} exceeds ${SESSION_REGULATION_THRESHOLDS.maxEarlyStopRate}`,
+    );
+  }
+  if (
+    adaptive.missionCompletionRate
+    < SESSION_REGULATION_THRESHOLDS.minMissionCompletionRate
+  ) {
+    failures.push(
+      `mission completion rate ${adaptive.missionCompletionRate.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minMissionCompletionRate}`,
+    );
+  }
+  if (
+    adaptive.withinOneOfFatigueThresholdRate
+    < SESSION_REGULATION_THRESHOLDS.minFatigueThresholdAlignmentRate
+  ) {
+    failures.push(
+      `fatigue-threshold alignment ${adaptive.withinOneOfFatigueThresholdRate.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minFatigueThresholdAlignmentRate}`,
+    );
+  }
+  if (
+    usefulCorrectRetentionRatio
+    < SESSION_REGULATION_THRESHOLDS.minUsefulCorrectRetentionRatio
+  ) {
+    failures.push(
+      `useful-correct retention ratio ${usefulCorrectRetentionRatio.toFixed(3)} is below ${SESSION_REGULATION_THRESHOLDS.minUsefulCorrectRetentionRatio}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
