@@ -3,6 +3,7 @@ import {
   adaptive80Policy,
   compareBenchmarks,
   currentBrainPolicy,
+  evaluateBrainLabGate,
   runBenchmark,
   runSyntheticLearner,
   staticMidlevelPolicy,
@@ -44,6 +45,18 @@ describe('SchoolZone Brain Lab', () => {
     });
     expect(benchmark.calibrationGap).toBeLessThan(0.2);
     expect(benchmark.meanPredictionBrier).toBeLessThan(0.35);
+  });
+
+  it('passes the locked Brain Lab learning-speed regression gate', () => {
+    const benchmark = runBenchmark('current', currentBrainPolicy, {
+      population: syntheticPopulation(84),
+      answersPerLearner: 30,
+      seed: 20260925,
+    });
+    const gate = evaluateBrainLabGate(benchmark);
+    expect(gate.failures).toEqual([]);
+    expect(gate.pass).toBe(true);
+    expect(gate.learningGain).toBeGreaterThanOrEqual(0.5);
   });
 
   it('supports champion/challenger comparisons on the identical population', () => {
