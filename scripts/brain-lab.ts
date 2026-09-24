@@ -5,6 +5,7 @@ import {
   evaluateBrainLabGate,
   runBenchmark,
   staticMidlevelPolicy,
+  unaidedOnlyAbilityAdjuster,
 } from '../src/brain-lab/benchmark';
 import { syntheticPopulation } from '../src/brain-lab/synthetic';
 
@@ -14,6 +15,10 @@ const options = { population, answersPerLearner: 30, seed: 20260925 };
 const current = runBenchmark('current', currentBrainPolicy, options);
 const adaptive = runBenchmark('adaptive-80', adaptive80Policy, options);
 const baseline = runBenchmark('static-mid', staticMidlevelPolicy, options);
+const cleanAbility = runBenchmark('current+clean-ability', currentBrainPolicy, {
+  ...options,
+  abilityAdjuster: unaidedOnlyAbilityAdjuster,
+});
 const gate = evaluateBrainLabGate(current);
 
 process.stdout.write(JSON.stringify({
@@ -21,6 +26,10 @@ process.stdout.write(JSON.stringify({
   population: population.length,
   gate,
   current,
+  challenger: {
+    cleanAbility,
+    vsCurrent: compareBenchmarks(cleanAbility, current).delta,
+  },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
