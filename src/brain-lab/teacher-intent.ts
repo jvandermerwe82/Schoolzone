@@ -380,3 +380,24 @@ export function compareTeacherIntentPolicies(
     },
   };
 }
+
+
+export interface TeacherIntentHorizonPoint {
+  horizonQuestions: number;
+  comparison: TeacherIntentComparison;
+}
+
+export function teacherIntentHorizonCurve(
+  population: HiddenTeacherIntentLearner[],
+  horizons: readonly number[] = [12, 24, 36, 48],
+  seed = 20260925,
+): TeacherIntentHorizonPoint[] {
+  return horizons.map((horizonQuestions) => ({
+    horizonQuestions,
+    comparison: compareTeacherIntentPolicies({
+      population,
+      horizonQuestions,
+      seed,
+    }),
+  }));
+}
