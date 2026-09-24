@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   productionRuns,
+  SHADOW_ABILITY_GRID,
   shadowAbilityBenchmark,
   shadowAbilityGrid,
 } from './dual-ability';
@@ -11,7 +12,7 @@ describe('dual-state shadow ability lab', () => {
     const runs = productionRuns(syntheticPopulation(12), 12, 44);
     const before = JSON.stringify(runs);
     const grid = shadowAbilityGrid(runs);
-    expect(grid).toHaveLength(8);
+    expect(grid).toHaveLength(SHADOW_ABILITY_GRID.length);
     expect(JSON.stringify(runs)).toBe(before);
     expect(grid.every((benchmark) => benchmark.learnerCount === 12)).toBe(true);
   });
