@@ -7,7 +7,8 @@ import { SKILLS, getSkill } from '../content/skills';
 import { newProfile } from '../storage';
 import { calibration } from './insights';
 import {
-  bktUpdate, guessRate, initialSkillState, isMastered, levelDifficulty, predictCorrect, updateSkill,
+  bktUpdate, guessRate, initialSkillState, isMastered, levelDifficulty, predictCorrect,
+  REVIEW_INTERVAL_MULTIPLIER, updateSkill,
 } from './model';
 import { chooseLevel, planNext, recordAnswer, skillState } from './tutor';
 import { LEVELS, type Level, type Profile, type SubjectId } from './types';
