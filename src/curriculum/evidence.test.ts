@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Question } from '../brain/types';
 import { newProfile } from '../storage';
 import { setCurriculumContext } from '../brain/learning-intelligence';
+import { recordAnswer } from '../brain/tutor';
 import { curriculumEvidenceForQuestion } from './evidence';
 
 const question: Question = {
@@ -44,5 +45,25 @@ describe('curriculum evidence dispatcher', () => {
       yearLevel: '5',
     });
     expect(curriculumEvidenceForQuestion(profile, question)).toEqual([]);
+  });
+});
+
+
+describe('curriculum evidence answer persistence', () => {
+  it('persists dispatched evidence on the answer record without replacing the academic update', () => {
+    const profile = newProfile('Ava', '🦊', 5);
+    profile.learningIntelligence = setCurriculumContext(profile.learningIntelligence!, {
+      jurisdiction: 'AU',
+      curriculumId: 'au-ac-v9',
+      curriculumVersion: '9.0',
+      yearLevel: '5',
+    });
+    const evidence = curriculumEvidenceForQuestion(profile, question);
+    const result = recordAnswer(profile, question, true, 4000, 1000, {
+      given: '20',
+      curriculumEvidence: evidence,
+    });
+    expect(result.profile.history.at(-1)?.curriculumEvidence).toEqual(evidence);
+    expect(result.profile.skills['decimals-percentages'].attempts).toBe(1);
   });
 });
