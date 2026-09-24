@@ -152,14 +152,27 @@ export function isStructuredHomework(homework: TeacherHomework): homework is Str
 export function syncTeacherHomeworkIntent(
   state: LearningIntelligenceState,
   homework: TeacherHomework | null,
+  learnerYear?: number,
 ): LearningIntelligenceState {
   const teacherIntents = state.intents.filter((intent) => intent.source === 'teacher');
   const other = state.intents.filter((intent) => intent.source !== 'teacher');
+  const yearLevel = learnerYear && learnerYear >= 4 && learnerYear <= 6 ? String(learnerYear) : null;
+  const curriculumState = homework && isStructuredHomework(homework) && yearLevel
+    ? {
+        ...state,
+        curriculum: {
+          jurisdiction: 'AU',
+          curriculumId: 'au-ac-v9',
+          curriculumVersion: '9.0',
+          yearLevel,
+        },
+      }
+    : state;
 
   if (!homework || !isStructuredHomework(homework)) {
     const cancelled = teacherIntents.map((intent) => intent.status === 'active' ? { ...intent, status: 'cancelled' as const } : intent);
-    if (cancelled.every((intent, index) => intent === teacherIntents[index])) return state;
-    return { ...state, intents: [...other, ...cancelled] };
+    if (cancelled.every((intent, index) => intent === teacherIntents[index])) return curriculumState;
+    return { ...curriculumState, intents: [...other, ...cancelled] };
   }
 
   const next: LearningIntent = {
@@ -178,11 +191,12 @@ export function syncTeacherHomeworkIntent(
   const existing = teacherIntents.find((intent) => intent.id === next.id);
   const same = existing && JSON.stringify(existing) === JSON.stringify(next)
     && teacherIntents.every((intent) => intent.id === next.id || intent.status !== 'active');
-  if (same) return state;
+  if (same && curriculumState === state) return state;
+  if (same) return curriculumState;
 
   const previous = teacherIntents
     .filter((intent) => intent.id !== next.id)
     .map((intent) => intent.status === 'active' ? { ...intent, status: 'cancelled' as const } : intent);
 
-  return { ...state, intents: [...other, ...previous, next] };
+  return { ...curriculumState, intents: [...other, ...previous, next] };
 }
