@@ -5,6 +5,7 @@ import type { BadgeReward, Profile } from '../brain/types';
 import { checkpointsFor, score } from '../content/checkpoint';
 import { SUBJECTS } from '../content/skills';
 import { SupportPreferenceEditor } from './SupportPreferenceEditor';
+import { QuickSupportPrior } from './QuickSupportPrior';
 
 /** What the parent area can do. Server mode adds account and privacy controls. */
 export interface ParentTools {
@@ -295,7 +296,7 @@ export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime
 
       {firstTime && (
         <p className="banner help">
-          Before {profile.name} starts, a grown-up needs to decide what each achievement is worth.
+          Before {profile.name} starts, set up rewards and optionally tell SchoolZone what usually helps when learning gets difficult.
         </p>
       )}
 
@@ -322,6 +323,8 @@ export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime
               ))}
             </section>
           )}
+
+          {firstTime && <QuickSupportPrior profile={profile} source="parent" onSave={onSave} />}
 
           <form
             className="card"
