@@ -15,7 +15,9 @@ describe('quick academic support prior', () => {
 
     expect(preferredAcademicSupport(profile, 'learner')).toBe('worked-examples');
     expect(preferredAcademicSupport(profile, 'parent')).toBe('smaller-steps');
-    it('shows the learner prompt only during the early learning window', () => {
+  });
+
+  it('shows the learner prompt only during the early learning window', () => {
     const profile = newProfile('Ava', '🦊', 5);
     expect(shouldPromptLearnerSupportPrior(profile)).toBe(true);
 
@@ -35,7 +37,6 @@ describe('quick academic support prior', () => {
     };
     expect(shouldPromptLearnerSupportPrior(experienced)).toBe(false);
   });
-});
 
   it('replaces only the same source positive prior', () => {
     let profile = newProfile('Ava', '🦊', 5);
