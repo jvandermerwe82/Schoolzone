@@ -26,6 +26,7 @@ import {
   retentionScheduleChallengers,
   runRetentionBenchmark,
 } from '../src/brain-lab/retention';
+import { compareSessionRegulation, sessionRegulationPopulation } from '../src/brain-lab/session-regulation';
 import {
   compareTeacherIntentPolicies,
   evaluateTeacherIntentLabGate,
@@ -117,6 +118,12 @@ const teacherIntentGate = evaluateTeacherIntentLabGate(
   teacherIntent,
   teacherIntentLifetime48,
 );
+const sessionPopulationLocked = sessionRegulationPopulation(120);
+const sessionRegulation = compareSessionRegulation({
+  population: sessionPopulationLocked,
+  missionsPerLearner: 12,
+  seed: 20260925,
+});
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -155,6 +162,7 @@ process.stdout.write(JSON.stringify({
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
+  sessionRegulation,
   teacherIntent: {
     gate: teacherIntentGate,
     current: teacherIntent,
