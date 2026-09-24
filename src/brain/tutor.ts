@@ -5,6 +5,7 @@
  * each question really is.
  */
 import { canTest } from '../content';
+import { emptyLearningIntelligence, recordLearningEvidenceFromAnswer } from './learning-intelligence';
 import { getSkill, skillsFor } from '../content/skills';
 import { awardBadges } from './badges';
 import { XP_BADGE, XP_RESOLVED, xpForAnswer } from './xp';
@@ -264,11 +265,26 @@ export function recordAnswer(
     ].slice(-2000),
     recentQuestionIds: [...profile.recentQuestionIds.filter((id) => id !== question.id), question.id].slice(-30),
   };
+  const episodeBefore = profile.help?.episode ?? null;
   const { help, event } = updateHelp(updated, question, correct, hinted, rapid, misconception, now);
+  const learningIntelligence = recordLearningEvidenceFromAnswer(
+    updated.learningIntelligence ?? emptyLearningIntelligence(),
+    {
+      at: now,
+      correct,
+      hinted,
+      rapid,
+      strategy: strategy ?? null,
+      helpedBy: strategy === 'climb' ? episodeBefore?.helpedBy ?? null : null,
+      event,
+      subject: getSkill(question.skillId).subject,
+      skillId: question.skillId,
+    },
+  );
 
   // Rapid guesses and hinted answers say little about the question itself.
   const nextItems = rapid || hinted ? items : updateItem(items, question, answerScore(correct), predicted);
-  const { profile: withBadges, earned } = awardBadges({ ...updated, help }, now);
+  const { profile: withBadges, earned } = awardBadges({ ...updated, help, learningIntelligence }, now);
   const xp = xpForAnswer({ correct, hinted, rapid, level: question.level })
     + (event === 'resolved' ? XP_RESOLVED : 0) + earned.length * XP_BADGE;
   return {
