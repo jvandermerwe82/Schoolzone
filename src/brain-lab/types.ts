@@ -39,6 +39,7 @@ export interface LabStep {
   predicted: number;
   trueProbability: number;
   correct: boolean;
+  hinted: boolean;
   rapid: boolean;
   abilityEstimate: number;
   abilityError: number;
