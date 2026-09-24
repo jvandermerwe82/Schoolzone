@@ -21,6 +21,7 @@ import {
   runMisconceptionBenchmark,
 } from '../src/brain-lab/misconception-learning';
 import {
+  evaluateRetentionLabGate,
   retentionPopulation,
   retentionScheduleChallengers,
   runRetentionBenchmark,
@@ -64,6 +65,7 @@ const retentionChallengers = retentionScheduleChallengers(
   retentionLearning,
   { seed: 20260925 },
 );
+const retentionGate = evaluateRetentionLabGate(retentionLearning);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -98,6 +100,7 @@ process.stdout.write(JSON.stringify({
     ...misconceptionLearning,
   },
   retentionLearning: {
+    gate: retentionGate,
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
@@ -107,4 +110,4 @@ process.stdout.write(JSON.stringify({
   },
 }, null, 2) + '\n');
 
-if (!gate.pass || !supportGate.pass || !misconceptionGate.pass) process.exitCode = 1;
+if (!gate.pass || !supportGate.pass || !misconceptionGate.pass || !retentionGate.pass) process.exitCode = 1;
