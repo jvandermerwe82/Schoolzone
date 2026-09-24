@@ -8,15 +8,17 @@ import {
   type SupportStrategyId,
 } from '../brain/learning-intelligence';
 
-export const ACADEMIC_SUPPORT_PRIOR_STRATEGIES: readonly SupportStrategyId[] = [
+export const ACADEMIC_SUPPORT_PRIOR_STRATEGIES = [
   'worked-examples',
   'smaller-steps',
   'graduated-hints',
   'similar-problem',
   'prerequisite-refresh',
-] as const;
+] as const satisfies readonly SupportStrategyId[];
 
-const LABEL: Record<(typeof ACADEMIC_SUPPORT_PRIOR_STRATEGIES)[number], string> = {
+type AcademicSupportPriorStrategy = (typeof ACADEMIC_SUPPORT_PRIOR_STRATEGIES)[number];
+
+const LABEL: Record<AcademicSupportPriorStrategy, string> = {
   'worked-examples': 'Show me a worked example',
   'smaller-steps': 'Break it into smaller steps',
   'graduated-hints': 'Give me a hint',
