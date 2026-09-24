@@ -8,6 +8,7 @@ import {
 } from '../src/brain-lab/benchmark';
 import {
   currentSupportPolicy,
+  evaluateSupportLabGate,
   historyOnlySupportPolicy,
   oracleSupportPolicy,
   roundRobinSupportPolicy,
@@ -33,6 +34,7 @@ const supportCurrent = runSupportBenchmark('current', currentSupportPolicy, supp
 const supportHistory = runSupportBenchmark('history-only', historyOnlySupportPolicy, supportOptions);
 const supportRoundRobin = runSupportBenchmark('round-robin', roundRobinSupportPolicy, supportOptions);
 const supportOracle = runSupportBenchmark('oracle', oracleSupportPolicy, supportOptions);
+const supportGate = evaluateSupportLabGate(supportCurrent);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -41,6 +43,7 @@ process.stdout.write(JSON.stringify({
   current,
   supportLearning: {
     population: supportPopulation.length,
+    gate: supportGate,
     current: supportCurrent,
     historyOnly: supportHistory,
     roundRobin: supportRoundRobin,
@@ -66,4 +69,4 @@ process.stdout.write(JSON.stringify({
   },
 }, null, 2) + '\n');
 
-if (!gate.pass) process.exitCode = 1;
+if (!gate.pass || !supportGate.pass) process.exitCode = 1;
