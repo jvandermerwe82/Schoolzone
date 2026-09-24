@@ -1,14 +1,15 @@
 import type { Profile, StrategyId } from './types';
 import {
-  summariseSupportStrategy,
   supportPreference,
   type LearningIntelligenceState,
   type SupportStrategyId,
 } from './learning-intelligence';
+import { contextualSupportSummary, type SupportLearningContext } from './rapid-learning';
 
 export const ROUTING_MIN_EVIDENCE = 3;
 export const ROUTING_MIN_CONFIDENCE = 0.3;
 export const ROUTING_MAX_OBSERVED_ADJUSTMENT = 0.08;
+export const ROUTING_MAX_RAPID_ADJUSTMENT = 0.05;
 export const ROUTING_LEARNER_PREFERENCE_ADJUSTMENT = 0.04;
 export const ROUTING_PARENT_PREFERENCE_ADJUSTMENT = 0.02;
 
@@ -27,7 +28,9 @@ export interface SupportRoutingBreakdown {
   observed: number;
   total: number;
   observedApplied: boolean;
+  observedRapid: boolean;
   observedEvidenceCount: number;
+  observedExactSkillCount: number;
   observedConfidence: number;
 }
 
@@ -47,22 +50,24 @@ const preferenceAdjustment = (
 const observedAdjustment = (
   state: LearningIntelligenceState,
   strategy: SupportStrategyId,
+  context: SupportLearningContext,
 ) => {
-  const summary = summariseSupportStrategy(state.supportOutcomes, strategy);
-  const applies = summary.evidenceCount >= ROUTING_MIN_EVIDENCE
+  const summary = contextualSupportSummary(state.supportOutcomes, strategy, context);
+  const mature = summary.evidenceCount >= ROUTING_MIN_EVIDENCE
     && summary.confidence >= ROUTING_MIN_CONFIDENCE;
+  const rapid = !mature && summary.rapidEligible;
+  const cap = mature
+    ? ROUTING_MAX_OBSERVED_ADJUSTMENT
+    : rapid
+      ? ROUTING_MAX_RAPID_ADJUSTMENT
+      : 0;
   return {
     summary,
-    adjustment: applies
-      ? Math.max(
-          -ROUTING_MAX_OBSERVED_ADJUSTMENT,
-          Math.min(
-            ROUTING_MAX_OBSERVED_ADJUSTMENT,
-            summary.score * summary.confidence * ROUTING_MAX_OBSERVED_ADJUSTMENT,
-          ),
-        )
+    adjustment: cap > 0
+      ? Math.max(-cap, Math.min(cap, summary.score * summary.confidence * cap))
       : 0,
-    applies,
+    applies: mature || rapid,
+    rapid,
   };
 };
 
@@ -77,6 +82,7 @@ export function supportRoutingScore(
   profile: Profile,
   strategy: StrategyId,
   baseScore: number,
+  context: SupportLearningContext = {},
 ): SupportRoutingBreakdown {
   const state = profile.learningIntelligence;
   if (!state) {
@@ -87,7 +93,9 @@ export function supportRoutingScore(
       observed: 0,
       total: baseScore,
       observedApplied: false,
+      observedRapid: false,
       observedEvidenceCount: 0,
+      observedExactSkillCount: 0,
       observedConfidence: 0,
     };
   }
@@ -95,7 +103,7 @@ export function supportRoutingScore(
   const supportStrategy = HELP_SUPPORT_STRATEGY[strategy];
   const learnerPreference = preferenceAdjustment(state, supportStrategy, 'learner');
   const parentPreference = preferenceAdjustment(state, supportStrategy, 'parent');
-  const observed = observedAdjustment(state, supportStrategy);
+  const observed = observedAdjustment(state, supportStrategy, context);
   const total = baseScore + learnerPreference + parentPreference + observed.adjustment;
 
   return {
@@ -105,7 +113,9 @@ export function supportRoutingScore(
     observed: observed.adjustment,
     total,
     observedApplied: observed.applies,
+    observedRapid: observed.rapid,
     observedEvidenceCount: observed.summary.evidenceCount,
+    observedExactSkillCount: observed.summary.exactSkillCount,
     observedConfidence: observed.summary.confidence,
   };
 }
