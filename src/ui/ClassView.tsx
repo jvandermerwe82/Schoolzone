@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ClassView as View, SkillStatus } from '../api';
+import type { CanonicalProgressStatus, ClassView as View, SkillStatus } from '../api';
 import { SKILLS } from '../content/skills';
 import { AUSTRALIAN_TEACHER_OBJECTIVES, isStructuredHomework, type TeacherIntentPriority } from '../curriculum/australia-teacher-objectives';
 
@@ -11,6 +11,15 @@ export interface ClassTools {
 
 const STATUS_ICON: Record<SkillStatus, string> = { mastered: '✅', learning: '🔄', struggling: '⚠️', ready: '·', locked: '·' };
 const Y6 = SKILLS.filter((s) => s.typicalYear === 6);
+
+const OBJECTIVE_STATUS: Record<CanonicalProgressStatus, { icon: string; label: string }> = {
+  'not-started': { icon: '·', label: 'Not started' },
+  developing: { icon: '🔄', label: 'Developing' },
+  'needs-support': { icon: '⚠️', label: 'Needs support' },
+  'strong-evidence': { icon: '📈', label: 'Strong evidence building' },
+  'requires-broader-evidence': { icon: '🧪', label: 'Strong app evidence · broader evidence needed' },
+  mastered: { icon: '✅', label: 'Mastered' },
+};
 
 const ago = (t: number | null) => {
   if (!t) return 'not yet';
@@ -103,6 +112,21 @@ export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools
         </form>
         {error && <p className="error" role="alert">{error}</p>}
       </section>
+      {structured && view.summary.objective && view.pupils.length > 0 && (
+        <section className="card">
+          <h2>🎯 Progress toward this objective</h2>
+          <p className="muted small">
+            Derived from curriculum-mapped evidence only. Supporting evidence cannot prove mastery, and practical/investigation objectives require broader evidence.
+          </p>
+          <div className="row">
+            <span>✅ {view.summary.objective.mastered} mastered</span>
+            <span>🔄 {view.summary.objective.developing} developing</span>
+            <span>⚠️ {view.summary.objective.needsSupport} need support</span>
+            {view.summary.objective.broaderEvidence > 0 && <span>🧪 {view.summary.objective.broaderEvidence} need broader evidence</span>}
+            <span>· {view.summary.objective.notStarted} not started</span>
+          </div>
+        </section>
+      )}
       {view.pupils.length > 0 && (
         <>
           <section className="card">
@@ -145,6 +169,12 @@ export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools
                     <strong><span aria-hidden>{p.avatar}</span> {p.name}</strong>
                     <small className="muted">Active {ago(p.lastActive)} · {p.answeredThisWeek} answers this week</small>
                   </div>
+                  {structured && p.objectiveProgress && (
+                    <p className="small">
+                      Objective: <strong>{OBJECTIVE_STATUS[p.objectiveProgress.status].icon} {OBJECTIVE_STATUS[p.objectiveProgress.status].label}</strong>
+                      {p.objectiveProgress.directEvidenceCount > 0 && <> · {p.objectiveProgress.directEvidenceCount} direct evidence {p.objectiveProgress.directEvidenceCount === 1 ? 'point' : 'points'}</>}
+                    </p>
+                  )}
                   {p.stuck && <p className="banner help">Working through: {p.stuck.skill} (level {p.stuck.level}), since {ago(p.stuck.since)}</p>}
                   {p.mistakes.length > 0 && <p className="small">Mistake patterns: {p.mistakes.join(' · ')}</p>}
                   <p className="small muted">

@@ -36,15 +36,22 @@ export interface AnswerEvent {
 export type Homework = TeacherHomework;
 export interface SchoolMembership { school: { name: string } | null; codeName?: string; onBoard?: boolean; shareProgress?: boolean; homework?: Homework | null }
 export type SkillStatus = 'mastered' | 'learning' | 'struggling' | 'ready' | 'locked';
+export type CanonicalProgressStatus = 'not-started' | 'developing' | 'needs-support' | 'strong-evidence' | 'requires-broader-evidence' | 'mastered';
+export interface ObjectiveProgress {
+  status: CanonicalProgressStatus; directEvidenceCount: number; supportingEvidenceCount: number;
+  weightedSuccess: number | null; confidence: number; autoMasterable: boolean; lastEvidenceAt: number | null;
+}
 export interface ClassPupil {
   name: string; avatar: string; lastActive: number | null; answeredThisWeek: number;
   stuck: { skill: string; level: number; since: number } | null; mistakes: string[]; skills: Record<string, SkillStatus>;
+  objectiveProgress: ObjectiveProgress | null;
 }
 export interface ClassView {
   school: { name: string }; homework: Homework | null; joined: number; notSharing: number; pupils: ClassPupil[];
   summary: {
     skills: { skillId: string; name: string; subject: string; mastered: number; learning: number; struggling: number; notStarted: number }[];
     mistakes: { name: string; pupils: number }[];
+    objective: { notStarted: number; developing: number; needsSupport: number; broaderEvidence: number; mastered: number } | null;
   };
 }
 export interface BoardSchool { name: string; pupils: number; score: number; rank: number; mine: boolean }
