@@ -10,11 +10,13 @@ import { checkpointDue } from '../content/checkpoint';
 import { getSkill, SUBJECTS } from '../content/skills';
 import { isStructuredHomework } from '../curriculum/australia-teacher-objectives';
 import { structuredHomeworkRoute, type AustralianPracticeRoute } from '../curriculum/australia-intent-routing';
+import { QuickSupportPrior, shouldPromptLearnerSupportPrior } from './QuickSupportPrior';
 
 interface Props {
   profile: Profile;
   offline: boolean;
   onPractice: (subject: SubjectId, focus?: string, teacherRoute?: AustralianPracticeRoute) => void;
+  onSaveProfile: (profile: Profile) => void;
   /** Topic set by the child's teacher, if any. */
   homework?: Homework | null;
   onDashboard: () => void;
@@ -90,7 +92,7 @@ function Achievements({ profile }: { profile: Profile }) {
   );
 }
 
-export function Home({ profile, offline, homework, onPractice, onDashboard, onParents, onInfo, onSettings, onSats, onLeaderboard, onSwitch }: Props) {
+export function Home({ profile, offline, homework, onPractice, onSaveProfile, onDashboard, onParents, onInfo, onSettings, onSats, onLeaderboard, onSwitch }: Props) {
   return (
     <main className="page">
       <header className="topbar">
@@ -100,6 +102,10 @@ export function Home({ profile, offline, homework, onPractice, onDashboard, onPa
       {offline && <p className="pill muted">Offline mode: progress is saved on this device only</p>}
 
       <PlayerCard profile={profile} />
+
+      {shouldPromptLearnerSupportPrior(profile) && (
+        <QuickSupportPrior profile={profile} source="learner" onSave={onSaveProfile} />
+      )}
 
       <h2 className="section-title">Choose a zone</h2>
       {homework && (() => {
