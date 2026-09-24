@@ -9,6 +9,7 @@ import {
   runSupportLearner,
   CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
   parameterizedSupportPolicy,
+  supportPreferenceBenchmarks,
   supportRoutingChallengers,
   supportWeightChallengers,
 } from './support-learning';
@@ -107,6 +108,25 @@ describe('Brain Lab support learning', () => {
     });
     expect(challengers.map((item) => item.outcomeWeightScale)).toEqual([1.25, 1.5, 1.75, 2]);
     expect(challengers.every((item) => item.benchmark.learnerCount === current.learnerCount)).toBe(true);
+  });
+
+  it('benchmarks learner/parent priors on the same hidden cohort', () => {
+    const population = syntheticPopulation(25);
+    const current = runSupportBenchmark('current', currentSupportPolicy, {
+      population,
+      trialsPerLearner: 15,
+      seed: 56,
+    });
+    const priors = supportPreferenceBenchmarks(population, current, {
+      trialsPerLearner: 15,
+      seed: 56,
+    });
+    expect(priors.map((item) => item.prior.name)).toEqual([
+      'conservative-prior',
+      'typical-prior',
+      'strong-prior',
+    ]);
+    expect(priors.every((item) => item.benchmark.learnerCount === current.learnerCount)).toBe(true);
   });
 
   it('can compare current support intelligence to historical success memory alone', () => {
