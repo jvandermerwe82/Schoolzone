@@ -6,21 +6,46 @@ import {
   runBenchmark,
   staticMidlevelPolicy,
 } from '../src/brain-lab/benchmark';
+import {
+  productionRuns,
+  shadowAbilityGrid,
+} from '../src/brain-lab/dual-ability';
 import { syntheticPopulation } from '../src/brain-lab/synthetic';
 
 const population = syntheticPopulation(84);
-const options = { population, answersPerLearner: 30, seed: 20260925 };
+const answersPerLearner = 30;
+const seed = 20260925;
+const options = { population, answersPerLearner, seed };
 
 const current = runBenchmark('current', currentBrainPolicy, options);
 const adaptive = runBenchmark('adaptive-80', adaptive80Policy, options);
 const baseline = runBenchmark('static-mid', staticMidlevelPolicy, options);
 const gate = evaluateBrainLabGate(current);
 
+const runs = productionRuns(population, answersPerLearner, seed);
+const shadowGrid = shadowAbilityGrid(runs);
+const dualAbility = shadowGrid
+  .map((benchmark) => ({
+    benchmark,
+    vsCurrentAbilityMae: current.finalAbilityMae - benchmark.finalAbilityMae,
+    vsCurrentMedianStable:
+      benchmark.medianAnswersToStableEstimate === null
+      || current.medianAnswersToStableEstimate === null
+        ? null
+        : current.medianAnswersToStableEstimate - benchmark.medianAnswersToStableEstimate,
+    vsCurrentStableCoverage: benchmark.stableEstimateRate - current.stableEstimateRate,
+  }))
+  .sort((a, b) => b.vsCurrentAbilityMae - a.vsCurrentAbilityMae);
+
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
   population: population.length,
   gate,
   current,
+  dualAbility: {
+    note: 'Shadow independent-ability estimates do not affect production routing or prediction metrics.',
+    candidates: dualAbility,
+  },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
