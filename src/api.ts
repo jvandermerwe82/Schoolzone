@@ -4,6 +4,7 @@
  */
 import type { ItemStats } from './brain/items';
 import type { Profile, Question } from './brain/types';
+import type { TeacherHomework, TeacherIntentPriority } from './curriculum/australia-teacher-objectives';
 
 export const CONSENT_VERSION = '2026-09-v1';
 
@@ -32,7 +33,7 @@ export interface AnswerEvent {
   at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean; rapid: boolean;
   timeMs: number; predicted: number; misconception: string | null; strategy: string | null;
 }
-export interface Homework { skillId: string; note: string; setAt: number }
+export type Homework = TeacherHomework;
 export interface SchoolMembership { school: { name: string } | null; codeName?: string; onBoard?: boolean; shareProgress?: boolean; homework?: Homework | null }
 export type SkillStatus = 'mastered' | 'learning' | 'struggling' | 'ready' | 'locked';
 export interface ClassPupil {
@@ -103,7 +104,13 @@ export const api = {
   mySchools: () => call<TeacherSchool[]>('GET', '/api/schools'),
   registerSchool: (name: string) => call<{ id: string }>('POST', '/api/schools', { name }),
   classView: (schoolId: string) => call<ClassView>('GET', `/api/schools/${schoolId}/class`),
-  setHomework: (schoolId: string, skillId: string, note: string) => call<{ homework: Homework }>('PUT', `/api/schools/${schoolId}/homework`, { skillId, note }),
+  setHomework: (
+    schoolId: string,
+    objectiveId: string,
+    note: string,
+    priority: TeacherIntentPriority,
+    dueAt: number | null,
+  ) => call<{ homework: Homework }>('PUT', `/api/schools/${schoolId}/homework`, { objectiveId, note, priority, dueAt }),
   clearHomework: (schoolId: string) => call<{ ok: true }>('DELETE', `/api/schools/${schoolId}/homework`),
   newJoinCode: (schoolId: string) => call<{ joinCode: string }>('POST', `/api/schools/${schoolId}/code`, {}),
   deleteAccount: () => call<{ ok: true }>('DELETE', '/api/account'),
