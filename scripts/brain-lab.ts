@@ -26,7 +26,11 @@ import {
   retentionScheduleChallengers,
   runRetentionBenchmark,
 } from '../src/brain-lab/retention';
-import { compareSessionRegulation, sessionRegulationPopulation } from '../src/brain-lab/session-regulation';
+import {
+  compareSessionRegulation,
+  evaluateSessionRegulationGate,
+  sessionRegulationPopulation,
+} from '../src/brain-lab/session-regulation';
 import {
   compareTeacherIntentPolicies,
   evaluateTeacherIntentLabGate,
@@ -124,6 +128,7 @@ const sessionRegulation = compareSessionRegulation({
   missionsPerLearner: 12,
   seed: 20260925,
 });
+const sessionRegulationGate = evaluateSessionRegulationGate(sessionRegulation);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -162,7 +167,10 @@ process.stdout.write(JSON.stringify({
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
-  sessionRegulation,
+  sessionRegulation: {
+    gate: sessionRegulationGate,
+    ...sessionRegulation,
+  },
   teacherIntent: {
     gate: teacherIntentGate,
     current: teacherIntent,
@@ -185,4 +193,5 @@ if (
   || !misconceptionGate.pass
   || !retentionGate.pass
   || !teacherIntentGate.pass
+  || !sessionRegulationGate.pass
 ) process.exitCode = 1;
