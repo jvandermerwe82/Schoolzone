@@ -29,10 +29,9 @@ export function skillReport(profile: Profile, skill: Skill): SkillReport {
   else if (s.attempts >= 5 && recentAcc !== null && recentAcc < 0.5) status = 'struggling';
   else status = 'learning';
 
-  const choiceCount = skill.subject === 'science' ? 4 : undefined;
   let comfortableLevel = 0;
   for (const level of [1, 2, 3, 4, 5] as Level[]) {
-    if (predictCorrect(s.ability, level, guessRate(level, choiceCount)) >= 0.75) comfortableLevel = level;
+    if (predictCorrect(s.ability, level, guessRate(level, skill.choices)) >= 0.75) comfortableLevel = level;
   }
 
   return {

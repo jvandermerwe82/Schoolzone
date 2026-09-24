@@ -7,6 +7,17 @@ import { getSkill, skillsFor } from '../content/skills';
 
 const SESSION_LENGTH = 10;
 
+/**
+ * On-screen keyboard per skill. Chosen by skill, not by the answer, so the
+ * keyboard never hints at the answer (e.g. whether it is negative).
+ */
+const KEYBOARD: Record<string, 'text' | 'decimal'> = {
+  'negative-numbers': 'text',
+  fractions: 'text',
+  'fractions-y6': 'text',
+  'decimals-percentages': 'decimal',
+};
+
 interface Props {
   profile: Profile;
   subject: SubjectId;
@@ -113,7 +124,7 @@ export function Practice({ profile, subject, onUpdate, onExit }: Props) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              inputMode={question.skillId === 'fractions' && question.level === 5 ? 'text' : 'numeric'}
+              inputMode={KEYBOARD[question.skillId] ?? 'numeric'}
               autoFocus
               disabled={!!feedback}
               aria-label="Your answer"
@@ -124,7 +135,7 @@ export function Practice({ profile, subject, onUpdate, onExit }: Props) {
 
         {feedback && (
           <div className={`feedback ${feedback.correct ? 'good' : 'bad'}`}>
-            <p className="feedback-title">{feedback.correct ? '✅ Correct!' : `❌ Not quite. The answer is ${question.answer}.`}</p>
+            <p className="feedback-title">{feedback.correct ? '✅ Correct!' : `❌ Not quite. The answer is ${question.answer.replace(/^-/, '−')}.`}</p>
             <p>{question.explanation}</p>
             <button className="primary" onClick={next} autoFocus>
               {answered >= SESSION_LENGTH ? 'See results' : 'Next →'}

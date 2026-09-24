@@ -15,7 +15,7 @@ export function ProfilePicker({ profiles, onPick, onCreate, onDelete }: Props) {
   const [adding, setAdding] = useState(profiles.length === 0);
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState(AVATARS[0]);
-  const [grade, setGrade] = useState(2);
+  const [year, setYear] = useState(6);
 
   return (
     <main className="page">
@@ -55,7 +55,7 @@ export function ProfilePicker({ profiles, onPick, onCreate, onDelete }: Props) {
           className="card form"
           onSubmit={(e) => {
             e.preventDefault();
-            if (name.trim()) onCreate(newProfile(name.trim(), avatar, grade));
+            if (name.trim()) onCreate(newProfile(name.trim(), avatar, year));
           }}
         >
           <h2>New learner</h2>
@@ -75,9 +75,9 @@ export function ProfilePicker({ profiles, onPick, onCreate, onDelete }: Props) {
             </div>
           </fieldset>
           <label>
-            School grade
-            <select value={grade} onChange={(e) => setGrade(Number(e.target.value))}>
-              {[1, 2, 3, 4, 5, 6, 7].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+            School year
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {[1, 2, 3, 4, 5, 6, 7].map((y) => <option key={y} value={y}>Year {y}</option>)}
             </select>
             <small>Only a starting point. The app works out the right level from the answers.</small>
           </label>

@@ -24,7 +24,7 @@ export interface Plan {
 }
 
 export function skillState(profile: Profile, skillId: string): SkillState {
-  return profile.skills[skillId] ?? initialSkillState(profile.grade, getSkill(skillId).typicalGrade);
+  return profile.skills[skillId] ?? initialSkillState(profile.year, getSkill(skillId).typicalYear);
 }
 
 export function isReady(profile: Profile, skill: Skill): boolean {
@@ -44,10 +44,6 @@ export function chooseLevel(state: SkillState, target: number, choiceCount?: num
     if (gap < bestGap) { best = level; bestGap = gap; }
   }
   return best;
-}
-
-export function isSubjectMultipleChoice(subject: SubjectId): boolean {
-  return subject === 'science';
 }
 
 /** Weakest prerequisite that is not yet solid, searching down the skill map. */
@@ -81,11 +77,9 @@ export function planNext(
   now: number,
   rng: () => number = Math.random,
 ): Plan {
-  const mc = isSubjectMultipleChoice(subject);
-  const choiceCount = mc ? 4 : undefined;
   const skills = skillsFor(subject);
   const plan = (skillId: string, reason: Reason, message: string, target = TARGET_SUCCESS): Plan => ({
-    skillId, reason, message, level: chooseLevel(skillState(profile, skillId), target, choiceCount),
+    skillId, reason, message, level: chooseLevel(skillState(profile, skillId), target, getSkill(skillId).choices),
   });
 
   // 1. Stuck? Three misses in a row: step back to a shaky prerequisite if
@@ -120,13 +114,13 @@ export function planNext(
   }
 
   // 4. Otherwise: finish skills already started (closest to mastery first),
-  //    then introduce the next ready skill (earliest grade first).
+  //    then introduce the next ready skill (earliest school year first).
   const open = skills.filter((s) => isReady(profile, s) && !isMastered(skillState(profile, s.id)));
   const started = open
     .filter((s) => skillState(profile, s.id).attempts > 0)
     .sort((a, b) => skillState(profile, b.id).pKnown - skillState(profile, a.id).pKnown);
   if (started.length > 0) return plan(started[0].id, 'continue', `Back to ${started[0].name}!`);
-  const fresh = open.sort((a, b) => a.typicalGrade - b.typicalGrade);
+  const fresh = open.sort((a, b) => a.typicalYear - b.typicalYear);
   if (fresh.length > 0) return plan(fresh[0].id, 'new', `New skill unlocked: ${fresh[0].name}!`);
 
   // 5. Everything mastered: keep it fresh with reviews, earliest due first.

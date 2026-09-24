@@ -6,10 +6,10 @@ import type { Level, Question } from '../brain/types';
 
 export type Rng = () => number;
 
-const int = (rng: Rng, lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
-const pick = <T,>(rng: Rng, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
+export const int = (rng: Rng, lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
+export const pick = <T,>(rng: Rng, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
 
-function q(
+export function q(
   skillId: string,
   level: Level,
   prompt: string,
@@ -20,7 +20,7 @@ function q(
   return { skillId, level, id: `${skillId}:${prompt}`, prompt, answer: String(answer), explanation, choices };
 }
 
-function gcd(a: number, b: number): number {
+export function gcd(a: number, b: number): number {
   return b === 0 ? Math.abs(a) : gcd(b, a % b);
 }
 

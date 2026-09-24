@@ -64,13 +64,16 @@ export function bktUpdate(pKnown: number, correct: boolean, guess: number, slip:
   return posterior + (1 - posterior) * P_LEARN;
 }
 
-export function initialSkillState(grade: number, typicalGrade: number): SkillState {
-  // Start a bit above/below average depending on school grade, but keep it
+export function initialSkillState(year: number, typicalYear: number): SkillState {
+  // Start a bit above/below average depending on school year, but keep it
   // mild: the first few answers (large K) quickly correct a wrong guess.
-  const ability = clamp((grade - typicalGrade) * 0.5, -1.5, 1.5);
+  // Skills from well below the child's year start with a higher prior, so an
+  // older child confirms them in a question or two instead of re-learning.
+  const gap = year - typicalYear;
+  const ability = clamp(gap * 0.5, -1.5, 1.5);
   return {
     ability,
-    pKnown: grade > typicalGrade ? 0.3 : 0.1,
+    pKnown: gap >= 2 ? 0.5 : gap === 1 ? 0.3 : 0.1,
     attempts: 0,
     correct: 0,
     recent: [],

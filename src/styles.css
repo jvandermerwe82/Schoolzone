@@ -103,7 +103,7 @@ input, select {
 .subject-emoji { font-size: 3rem; }
 .subject-name { font-size: 1.3rem; font-weight: 700; }
 .subject-progress { color: var(--muted); font-size: 0.85rem; }
-.skill-dots { display: flex; gap: 4px; margin-top: 0.3rem; }
+.skill-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 0.3rem; }
 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--locked); }
 .dot.mastered { background: var(--good); }
 .dot.learning, .dot.struggling { background: var(--primary); }

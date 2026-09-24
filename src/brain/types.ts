@@ -1,6 +1,6 @@
 /** Shared types for the learner model ("the brain"). */
 
-export type SubjectId = 'maths' | 'science';
+export type SubjectId = 'maths' | 'science' | 'english';
 
 /** Difficulty levels 1 (easiest) to 5 (hardest) within a skill. */
 export type Level = 1 | 2 | 3 | 4 | 5;
@@ -14,8 +14,10 @@ export interface Skill {
   description: string;
   /** Skills that should be solid before this one is introduced. */
   prerequisites: string[];
-  /** Roughly the school grade where this is usually taught; only a starting guess. */
-  typicalGrade: number;
+  /** School year (England) where this is usually taught; only a starting guess. */
+  typicalYear: number;
+  /** Number of choices when the skill is multiple choice; absent for typed answers. */
+  choices?: number;
 }
 
 export interface Question {
@@ -28,6 +30,8 @@ export interface Question {
   choices?: string[];
   answer: string;
   explanation: string;
+  /** Answer must match exactly (e.g. "simplest form"), not just be equal in value. */
+  exact?: boolean;
 }
 
 /** What the brain knows about one child on one skill. */
@@ -65,8 +69,8 @@ export interface Profile {
   id: string;
   name: string;
   avatar: string;
-  /** School grade (1-7) chosen at sign-up; used only as a starting guess. */
-  grade: number;
+  /** School year (1-7, England) chosen at sign-up; used only as a starting guess. */
+  year: number;
   createdAt: number;
   skills: Record<string, SkillState>;
   history: AnswerRecord[];

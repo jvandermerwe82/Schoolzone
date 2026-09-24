@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkAnswer, makeQuestion } from '../content';
+import { checkAnswer, hasGenerator, makeQuestion } from '../content';
+import { englishSkillIds } from '../content/english';
 import { MATHS_GENERATORS, simplify } from '../content/maths';
 import { scienceQuestions, scienceSkillIds } from '../content/science';
 import { SKILLS, getSkill } from '../content/skills';
@@ -147,8 +148,8 @@ describe('science bank', () => {
   });
 
   it('every skill in the map has content', () => {
-    const science = new Set(scienceSkillIds());
-    for (const s of SKILLS) expect(Boolean(MATHS_GENERATORS[s.id]) || science.has(s.id)).toBe(true);
+    const banks = new Set([...scienceSkillIds(), ...englishSkillIds()]);
+    for (const s of SKILLS) expect(hasGenerator(s.id) || banks.has(s.id)).toBe(true);
   });
 
   it('does not repeat recently seen questions when fresh ones exist', () => {
@@ -241,5 +242,27 @@ describe('adaptive behaviour (simulation)', () => {
     const c = calibration(profile)!;
     expect(c.answers).toBe(50);
     expect(Math.abs(c.predictedPct - c.actualPct)).toBeLessThan(20);
+  });
+});
+
+describe('Year 6 focus', () => {
+  it('a Year 6 child confirms foundation skills quickly and moves on to Year 6 work', () => {
+    const firstY6: number[] = [];
+    for (let seed = 1; seed <= 20; seed++) {
+      // A typical Year 6 child: secure on earlier skills, average on Year 6 ones.
+      const truth = Object.fromEntries(SKILLS.map((s) => [s.id, s.typicalYear < 6 ? 3 : 0]));
+      const { log } = simulate(newProfile('Sim', '🙂', 6), 'maths', truth, 80, seed);
+      firstY6.push(log.findIndex((l) => getSkill(l.skillId).typicalYear === 6));
+    }
+    firstY6.sort((a, b) => a - b);
+    const median = firstY6[Math.floor(firstY6.length / 2)];
+    expect(firstY6.every((i) => i >= 0)).toBe(true);
+    expect(median).toBeLessThanOrEqual(20);
+  });
+
+  it('English starts straight on Year 6 content', () => {
+    const plan = planNext(newProfile('Sim', '🙂', 6), 'english', { focus: null, answered: 0 }, 0, seeded(1));
+    expect(getSkill(plan.skillId).subject).toBe('english');
+    expect(plan.reason).toBe('new');
   });
 });

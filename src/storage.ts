@@ -9,7 +9,9 @@ const KEY = 'schoolzone:v1';
 export function loadProfiles(): Profile[] {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Profile[]) : [];
+    const profiles = raw ? (JSON.parse(raw) as (Profile & { grade?: number })[]) : [];
+    // Early profiles stored `grade`; it is now `year`.
+    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6 }));
   } catch {
     return [];
   }
@@ -23,12 +25,12 @@ export function saveProfiles(profiles: Profile[]): void {
   }
 }
 
-export function newProfile(name: string, avatar: string, grade: number): Profile {
+export function newProfile(name: string, avatar: string, year: number): Profile {
   return {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     name,
     avatar,
-    grade,
+    year,
     createdAt: Date.now(),
     skills: {},
     history: [],
