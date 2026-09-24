@@ -198,6 +198,52 @@ export function runBenchmark(
   };
 }
 
+export interface BrainLabGate {
+  pass: boolean;
+  failures: string[];
+  learningGain: number;
+}
+
+export const BRAIN_LAB_THRESHOLDS = {
+  maxFinalAbilityMae: 0.75,
+  maxPredictionBrier: 0.22,
+  maxCalibrationGap: 0.08,
+  maxMedianAnswersToStableEstimate: 10,
+  minStableEstimateRate: 0.65,
+  minAbilityMaeImprovementFromAnswer2: 0.5,
+} as const;
+
+export function evaluateBrainLabGate(benchmark: BrainBenchmark): BrainLabGate {
+  const failures: string[] = [];
+  const first = benchmark.learningCurve.find((point) => point.afterAnswers === 2)
+    ?? benchmark.learningCurve[0];
+  const learningGain = first ? first.abilityMae - benchmark.finalAbilityMae : 0;
+
+  if (benchmark.finalAbilityMae > BRAIN_LAB_THRESHOLDS.maxFinalAbilityMae) {
+    failures.push(`final ability MAE ${benchmark.finalAbilityMae.toFixed(3)} exceeds ${BRAIN_LAB_THRESHOLDS.maxFinalAbilityMae}`);
+  }
+  if (benchmark.meanPredictionBrier > BRAIN_LAB_THRESHOLDS.maxPredictionBrier) {
+    failures.push(`prediction Brier ${benchmark.meanPredictionBrier.toFixed(3)} exceeds ${BRAIN_LAB_THRESHOLDS.maxPredictionBrier}`);
+  }
+  if (benchmark.calibrationGap > BRAIN_LAB_THRESHOLDS.maxCalibrationGap) {
+    failures.push(`calibration gap ${benchmark.calibrationGap.toFixed(3)} exceeds ${BRAIN_LAB_THRESHOLDS.maxCalibrationGap}`);
+  }
+  if (
+    benchmark.medianAnswersToStableEstimate === null
+    || benchmark.medianAnswersToStableEstimate > BRAIN_LAB_THRESHOLDS.maxMedianAnswersToStableEstimate
+  ) {
+    failures.push(`median answers to stable estimate ${benchmark.medianAnswersToStableEstimate ?? 'none'} exceeds ${BRAIN_LAB_THRESHOLDS.maxMedianAnswersToStableEstimate}`);
+  }
+  if (benchmark.stableEstimateRate < BRAIN_LAB_THRESHOLDS.minStableEstimateRate) {
+    failures.push(`stable estimate rate ${benchmark.stableEstimateRate.toFixed(3)} is below ${BRAIN_LAB_THRESHOLDS.minStableEstimateRate}`);
+  }
+  if (learningGain < BRAIN_LAB_THRESHOLDS.minAbilityMaeImprovementFromAnswer2) {
+    failures.push(`ability MAE improvement ${learningGain.toFixed(3)} is below ${BRAIN_LAB_THRESHOLDS.minAbilityMaeImprovementFromAnswer2}`);
+  }
+
+  return { pass: failures.length === 0, failures, learningGain };
+}
+
 export function compareBenchmarks(
   champion: BrainBenchmark,
   challenger: BrainBenchmark,
