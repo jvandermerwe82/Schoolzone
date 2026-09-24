@@ -3,6 +3,7 @@ import { newProfile } from '../storage';
 import {
   preferredAcademicSupport,
   setPreferredAcademicSupport,
+  shouldPromptLearnerSupportPrior,
 } from './QuickSupportPrior';
 import { recordSupportOutcome, setSupportPreference, supportPreference } from '../brain/learning-intelligence';
 
@@ -14,7 +15,27 @@ describe('quick academic support prior', () => {
 
     expect(preferredAcademicSupport(profile, 'learner')).toBe('worked-examples');
     expect(preferredAcademicSupport(profile, 'parent')).toBe('smaller-steps');
+    it('shows the learner prompt only during the early learning window', () => {
+    const profile = newProfile('Ava', '🦊', 5);
+    expect(shouldPromptLearnerSupportPrior(profile)).toBe(true);
+
+    const withPrior = setPreferredAcademicSupport(profile, 'learner', 'worked-examples', 1);
+    expect(shouldPromptLearnerSupportPrior(withPrior)).toBe(false);
+
+    const experienced = {
+      ...profile,
+      history: Array.from({ length: 10 }, (_, i) => ({
+        at: i,
+        skillId: 'number-sense',
+        level: 1 as const,
+        correct: true,
+        timeMs: 1000,
+        predicted: 0.8,
+      })),
+    };
+    expect(shouldPromptLearnerSupportPrior(experienced)).toBe(false);
   });
+});
 
   it('replaces only the same source positive prior', () => {
     let profile = newProfile('Ava', '🦊', 5);
