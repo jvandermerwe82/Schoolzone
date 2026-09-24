@@ -3,6 +3,7 @@ import {
   compareTeacherIntentPolicies,
   runTeacherIntentBenchmark,
   teacherEvidenceChallengers,
+  teacherHybridEvidenceChallengers,
   runTeacherIntentLearner,
   teacherIntentPopulation,
   teacherIntentScenarios,
@@ -93,6 +94,26 @@ describe('Brain Lab teacher-intent efficiency', () => {
       expect(challenger.benchmark.prerequisiteReadinessPrecision).toBeGreaterThanOrEqual(0);
       expect(challenger.benchmark.prerequisiteReadinessPrecision).toBeLessThanOrEqual(1);
     }
+  });
+
+  it('tests guarded recency only after substantial lifetime evidence', () => {
+    const population = teacherIntentPopulation(60);
+    const lifetime = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions: 48,
+      seed: 107,
+    });
+    const challengers = teacherHybridEvidenceChallengers(population, lifetime, {
+      horizonQuestions: 48,
+      seed: 107,
+    });
+
+    expect(challengers.map((item) => item.evidencePolicy)).toEqual([
+      'recent-8-after-8',
+      'recent-8-after-10',
+      'recent-10-after-10',
+    ]);
+    expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
   });
 
   it('reports completion and learner-friction metrics separately', () => {
