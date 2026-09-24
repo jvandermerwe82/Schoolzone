@@ -66,6 +66,15 @@ export interface SkillState {
   totalTimeMs: number;
 }
 
+export interface CurriculumEvidenceRecord {
+  /** Curriculum-pack id that produced this mapping, e.g. "au-ac-v9". */
+  curriculumId: string;
+  /** Curriculum-independent SchoolZone concept id. */
+  canonicalNodeId: string;
+  /** Direct tests the construct; supporting contributes but cannot prove mastery alone. */
+  strength: 'direct' | 'supporting';
+}
+
 export interface AnswerRecord {
   at: number;
   skillId: string;
@@ -82,6 +91,8 @@ export interface AnswerRecord {
   rapid?: boolean;
   /** How the tutor was helping at the time, if the child was stuck. */
   strategy?: StrategyId | 'climb';
+  /** Canonical curriculum evidence attached outside the core Brain. */
+  curriculumEvidence?: CurriculumEvidenceRecord[];
 }
 
 /** Different ways the tutor can help when a child is stuck. */
