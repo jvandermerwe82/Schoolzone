@@ -1,3 +1,4 @@
+import { REVIEW_INTERVAL_MULTIPLIER } from '../brain/model';
 import { describe, expect, it } from 'vitest';
 import {
   evaluateRetentionLabGate,
@@ -49,7 +50,7 @@ describe('Brain Lab retention and spaced review', () => {
     expect(run.finalReviewIntervalDays).toBeGreaterThanOrEqual(8);
   });
 
-  it('reproduces the production schedule when the multiplier is 2', () => {
+  it('reproduces the production schedule when the explicit multiplier matches production', () => {
     const population = retentionPopulation(20);
     expect(runRetentionBenchmark({
       population,
@@ -59,7 +60,7 @@ describe('Brain Lab retention and spaced review', () => {
       population,
       horizonDays: 45,
       seed: 94,
-      intervalMultiplier: 2,
+      intervalMultiplier: REVIEW_INTERVAL_MULTIPLIER,
     }));
   });
 
@@ -75,7 +76,9 @@ describe('Brain Lab retention and spaced review', () => {
       seed: 95,
     });
     expect(challengers.map((item) => item.intervalMultiplier)).toEqual([1.5, 1.75, 2, 2.25]);
-    expect(challengers.find((item) => item.intervalMultiplier === 2)?.benchmark).toEqual(current);
+    expect(
+      challengers.find((item) => item.intervalMultiplier === REVIEW_INTERVAL_MULTIPLIER)?.benchmark,
+    ).toEqual(current);
   });
 
   it('passes the locked retention regression gate', () => {
