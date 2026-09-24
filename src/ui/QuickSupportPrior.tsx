@@ -34,6 +34,10 @@ export function preferredAcademicSupport(
   ) ?? null;
 }
 
+export function shouldPromptLearnerSupportPrior(profile: Profile, maxAnswers = 10): boolean {
+  return preferredAcademicSupport(profile, 'learner') === null && profile.history.length < maxAnswers;
+}
+
 export function setPreferredAcademicSupport(
   profile: Profile,
   source: Extract<PreferenceSource, 'learner' | 'parent'>,
