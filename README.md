@@ -29,42 +29,72 @@ English uses British spelling (practise/practice, licence/license, programme, ma
 
 ## How the brain works
 
-Every child has a learner model with two numbers **per skill** (`src/brain/model.ts`):
+The brain learns from **every answer**. Here is what each answer updates:
 
-| Signal | Method | Used for |
+| What it learns | How | Code |
 | --- | --- | --- |
-| **Ability** | Elo-style rating, the approach used by the Math Garden / Rekentuin system ([Klinkenberg et al., 2011](https://www.sciencedirect.com/science/article/abs/pii/S0360131511000418)) | Picking question difficulty |
-| **Mastery** | Bayesian Knowledge Tracing ([Corbett & Anderson, 1995](https://www.researchgate.net/figure/Bayesian-Knowledge-Tracing-Model-Corbett-and-Anderson-1995_fig1_331771496)) | Deciding when a skill is learned, allowing for guesses and slips |
+| **How hard a question the child can handle** (per skill) | Elo-style ability rating, as used by Math Garden ([Klinkenberg et al., 2011](https://www.sciencedirect.com/science/article/abs/pii/S0360131511000418)) | `model.ts` |
+| **Whether the skill is really learned** | Bayesian Knowledge Tracing ([Corbett & Anderson, 1995](https://www.researchgate.net/figure/Bayesian-Knowledge-Tracing-Model-Corbett-and-Anderson-1995_fig1_331771496)) | `model.ts` |
+| **Why an answer was wrong** | Matches wrong answers against known mistake patterns, e.g. forgetting to carry, "smaller from larger" subtraction ([Brown & Burton, 1978](https://www.sciencedirect.com/science/article/pii/S0364021378800044)), adding fraction tops and bottoms ([NFER](https://www.nfer.ac.uk/assessment-hub/what-are-the-common-mistakes-when-adding-fractions/)), spelling error types, and well-known science misconceptions | `misconceptions.ts`, `content/bugs.ts` |
+| **Which mistakes the child still makes** | Repeating a mistake makes it "active". Getting right a question where that mistake would show up weakens it, until it's marked fixed | `misconceptions.ts` |
+| **What kind of help works for this child** | Success rate of each way of helping; the best one is tried first | `help.ts` |
+| **How hard each question really is** | The item side of Elo: difficulty adjusts after every answer, compared within each skill | `items.ts` |
 
-The tutor (`src/brain/tutor.ts`) uses them to decide what comes next:
+### When the child is stuck, it doesn't move on
 
-1. **Right difficulty.** It picks the level (1–5) where the child is predicted to be right about **80%** of the time. Math Garden targets 75% ([Klinkenberg et al., 2011](https://eric.ed.gov/?id=EJ925823)), and [Wilson et al. (2019)](https://www.nature.com/articles/s41467-019-12552-4) derived ~85% as optimal for a broad class of learning algorithms. 80% sits between the two. It is a design choice, not a proven optimum for children.
-2. **Frustration.** After 2 misses in a row the questions get easier. After 3, it walks the **skill map** back to the weakest unmastered prerequisite (for example Addition before Subtraction) and practises that first.
-3. **Starting point.** The child's school year sets a starting guess for each skill. Skills from two or more years below it start as "probably known", so a Year 6 child moves past them quickly. In simulation, a typical Year 6 child reached Year 6 maths after about 10 questions.
-4. **Progression.** A skill counts as mastered when BKT reaches 95% and the child is predicted to get ≥75% of level-3 questions right. Mastering a skill's prerequisites (or reaching 80% on them) unlocks it.
-5. **Not forgetting.** Mastered skills come back for review after 1, 2, 4, 8… days (up to 60). A missed review resets the gap to 1 day.
-6. **Honesty check.** The dashboard compares the success the brain *predicted* with what actually happened. If those drift apart, the constants need re-tuning.
+A wrong answer starts a **stuck episode** (`help.ts`). The app stays on the problem and tries one way of helping at a time:
 
-The numeric constants (step sizes, guess and slip rates, school-year starting guesses) are **my starting values, not taken from the papers**. Tune them once real children are using the app.
+1. **Explain the mistake**, then give a similar question. It's a little easier, unless the easier level can't show the same mistake.
+2. **Show a worked example** step by step, then "your turn". Worked examples help beginners most ([worked-example effect](https://en.wikipedia.org/wiki/Worked-example_effect)).
+3. **Give a hint** up front. On multiple choice, a hint also removes one wrong option.
+4. **Break it down:** start at the easiest level and build back up.
+5. **Go back to the earlier skill** it depends on, then return.
 
-### Evidence from the tests
+When one of these gets the child answering correctly, they climb back up to the original level **without help**. The episode ends only when they can do it on their own. Only then does that way of helping count as "helped" for this child.
 
-`src/brain/brain.test.ts` runs simulated children with a hidden "true" ability. With the current settings (seeded, so repeatable):
+If the child slips on the way back up, the app tries a **different** way. After every way has been tried, it starts another round. It never gives up and never quietly moves past the problem. An unfinished problem is picked up again next session.
 
-- the brain's ability estimate lands within about 0.5 logits of the hidden value on average after 40 questions
-- simulated children got about 80% of questions right, matching the target
-- predicted success (77%) was close to actual success (78%)
+### How it reads the child's answers
 
-These are simulations. They show the maths behaves as designed, not that real children learn faster. That needs real usage data.
+- **Hints:** a correct answer after a hint gets half credit for the rating. For mastery it is treated as practice, not proof, because counting hinted answers as plain wrong hurts accuracy ([Wang et al.](https://files.eric.ed.gov/fulltext/ED593119.pdf)).
+- **Rushed guesses:** a wrong answer given faster than the question could be read (1.5 s plus reading time) counts as a guess, not as being stuck. The child gets a "take your time" nudge. This is based on response-time effort ([Wise & Kong, 2005](https://www.researchgate.net/publication/248940611_Response_Time_Effort_A_New_Measure_of_Examinee_Motivation_in_Computer-Based_Tests)).
+- **Choosing difficulty:** questions are aimed at about **80%** success. Math Garden targets 75%, and [Wilson et al. (2019)](https://www.nature.com/articles/s41467-019-12552-4) derived about 85% for learning algorithms. 80% is my choice between the two.
+- **Stretching:** after 4 unaided correct answers in a row, it tries a harder level if the child has at least a 50% chance at it. Easy questions tell the rating little, and without this a child could sit on easy questions for a long time.
+- **Progression and reviews:** mastered skills unlock the next ones. Mastered skills come back for review after 1, 2, 4, 8… days.
 
-`src/content/content.test.ts` recomputes the answer to 16,000 generated Year 6 maths questions from the question text alone, using separate code from the app. It also checks that the spelling list matches all 100 statutory words, and that no wrong choice is a word from that list. I picked the misspellings by hand to avoid real words, such as "lightening", "solider" and the American "neighbor". A teacher's review would still be worthwhile.
+All numeric settings are **my starting values, not taken from the papers**. Tune them with real data.
+
+### Evidence from the tests (simulated children, seeded so repeatable)
+
+- 20 simulated children, 40 questions each: success rate **80.2%** (target 80%), and the ability estimate is within about 0.5 of the hidden true value on average.
+- Across those runs, children got stuck 63 times and worked through it 58 times. The other 5 were still being worked on when the simulation stopped. Typical length: 2 questions, longest 16.
+- A simulated child who only learns from worked examples: the app learns to try worked examples first.
+- A simulated child with the "forgets to carry" misconception: the app notices it, helps, and marks it fixed once the child stops making it.
+- When the real question difficulties differ from the assumed ones, the learned difficulties move the right way for every level and predictions improve.
+- The app's predicted success (about 81%) runs a little below actual success (about 87%) in these runs. Help and hints raise success above what the rating alone predicts. That's a known gap to tune with real data.
+
+These show the logic behaves as designed. They don't prove real children learn faster; that needs real use.
+
+`src/content/content.test.ts` independently recomputes 16,000 generated Year 6 maths answers and checks the spelling list against the statutory list. `src/brain/help.test.ts` checks that every mistake pattern attached to a question is really wrong and is recognised.
+
+## Badges and rewards
+
+Children earn **badges** for reaching levels (for example "Year 6 Maths Champion" for mastering every Year 6 maths skill) and for achievements like streaks, practice days and 100 questions answered. Some are **Easter eggs** that stay secret ("???") until found:
+- **Comeback Kid:** crack a problem after being stuck.
+- **Bug Squasher:** stop making a mistake you used to make.
+- **All-Rounder:** practise all three subjects in one day.
+- **Never Give Up:** work through 5 tricky problems.
+
+**Parents decide what each badge is worth.** When a learner is added, a parent must set up rewards before the child can start. The parent creates a 4-digit PIN, writes a reward for each badge (anything, e.g. "30 minutes of screen time", or blank for "just the badge") and can switch badges off. The child sees the reward when a badge unlocks. Parents see a "Rewards to give" list and mark each one as given.
+
+The PIN is stored on the device and only keeps children out casually. It isn't strong security. Badges are defined in `src/brain/badges.ts`.
 
 ## Project layout
 
 ```
-src/brain/     learner model, tutor (what to practise next), parent insights, tests
+src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
 src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks
-src/ui/        React screens: profiles, home, practice, parent dashboard
+src/ui/        React screens: profiles, home (with badges), practice, parent dashboard, parent rewards area
 ```
 
 ## Adding content
@@ -75,9 +105,10 @@ src/ui/        React screens: profiles, home, practice, parent dashboard
 ## Next steps worth considering
 
 - Accounts and a backend so progress syncs across devices, plus a parent login.
-- Using response time as a signal (Math Garden scores speed as well as accuracy).
 - Fitting the constants to real data, per skill.
-- An LLM tutor that explains mistakes in the child's own words, using the learner model as context.
+- An LLM tutor that talks through mistakes in the child's own words, using the learner model (and the diagnosed misconception) as context.
+- More mistake patterns, especially for English grammar and science, where only some wrong options are tagged so far.
+- Sharing question difficulty across all children (needs a backend); today it is learned per device.
 - Review of the English and science question banks by a Year 6 teacher.
 - Reading comprehension (needs passages written or licensed for the app).
 - Remaining Year 6 maths topics: ratio, converting units, coordinates and pie charts.

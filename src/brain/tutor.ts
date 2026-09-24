@@ -6,6 +6,7 @@
  */
 import { canTest } from '../content';
 import { getSkill, skillsFor } from '../content/skills';
+import { awardBadges } from './badges';
 import { emptyHelp, updateHelp, type HelpEvent } from './help';
 import { itemKey, itemOffset, updateItem, type ItemStats } from './items';
 import { activeMisconceptionFor, diagnose, updateMisconceptions } from './misconceptions';
@@ -221,6 +222,8 @@ export interface AnswerResult {
   rapid: boolean;
   /** What happened to the stuck episode, if anything. */
   event: HelpEvent;
+  /** Badges earned with this answer. */
+  badges: string[];
 }
 
 /** Record an answer and update everything the brain knows. */
@@ -259,5 +262,6 @@ export function recordAnswer(
 
   // Rapid guesses and hinted answers say little about the question itself.
   const nextItems = rapid || hinted ? items : updateItem(items, question, answerScore(correct), predicted);
-  return { profile: { ...updated, help }, items: nextItems, predicted, misconception, rapid, event };
+  const { profile: withBadges, earned } = awardBadges({ ...updated, help }, now);
+  return { profile: withBadges, items: nextItems, predicted, misconception, rapid, event, badges: earned };
 }

@@ -14,7 +14,7 @@ export function loadProfiles(): Profile[] {
     const raw = localStorage.getItem(KEY);
     const profiles = raw ? (JSON.parse(raw) as (Profile & { grade?: number })[]) : [];
     // Early profiles stored `grade`; it is now `year`.
-    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp() }));
+    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp(), badges: p.badges ?? {}, rewards: p.rewards ?? {}, rewardsSetUp: p.rewardsSetUp ?? false }));
   } catch {
     return [];
   }
@@ -40,6 +40,9 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     recentQuestionIds: [],
     misconceptions: {},
     help: emptyHelp(),
+    badges: {},
+    rewards: {},
+    rewardsSetUp: false,
   };
 }
 
@@ -58,5 +61,27 @@ export function saveItems(items: ItemStats): void {
     localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
   } catch {
     // Keep working in memory.
+  }
+}
+
+const PARENT_KEY = 'schoolzone:parent:v1';
+
+/**
+ * The parent PIN keeps children out of the rewards settings. It is stored on
+ * this device only and is a light barrier, not real security.
+ */
+export function loadParentPin(): string | null {
+  try {
+    return (JSON.parse(localStorage.getItem(PARENT_KEY) ?? 'null') as { pin: string } | null)?.pin ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveParentPin(pin: string): void {
+  try {
+    localStorage.setItem(PARENT_KEY, JSON.stringify({ pin }));
+  } catch {
+    // Keep working without saving.
   }
 }

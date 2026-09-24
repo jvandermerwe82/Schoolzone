@@ -155,3 +155,21 @@ details summary { cursor: pointer; font-weight: 600; }
 .insight-list { padding-left: 1.2rem; }
 .insight-list li { margin: 0.3rem 0; }
 .strategy-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }
+.error { color: var(--bad); font-weight: 600; }
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.6rem; }
+.badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.2rem; padding: 0.7rem 0.4rem; border-radius: 12px; border: 2px solid var(--border); }
+.badge.earned { border-color: #f5a300; background: var(--warn-bg); }
+.badge.locked { opacity: 0.55; }
+.badge .badge-emoji { font-size: 2rem; }
+.badge-name { font-weight: 700; font-size: 0.9rem; }
+.badge small { color: var(--muted); font-size: 0.75rem; }
+.badge-unlock { display: flex; gap: 0.75rem; align-items: center; background: var(--warn-bg); border: 2px solid #f5a300; border-radius: 12px; padding: 0.75rem; margin: 0.75rem 0; animation: pop 0.4s ease-out; }
+.badge-unlock .badge-emoji { font-size: 2.4rem; }
+@keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .badge-unlock { animation: none; } }
+.reward-row { display: grid; grid-template-columns: 1fr; gap: 0.4rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.reward-row.off { opacity: 0.55; }
+.reward-toggle { display: flex; gap: 0.6rem; align-items: center; margin: 0 !important; font-weight: 400 !important; }
+.reward-toggle input { width: auto; }
+.reward-toggle .badge-emoji { font-size: 1.6rem; }
+@media (min-width: 640px) { .reward-row { grid-template-columns: 1fr 1fr; align-items: center; } }

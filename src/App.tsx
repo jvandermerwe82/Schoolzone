@@ -4,6 +4,7 @@ import type { Profile, SubjectId } from './brain/types';
 import { loadItems, loadProfiles, saveItems, saveProfiles } from './storage';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
+import { ParentArea } from './ui/ParentArea';
 import { Practice } from './ui/Practice';
 import { ProfilePicker } from './ui/ProfilePicker';
 
@@ -11,7 +12,8 @@ type Screen =
   | { name: 'profiles' }
   | { name: 'home' }
   | { name: 'practice'; subject: SubjectId }
-  | { name: 'dashboard' };
+  | { name: 'dashboard' }
+  | { name: 'parents' };
 
 export function App() {
   const [profiles, setProfiles] = useState<Profile[]>(loadProfiles);
@@ -37,6 +39,20 @@ export function App() {
     );
   }
 
+  // Rewards must be set up by a parent before the child's first session.
+  if (!current.rewardsSetUp || screen.name === 'parents') {
+    return (
+      <ParentArea
+        key={current.id}
+        profile={current}
+        firstTime={!current.rewardsSetUp}
+        onSave={updateProfile}
+        onDone={() => setScreen({ name: 'home' })}
+        onCancel={() => setScreen({ name: 'profiles' })}
+      />
+    );
+  }
+
   switch (screen.name) {
     case 'home':
       return (
@@ -44,6 +60,7 @@ export function App() {
           profile={current}
           onPractice={(subject) => setScreen({ name: 'practice', subject })}
           onDashboard={() => setScreen({ name: 'dashboard' })}
+          onParents={() => setScreen({ name: 'parents' })}
           onSwitch={() => setScreen({ name: 'profiles' })}
         />
       );

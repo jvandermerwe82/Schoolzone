@@ -144,4 +144,23 @@ export interface Profile {
   misconceptions: Record<string, MisconceptionState>;
   /** Help when stuck, and what kind of help works for this child. */
   help: HelpState;
+  /** Badges earned, by badge id. */
+  badges: Record<string, EarnedBadge>;
+  /** What a parent has decided each badge is worth, by badge id. */
+  rewards: Record<string, BadgeReward>;
+  /** A parent has set up the rewards; the child can't start until they have. */
+  rewardsSetUp: boolean;
+}
+
+export interface EarnedBadge {
+  earnedAt: number;
+  /** The parent has marked the reward as given. */
+  rewardGiven: boolean;
+}
+
+export interface BadgeReward {
+  /** What the badge is worth, in the parent's words (e.g. "30 minutes of screen time"). Empty = badge only. */
+  reward: string;
+  /** Switched-off badges can't be earned. */
+  enabled: boolean;
 }

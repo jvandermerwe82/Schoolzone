@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { HelpEvent } from '../brain/help';
 import type { ItemStats } from '../brain/items';
+import { getBadge } from '../brain/badges';
 import { getMisconception } from '../brain/misconceptions';
 import { isMastered } from '../brain/model';
 import { planNext, recordAnswer, skillState, type Plan } from '../brain/tutor';
@@ -54,6 +55,7 @@ interface Feedback {
   misconception: string | null;
   rapid: boolean;
   event: HelpEvent;
+  badges: string[];
 }
 
 function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, answered: number, items: ItemStats): Turn {
@@ -101,7 +103,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     });
     onUpdate(result.profile);
     onItems(result.items);
-    setFeedback({ correct, given, misconception: result.misconception, rapid: result.rapid, event: result.event });
+    setFeedback({ correct, given, misconception: result.misconception, rapid: result.rapid, event: result.event, badges: result.badges });
     setAnswered((n) => n + 1);
     if (correct) setScore((n) => n + 1);
     if (result.event === 'resolved') setCracked((n) => n + 1);
@@ -235,6 +237,20 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
             )}
             <p>{question.explanation}</p>
             {feedback.event && <p className="event">{EVENT_MESSAGE[feedback.event]}</p>}
+            {feedback.badges.map((id) => {
+              const b = getBadge(id);
+              const reward = profile.rewards?.[id]?.reward?.trim();
+              return (
+                <div key={id} className="badge-unlock" role="status">
+                  <span className="badge-emoji">{b.emoji}</span>
+                  <div>
+                    <strong>{b.hidden ? '🥚 Secret badge found: ' : '🏅 New badge: '}{b.name}!</strong>
+                    <br />{b.description}
+                    {reward && <><br />🎁 Your reward: {reward}</>}
+                  </div>
+                </div>
+              );
+            })}
             <button className="primary" onClick={next} autoFocus>
               {answered >= SESSION_LENGTH ? 'See results' : 'Next →'}
             </button>
