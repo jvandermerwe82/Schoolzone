@@ -9,6 +9,7 @@ on:
       - 'arch/**'
       - 'feat/**'
       - 'fix/**'
+      - 'lab/**'
 
 permissions:
   contents: read
@@ -39,6 +40,17 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Brain Lab benchmark
+        run: npm run --silent brain:lab > brain-lab.json
+
+      - name: Upload Brain Lab report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-lab-${{ github.sha }}
+          path: brain-lab.json
+          retention-days: 30
 
       - name: Production build
         run: npm run build
