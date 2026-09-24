@@ -129,6 +129,51 @@ describe('homework', () => {
     });
   });
 
+  it('shows derived progress toward the current objective without exposing raw answers', async () => {
+    const { app, schoolId, teacher, sam, view } = await classWith();
+    const profile = busyProfile('Sam');
+    profile.history = Array.from({ length: 4 }, (_, i) => ({
+      at: THURSDAY - 4000 + i,
+      skillId: 'fractions-y6',
+      level: 3 as const,
+      correct: true,
+      timeMs: 4000,
+      predicted: 0.7,
+      curriculumEvidence: [{
+        curriculumId: 'au-ac-v9',
+        canonicalNodeId: 'math.fractions.add-subtract-equivalent',
+        strength: 'direct' as const,
+      }],
+    }));
+    const saved = await app.inject({
+      method: 'PUT',
+      url: `/api/children/${sam.id}`,
+      headers: { cookie: sam.cookie },
+      payload: { profile, version: 2 },
+    });
+    expect(saved.statusCode).toBe(200);
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/schools/${schoolId}/homework`,
+      headers: { cookie: teacher.cookie },
+      payload: { objectiveId: 'au6-fractions-add-subtract' },
+    });
+    const body = (await view()).json();
+    expect(body.pupils[0].objectiveProgress).toMatchObject({
+      status: 'mastered',
+      directEvidenceCount: 4,
+      supportingEvidenceCount: 0,
+      autoMasterable: true,
+    });
+    expect(body.summary.objective).toMatchObject({ mastered: 1, needsSupport: 0, notStarted: 0 });
+
+    const text = JSON.stringify(body);
+    expect(text).not.toContain('"curriculumEvidence"');
+    expect(text).not.toContain('"correct"');
+    expect(text).not.toContain('"predicted"');
+  });
+
   it('rejects unknown structured objectives and invalid due dates', async () => {
     const { app, schoolId, teacher } = await classWith();
     const put = (payload: object) => app.inject({
