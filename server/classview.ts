@@ -10,8 +10,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { skillReport, type SkillStatus } from '../src/brain/insights';
 import { misconceptionReport } from '../src/brain/misconceptions';
 import type { Profile } from '../src/brain/types';
+import type { CanonicalProgressStatus } from '../src/brain/canonical-progress';
 import { getSkill, SKILLS } from '../src/content/skills';
-import { australianTeacherObjective, structuredHomework } from '../src/curriculum/australia-teacher-objectives';
+import { australianTeacherObjective, isStructuredHomework, structuredHomework, type TeacherHomework } from '../src/curriculum/australia-teacher-objectives';
+import { australianCanonicalProgress } from '../src/curriculum/australia-canonical';
 import { normalizeProfile } from '../src/storage';
 import type { DB } from './db';
 import { screen } from './safety';
@@ -27,6 +29,16 @@ const Y6 = SKILLS.filter((s) => s.typicalYear === 6);
 const WEEK = 7 * 86_400_000;
 const MAX_NOTE = 140;
 
+export interface ObjectiveProgressView {
+  status: CanonicalProgressStatus;
+  directEvidenceCount: number;
+  supportingEvidenceCount: number;
+  weightedSuccess: number | null;
+  confidence: number;
+  autoMasterable: boolean;
+  lastEvidenceAt: number | null;
+}
+
 export interface ClassPupil {
   name: string;
   avatar: string;
@@ -35,12 +47,23 @@ export interface ClassPupil {
   stuck: { skill: string; level: number; since: number } | null;
   mistakes: string[];
   skills: Record<string, SkillStatus>;
+  objectiveProgress: ObjectiveProgressView | null;
 }
 
 /** Everything the teacher sees about one sharing pupil. */
-export function pupilSummary(profile: Profile, now: number): ClassPupil {
+export function pupilSummary(profile: Profile, now: number, objectiveNodeId: string | null = null): ClassPupil {
   const last = profile.history.at(-1)?.at ?? null;
   const ep = profile.help.episode;
+  const canonical = objectiveNodeId ? australianCanonicalProgress(profile, objectiveNodeId) : null;
+  const objectiveProgress = canonical ? {
+    status: canonical.status,
+    directEvidenceCount: canonical.directEvidenceCount,
+    supportingEvidenceCount: canonical.supportingEvidenceCount,
+    weightedSuccess: canonical.weightedSuccess,
+    confidence: canonical.confidence,
+    autoMasterable: canonical.autoMasterable,
+    lastEvidenceAt: canonical.lastEvidenceAt,
+  } : null;
   return {
     name: profile.name,
     avatar: profile.avatar,
@@ -49,6 +72,7 @@ export function pupilSummary(profile: Profile, now: number): ClassPupil {
     stuck: ep ? { skill: getSkill(ep.skillId).name, level: ep.stuckLevel, since: ep.startedAt } : null,
     mistakes: misconceptionReport(profile).active.map((r) => r.misconception.name),
     skills: Object.fromEntries(Y6.map((s) => [s.id, skillReport(profile, s).status])),
+    objectiveProgress,
   };
 }
 
@@ -63,9 +87,18 @@ export function classSummary(pupils: ClassPupil[]) {
   });
   const mistakes = new Map<string, number>();
   for (const p of pupils) for (const m of p.mistakes) mistakes.set(m, (mistakes.get(m) ?? 0) + 1);
+  const objectiveRows = pupils.map((p) => p.objectiveProgress).filter((p): p is ObjectiveProgressView => !!p);
+  const objective = objectiveRows.length === 0 ? null : {
+    notStarted: objectiveRows.filter((p) => p.status === 'not-started').length,
+    developing: objectiveRows.filter((p) => p.status === 'developing' || p.status === 'strong-evidence').length,
+    needsSupport: objectiveRows.filter((p) => p.status === 'needs-support').length,
+    broaderEvidence: objectiveRows.filter((p) => p.status === 'requires-broader-evidence').length,
+    mastered: objectiveRows.filter((p) => p.status === 'mastered').length,
+  };
   return {
     skills,
     mistakes: [...mistakes].map(([name, n]) => ({ name, pupils: n })).sort((a, b) => b.pupils - a.pupils).slice(0, 8),
+    objective,
   };
 }
 
@@ -81,11 +114,13 @@ export function registerClassRoutes(app: FastifyInstance, ctx: Ctx): void {
     const rows = db.prepare(`SELECT c.profile_json AS json, m.share_progress AS share FROM memberships m JOIN children c ON c.id = m.child_id
       WHERE m.school_id = ?`).all(school.id) as { json: string; share: number }[];
     const t = now();
-    const pupils = rows.filter((r) => r.share).map((r) => pupilSummary(normalizeProfile(JSON.parse(r.json)), t))
+    const homework = school.focusJson ? JSON.parse(school.focusJson) as TeacherHomework : null;
+    const objectiveNodeId = homework && isStructuredHomework(homework) ? homework.canonicalNodeId : null;
+    const pupils = rows.filter((r) => r.share).map((r) => pupilSummary(normalizeProfile(JSON.parse(r.json)), t, objectiveNodeId))
       .sort((a, b) => a.name.localeCompare(b.name));
     return {
       school: { name: school.name },
-      homework: school.focusJson ? JSON.parse(school.focusJson) : null,
+      homework,
       joined: rows.length,
       notSharing: rows.length - pupils.length,
       pupils,
