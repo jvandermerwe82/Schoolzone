@@ -1,8 +1,4 @@
-/**
- * Hints: a strategy tip for the skill (never the answer). On multiple-choice
- * questions with 3+ options, a hint also removes one wrong option.
- */
-import type { Question } from '../brain/types';
+/** A strategy tip for each skill (never the answer). Used by the Problem Solver. */
 
 const TIPS: Record<string, string> = {
   // Maths
@@ -40,19 +36,6 @@ const TIPS: Record<string, string> = {
   'electricity-y6': 'A series circuit is one loop. More cells: brighter. More bulbs: dimmer.',
 };
 
-export interface Hint {
-  tip: string;
-  /** A wrong choice to hide, for multiple choice with 3 or more options. */
-  remove?: string;
-}
-
 export function skillTip(skillId: string): string {
   return TIPS[skillId] ?? 'Read the question carefully and take it one step at a time.';
-}
-
-export function makeHint(q: Question, rng: () => number): Hint {
-  const tip = skillTip(q.skillId);
-  if (!q.choices || q.choices.length < 3) return { tip };
-  const wrong = q.choices.filter((c) => c !== q.answer);
-  return { tip, remove: wrong[Math.floor(rng() * wrong.length)] };
 }

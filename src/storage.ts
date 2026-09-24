@@ -14,7 +14,7 @@ export function loadProfiles(): Profile[] {
     const raw = localStorage.getItem(KEY);
     const profiles = raw ? (JSON.parse(raw) as (Profile & { grade?: number })[]) : [];
     // Early profiles stored `grade`; it is now `year`.
-    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp(), badges: p.badges ?? {}, rewards: p.rewards ?? {}, rewardsSetUp: p.rewardsSetUp ?? false }));
+    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp(), badges: p.badges ?? {}, rewards: p.rewards ?? {}, rewardsSetUp: p.rewardsSetUp ?? false, currency: p.currency ?? '£' }));
   } catch {
     return [];
   }
@@ -43,6 +43,7 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     badges: {},
     rewards: {},
     rewardsSetUp: false,
+    currency: '£',
   };
 }
 

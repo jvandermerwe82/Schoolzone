@@ -122,14 +122,50 @@ export function awardBadges(p: Profile, now: number): { profile: Profile; earned
   const earned = BADGES.filter((b) => !p.badges?.[b.id] && isEnabled(p, b.id) && b.earned(p)).map((b) => b.id);
   if (earned.length === 0) return { profile: p, earned };
   const badges = { ...(p.badges ?? {}) };
-  for (const id of earned) badges[id] = { earnedAt: now, rewardGiven: false };
+  for (const id of earned) badges[id] = { earnedAt: now, rewardGiven: false, moneyCents: p.rewards?.[id]?.moneyCents ?? 0 };
   return { profile: { ...p, badges }, earned };
 }
 
+/** "£2.50" from 250 cents. */
+export function formatMoney(cents: number, currency: string): string {
+  return `${currency}${(cents / 100).toFixed(2)}`;
+}
+
+/** Parse what a parent typed ("2", "2.5", "£2.50") into whole cents; null if not a valid amount. */
+export function parseMoney(input: string): number | null {
+  // Allow a leading currency symbol (£, $, €, R…), but nothing else.
+  const t = input.trim().replace(/^(£|\$|€|R|ZAR|GBP|USD|EUR)\s*/i, '');
+  if (t === '') return 0;
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const [whole, frac = ''] = t.split('.');
+  return Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+}
+
+/** What a badge is worth, in words: "30 minutes of screen time + £2.00". Empty if nothing. */
+export function describeReward(p: Profile, id: string): string {
+  const r = p.rewards?.[id];
+  if (!r) return '';
+  const parts = [r.reward?.trim(), r.moneyCents > 0 ? formatMoney(r.moneyCents, p.currency ?? '£') : ''].filter(Boolean);
+  return parts.join(' + ');
+}
+
 /** Rewards earned but not yet marked as given by a parent. */
-export function rewardsOwed(p: Profile): { badge: Badge; reward: string; earnedAt: number }[] {
+export function rewardsOwed(p: Profile): { badge: Badge; reward: string; moneyCents: number; earnedAt: number }[] {
   return Object.entries(p.badges ?? {})
-    .filter(([id, b]) => !b.rewardGiven && (p.rewards?.[id]?.reward ?? '').trim())
-    .map(([id, b]) => ({ badge: getBadge(id), reward: p.rewards[id].reward.trim(), earnedAt: b.earnedAt }))
+    .filter(([id, b]) => !b.rewardGiven && describeReward(p, id))
+    .map(([id, b]) => ({ badge: getBadge(id), reward: describeReward(p, id), moneyCents: p.rewards[id].moneyCents ?? 0, earnedAt: b.earnedAt }))
     .sort((a, b) => a.earnedAt - b.earnedAt);
+}
+
+/**
+ * Money totals. The amount is fixed when the badge is earned, so a parent
+ * changing a badge's value later doesn't change what was already earned.
+ */
+export function moneyTotals(p: Profile): { earned: number; paid: number; owed: number } {
+  let earned = 0, paid = 0;
+  for (const b of Object.values(p.badges ?? {})) {
+    earned += b.moneyCents ?? 0;
+    if (b.rewardGiven) paid += b.moneyCents ?? 0;
+  }
+  return { earned, paid, owed: earned - paid };
 }

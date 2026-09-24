@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newProfile } from '../storage';
-import { awardBadges, BADGES, bestDayRun, bestStreak, rewardsOwed } from './badges';
+import { awardBadges, BADGES, bestDayRun, bestStreak, describeReward, formatMoney, moneyTotals, parseMoney, rewardsOwed } from './badges';
 import { initialSkillState } from './model';
 import type { AnswerRecord, Profile } from './types';
 
@@ -44,7 +44,7 @@ describe('badges', () => {
 
   it('switched-off badges are not awarded', () => {
     let p: Profile = newProfile('Ava', '🦊', 6);
-    p = { ...p, rewards: { 'hot-streak': { reward: '', enabled: false } }, history: Array.from({ length: 5 }, () => answer()) };
+    p = { ...p, rewards: { 'hot-streak': { reward: '', enabled: false, moneyCents: 0 } }, history: Array.from({ length: 5 }, () => answer()) };
     expect(awardBadges(p, T0).earned).not.toContain('hot-streak');
   });
 
@@ -74,11 +74,43 @@ describe('badges', () => {
     let p: Profile = newProfile('Ava', '🦊', 6);
     p = {
       ...p,
-      rewards: { 'hot-streak': { reward: '  Ice cream  ', enabled: true }, 'first-steps': { reward: '', enabled: true } },
-      badges: { 'hot-streak': { earnedAt: T0, rewardGiven: false }, 'first-steps': { earnedAt: T0, rewardGiven: false } },
+      rewards: { 'hot-streak': { reward: '  Ice cream  ', enabled: true, moneyCents: 0 }, 'first-steps': { reward: '', enabled: true, moneyCents: 0 } },
+      badges: { 'hot-streak': { earnedAt: T0, rewardGiven: false, moneyCents: 0 }, 'first-steps': { earnedAt: T0, rewardGiven: false, moneyCents: 0 } },
     };
     expect(rewardsOwed(p).map((r) => [r.badge.id, r.reward])).toEqual([['hot-streak', 'Ice cream']]);
-    p = { ...p, badges: { ...p.badges, 'hot-streak': { earnedAt: T0, rewardGiven: true } } };
+    p = { ...p, badges: { ...p.badges, 'hot-streak': { earnedAt: T0, rewardGiven: true, moneyCents: 0 } } };
     expect(rewardsOwed(p)).toEqual([]);
+  });
+
+  it('reads and formats money amounts exactly', () => {
+    expect(parseMoney('2')).toBe(200);
+    expect(parseMoney('2.5')).toBe(250);
+    expect(parseMoney('£1.05')).toBe(105);
+    expect(parseMoney('R 10')).toBe(1000);
+    expect(parseMoney('')).toBe(0);
+    expect(parseMoney('1.234')).toBeNull();
+    expect(parseMoney('abc')).toBeNull();
+    expect(formatMoney(250, '£')).toBe('£2.50');
+    expect(formatMoney(5, 'R')).toBe('R0.05');
+  });
+
+  it('badges can be worth money, fixed when earned, and tracked until paid', () => {
+    let p: Profile = newProfile('Ava', '🦊', 6);
+    p = {
+      ...p,
+      currency: 'R',
+      rewards: { 'hot-streak': { reward: 'Ice cream', enabled: true, moneyCents: 500 }, 'first-steps': { reward: '', enabled: true, moneyCents: 250 } },
+      history: Array.from({ length: 10 }, () => answer()),
+      skills: { addition: { ...initialSkillState(6, 1), attempts: 10 } },
+    };
+    p = awardBadges(p, T0).profile;
+    expect(describeReward(p, 'hot-streak')).toBe('Ice cream + R5.00');
+    expect(describeReward(p, 'first-steps')).toBe('R2.50');
+    // Changing the amount later doesn't change what was already earned.
+    p = { ...p, rewards: { ...p.rewards, 'hot-streak': { reward: 'Ice cream', enabled: true, moneyCents: 10_000 } } };
+    expect(moneyTotals(p)).toEqual({ earned: 750, paid: 0, owed: 750 });
+    p = { ...p, badges: { ...p.badges, 'first-steps': { ...p.badges['first-steps'], rewardGiven: true } } };
+    expect(moneyTotals(p)).toEqual({ earned: 750, paid: 250, owed: 500 });
+    expect(rewardsOwed(p).map((r) => r.badge.id)).toEqual(['hot-streak']);
   });
 });

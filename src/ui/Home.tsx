@@ -1,4 +1,4 @@
-import { BADGES } from '../brain/badges';
+import { BADGES, describeReward } from '../brain/badges';
 import { subjectReport } from '../brain/insights';
 import type { Profile, SubjectId } from '../brain/types';
 import { SUBJECTS } from '../content/skills';
@@ -20,7 +20,7 @@ function BadgeShelf({ profile }: { profile: Profile }) {
       <div className="badge-grid">
         {shown.map((b) => {
           const got = profile.badges?.[b.id];
-          const reward = profile.rewards?.[b.id]?.reward?.trim();
+          const reward = describeReward(profile, b.id);
           const secret = b.hidden && !got;
           return (
             <div key={b.id} className={`badge ${got ? 'earned' : 'locked'}`} title={secret ? 'A secret badge!' : b.description}>

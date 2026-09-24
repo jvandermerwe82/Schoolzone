@@ -1,13 +1,13 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { HelpEvent } from '../brain/help';
 import type { ItemStats } from '../brain/items';
-import { getBadge } from '../brain/badges';
+import { describeReward, getBadge } from '../brain/badges';
 import { getMisconception } from '../brain/misconceptions';
 import { isMastered } from '../brain/model';
 import { planNext, recordAnswer, skillState, type Plan } from '../brain/tutor';
 import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
-import { makeHint, type Hint } from '../content/hints';
+import { hintLadder, topicNotes, wordsIn } from '../content/solver';
 import { getSkill, skillsFor } from '../content/skills';
 
 const SESSION_LENGTH = 10;
@@ -77,7 +77,12 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
   );
   const [turn, setTurn] = useState<Turn>(() => nextTurn(profile, subject, null, 0, items));
   const [studying, setStudying] = useState(!!turn.example);
-  const [hint, setHint] = useState<Hint | null>(() => (turn.plan.showHint ? makeHint(turn.question, Math.random) : null));
+  // Problem Solver state for the current question.
+  const [solverOpen, setSolverOpen] = useState(!!turn.plan.showHint);
+  const [hintsShown, setHintsShown] = useState(turn.plan.showHint ? 1 : 0);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showWords, setShowWords] = useState(false);
+  const [solverExample, setSolverExample] = useState<Question | null>(null);
   const [answered, setAnswered] = useState(0);
   const [score, setScore] = useState(0);
   const [cracked, setCracked] = useState(0);
@@ -86,11 +91,20 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
 
   const { plan, question, example } = turn;
   const skill = getSkill(question.skillId);
+  const ladder = useMemo(() => hintLadder(question, Math.random), [question]);
+  const words = useMemo(() => wordsIn(question), [question]);
+  // Any use of the Problem Solver means the answer counts as practice, not proof.
+  const usedSolver = hintsShown > 0 || showNotes || showWords || solverExample !== null;
+  const removed = ladder.slice(0, hintsShown).find((h) => h.kind === 'remove');
 
   function start(t: Turn) {
     setTurn(t);
     setStudying(!!t.example);
-    setHint(t.plan.showHint ? makeHint(t.question, Math.random) : null);
+    setSolverOpen(!!t.plan.showHint);
+    setHintsShown(t.plan.showHint ? 1 : 0);
+    setShowNotes(false);
+    setShowWords(false);
+    setSolverExample(null);
     setFeedback(null);
     setInput('');
   }
@@ -99,7 +113,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     if (feedback || !given.trim()) return;
     const correct = checkAnswer(question, given);
     const result = recordAnswer(profile, question, correct, Date.now() - turn.shownAt, Date.now(), {
-      given, hinted: !!hint, items, strategy: plan.strategy,
+      given, hinted: usedSolver, items, strategy: plan.strategy,
     });
     onUpdate(result.profile);
     onItems(result.items);
@@ -174,7 +188,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     );
   }
 
-  const shownChoices = question.choices?.filter((c) => c !== hint?.remove);
+  const shownChoices = question.choices?.filter((c) => !(removed?.kind === 'remove' && c === removed.choice));
   const m = feedback?.misconception ? getMisconception(feedback.misconception) : null;
 
   return (
@@ -191,8 +205,6 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
           </span>
         </div>
         <p className="prompt">{question.prompt}</p>
-
-        {hint && !feedback && <p className="hint">💡 {hint.tip}{hint.remove ? ' (One wrong answer has been removed.)' : ''}</p>}
 
         {shownChoices ? (
           <div className="choices">
@@ -219,8 +231,56 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
           </form>
         )}
 
-        {!feedback && !hint && (
-          <button className="link hint-button" onClick={() => setHint(makeHint(question, Math.random))}>💡 I'd like a hint</button>
+        {!feedback && (
+          <section className="solver" aria-label="Problem Solver">
+            <button className="solver-toggle" onClick={() => setSolverOpen((o) => !o)} aria-expanded={solverOpen}>
+              🧩 Problem Solver {solverOpen ? '▲' : '▼'}
+            </button>
+            {solverOpen && (
+              <div className="solver-body">
+                <div className="solver-tools">
+                  <button onClick={() => setHintsShown((n) => Math.min(ladder.length, n + 1))} disabled={hintsShown >= ladder.length}>
+                    💡 {hintsShown === 0 ? 'Give me a hint' : hintsShown < ladder.length ? 'Another hint' : 'No more hints'}
+                  </button>
+                  <button onClick={() => setShowNotes((v) => !v)} aria-pressed={showNotes}>📘 About this topic</button>
+                  {words.length > 0 && <button onClick={() => setShowWords((v) => !v)} aria-pressed={showWords}>🔤 What do the words mean?</button>}
+                  <button
+                    onClick={() => setSolverExample((e) => e ?? makeQuestion(question.skillId, question.level, [...profile.recentQuestionIds, question.id], Math.random))}
+                    disabled={solverExample !== null}
+                  >
+                    👀 Show me an example
+                  </button>
+                </div>
+                {ladder.slice(0, hintsShown).map((h, i) => (
+                  <p key={i} className="hint">
+                    💡 <strong>Hint {i + 1}:</strong>{' '}
+                    {h.kind === 'remove' ? 'One wrong answer has been taken away.' : h.kind === 'step' ? `Start like this: ${h.text}` : h.text}
+                  </p>
+                ))}
+                {showNotes && (
+                  <div className="solver-panel">
+                    <strong>📘 {skill.name}</strong>
+                    <ul>{topicNotes(skill.id).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                )}
+                {showWords && (
+                  <div className="solver-panel">
+                    <strong>🔤 Words in this question</strong>
+                    <dl>{words.map((w) => <div key={w.term}><dt>{w.term}</dt><dd>{w.meaning}</dd></div>)}</dl>
+                  </div>
+                )}
+                {solverExample && solverExample.id !== question.id && (
+                  <div className="solver-panel">
+                    <strong>👀 A similar example, solved</strong>
+                    <p>{solverExample.prompt}</p>
+                    <p>{solverExample.explanation}</p>
+                    <p><strong>Answer:</strong> {minus(solverExample.answer)}</p>
+                  </div>
+                )}
+                <p className="muted"><small>Using the Problem Solver is a great way to learn. This answer will count as practice.</small></p>
+              </div>
+            )}
+          </section>
         )}
 
         {feedback && (
@@ -239,7 +299,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
             {feedback.event && <p className="event">{EVENT_MESSAGE[feedback.event]}</p>}
             {feedback.badges.map((id) => {
               const b = getBadge(id);
-              const reward = profile.rewards?.[id]?.reward?.trim();
+              const reward = describeReward(profile, id);
               return (
                 <div key={id} className="badge-unlock" role="status">
                   <span className="badge-emoji">{b.emoji}</span>

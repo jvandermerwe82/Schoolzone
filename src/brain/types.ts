@@ -150,17 +150,23 @@ export interface Profile {
   rewards: Record<string, BadgeReward>;
   /** A parent has set up the rewards; the child can't start until they have. */
   rewardsSetUp: boolean;
+  /** Currency symbol for money rewards, e.g. "£", "R", "$", "€". */
+  currency: string;
 }
 
 export interface EarnedBadge {
   earnedAt: number;
   /** The parent has marked the reward as given. */
   rewardGiven: boolean;
+  /** Money value when earned (fixed at that moment), in cents/pence. */
+  moneyCents: number;
 }
 
 export interface BadgeReward {
-  /** What the badge is worth, in the parent's words (e.g. "30 minutes of screen time"). Empty = badge only. */
+  /** What the badge is worth, in the parent's words (e.g. "30 minutes of screen time"). Empty = none. */
   reward: string;
+  /** Money the badge is worth, in cents/pence (0 = no money). Stored as whole cents to avoid rounding errors. */
+  moneyCents: number;
   /** Switched-off badges can't be earned. */
   enabled: boolean;
 }

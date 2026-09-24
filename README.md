@@ -77,6 +77,17 @@ These show the logic behaves as designed. They don't prove real children learn f
 
 `src/content/content.test.ts` independently recomputes 16,000 generated Year 6 maths answers and checks the spelling list against the statutory list. `src/brain/help.test.ts` checks that every mistake pattern attached to a question is really wrong and is recognised.
 
+## Problem Solver
+
+Every question has a **🧩 Problem Solver** panel the child can open (`src/content/solver.ts`):
+
+- **💡 Hints, one step at a time.** First a strategy tip for the skill. Then the first step of *this* problem, taken from its worked explanation and stopped before anything that gives the answer away. Where the answer is a number, the working is shown with it blanked out ("12 ÷ 2 = ?"). On multiple choice, the last hint removes a wrong option. A test checks no step hint contains the answer across about 6,500 questions. About 89% of maths questions get a question-specific step; the rest get the tip, notes, word meanings and an example.
+- **📘 About this topic.** Short notes on the skill, for every skill.
+- **🔤 What do the words mean?** Plain definitions of the key terms in the question, matched by subject so "object" gets its grammar meaning only in English.
+- **👀 Show me an example.** A similar question, solved step by step.
+
+Using the Problem Solver is encouraged. The answer then counts as practice (half credit, not proof of mastery), the same as a hint.
+
 ## Badges and rewards
 
 Children earn **badges** for reaching levels (for example "Year 6 Maths Champion" for mastering every Year 6 maths skill) and for achievements like streaks, practice days and 100 questions answered. Some are **Easter eggs** that stay secret ("???") until found:
@@ -85,7 +96,13 @@ Children earn **badges** for reaching levels (for example "Year 6 Maths Champion
 - **All-Rounder:** practise all three subjects in one day.
 - **Never Give Up:** work through 5 tricky problems.
 
-**Parents decide what each badge is worth.** When a learner is added, a parent must set up rewards before the child can start. The parent creates a 4-digit PIN, writes a reward for each badge (anything, e.g. "30 minutes of screen time", or blank for "just the badge") and can switch badges off. The child sees the reward when a badge unlocks. Parents see a "Rewards to give" list and mark each one as given.
+**Parents decide what each badge is worth.** When a learner is added, a parent must set up rewards before the child can start. The parent:
+- creates a 4-digit PIN;
+- picks a currency (£, R, $ or €);
+- gives each badge a reward in their own words (e.g. "30 minutes of screen time"), an **amount of money**, or both;
+- can switch badges off.
+
+The child sees the reward when a badge unlocks, e.g. "30 minutes of screen time + R5.00". Parents see a "Rewards to give" list with totals (money earned, paid and still to pay) and mark each reward as given. Money is stored in whole cents to avoid rounding errors. A badge's value is fixed when it's earned, so changing it later doesn't change what's already owed.
 
 The PIN is stored on the device and only keeps children out casually. It isn't strong security. Badges are defined in `src/brain/badges.ts`.
 
@@ -93,7 +110,7 @@ The PIN is stored on the device and only keeps children out casually. It isn't s
 
 ```
 src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
-src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks
+src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, Problem Solver (hints, notes, word meanings)
 src/ui/        React screens: profiles, home (with badges), practice, parent dashboard, parent rewards area
 ```
 
