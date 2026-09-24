@@ -11,7 +11,8 @@ import { emptyLearningIntelligence, recordEngagementSignal } from '../brain/lear
 import { sessionPolicy } from '../brain/session-policy';
 import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
-import { curriculumEvidenceForQuestion } from '../curriculum/evidence';
+import { curriculumEvidenceForQuestion, type CurriculumPracticeFocus } from '../curriculum/evidence';
+import type { AustralianPracticeRoute } from '../curriculum/australia-intent-routing';
 import { hintLadder, topicNotes, wordsIn } from '../content/solver';
 import { getSkill, skillsFor } from '../content/skills';
 import { useSpeech } from '../speech';
@@ -51,6 +52,10 @@ interface Props {
   profile: Profile;
   /** Start on this skill (e.g. homework from the teacher). The brain still teaches what it needs first. */
   focusSkill?: string;
+  /** Structured curriculum route selected from the canonical graph. */
+  teacherRoute?: AustralianPracticeRoute;
+  /** Recalculate the structured route before beginning another mission. */
+  onNextTeacherMission?: (profile: Profile) => void;
   subject: SubjectId;
   onUpdate: (p: Profile) => void;
   items: ItemStats;
@@ -79,8 +84,27 @@ interface Feedback {
   xp: number;
 }
 
-function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, answered: number, items: ItemStats): Turn {
-  const plan = planNext(profile, subject, { focus, answered }, Date.now(), Math.random, items);
+function nextTurn(
+  profile: Profile,
+  subject: SubjectId,
+  focus: string | null,
+  answered: number,
+  items: ItemStats,
+  teacherRoute?: AustralianPracticeRoute,
+): Turn {
+  const plan = planNext(
+    profile,
+    subject,
+    {
+      focus,
+      answered,
+      allowedLevels: teacherRoute?.practiceLevels,
+      strictFocus: !!teacherRoute,
+    },
+    Date.now(),
+    Math.random,
+    items,
+  );
   const question = makeQuestion(plan.skillId, plan.level, profile.recentQuestionIds, Math.random, plan.target);
   let example: Question | null = null;
   if (plan.workedExample) {
@@ -92,11 +116,25 @@ function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, an
   return { plan, question, example, shownAt: Date.now() };
 }
 
-export function Practice({ profile, subject, focusSkill, onUpdate, items, onItems, onAnswer, tutor, onExit }: Props) {
+export function Practice({
+  profile,
+  subject,
+  focusSkill,
+  teacherRoute,
+  onNextTeacherMission,
+  onUpdate,
+  items,
+  onItems,
+  onAnswer,
+  tutor,
+  onExit,
+}: Props) {
   const masteredAtStart = useRef(
     new Set(skillsFor(subject).filter((s) => isMastered(skillState(profile, s.id))).map((s) => s.id)),
   );
-  const [turn, setTurn] = useState<Turn>(() => nextTurn(profile, subject, focusSkill ?? null, 0, items));
+  const [turn, setTurn] = useState<Turn>(
+    () => nextTurn(profile, subject, focusSkill ?? null, 0, items, teacherRoute),
+  );
   const [studying, setStudying] = useState(!!turn.example);
   // Problem Solver state for the current question.
   const [solverOpen, setSolverOpen] = useState(!!turn.plan.showHint);
@@ -120,6 +158,15 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
 
   const { plan, question, example } = turn;
   const skill = getSkill(question.skillId);
+  const curriculumFocus: CurriculumPracticeFocus | undefined = teacherRoute
+    ? {
+        curriculumId: 'au-ac-v9',
+        canonicalNodeId: teacherRoute.activeCanonicalNodeId,
+        practiceSkillId: teacherRoute.practiceSkillId,
+        practiceLevels: teacherRoute.practiceLevels,
+        strength: teacherRoute.evidenceStrength,
+      }
+    : undefined;
   const ladder = useMemo(() => hintLadder(question, Math.random), [question]);
   const words = useMemo(() => wordsIn(question), [question]);
   // Any use of the Problem Solver means the answer counts as practice, not proof.
@@ -169,7 +216,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
   function submit(given: string) {
     if (feedback || !given.trim()) return;
     const correct = checkAnswer(question, given);
-    const curriculumEvidence = curriculumEvidenceForQuestion(profile, question);
+    const curriculumEvidence = curriculumEvidenceForQuestion(profile, question, curriculumFocus);
     const result = recordAnswer(profile, question, correct, Date.now() - turn.shownAt, Date.now(), {
       given, hinted: usedSolver, items, strategy: plan.strategy, curriculumEvidence,
       sessionPosition: answered + 1,
@@ -190,7 +237,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
   }
 
   function next() {
-    start(nextTurn(profile, subject, question.skillId, answered, items));
+    start(nextTurn(profile, subject, question.skillId, answered, items, teacherRoute));
   }
 
   function withSessionSignal(kind: 'stopped-session' | 'continued-voluntarily', value: number): Profile {
@@ -210,6 +257,10 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
 
   function continueMission() {
     const nextProfile = withSessionSignal('continued-voluntarily', missionLength);
+    if (teacherRoute && onNextTeacherMission) {
+      onNextTeacherMission(nextProfile);
+      return;
+    }
     const nextLength = sessionPolicy(nextProfile, subject).missionLength;
     setMissionLength(nextLength);
     setAnswered(0);
@@ -217,7 +268,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
     setCracked(0);
     setSessionXp(0);
     setStreak(0);
-    start(nextTurn(nextProfile, subject, focusSkill ?? null, 0, items));
+    start(nextTurn(nextProfile, subject, focusSkill ?? null, 0, items, teacherRoute));
   }
 
   if (answered >= missionLength && !feedback) {
