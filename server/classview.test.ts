@@ -93,6 +93,54 @@ describe('homework', () => {
     expect((await app.inject({ method: 'GET', url: `/api/children/${ava.id}/school`, headers: { cookie: ava.cookie } })).json().homework).toBeNull();
   });
 
+  it('the teacher assigns a structured Australian objective with priority and due date', async () => {
+    const { app, schoolId, teacher, ava } = await classWith();
+    const dueAt = THURSDAY + 2 * 86_400_000;
+    const set = await app.inject({
+      method: 'PUT',
+      url: `/api/schools/${schoolId}/homework`,
+      headers: { cookie: teacher.cookie },
+      payload: {
+        objectiveId: 'au6-fractions-add-subtract',
+        note: 'Focus for Friday',
+        priority: 1,
+        dueAt,
+      },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().homework).toMatchObject({
+      version: 2,
+      objectiveId: 'au6-fractions-add-subtract',
+      canonicalNodeId: 'math.fractions.add-subtract-equivalent',
+      practiceSkillId: 'fractions-y6',
+      priority: 1,
+      dueAt,
+    });
+
+    // Homework is delivered even when the parent has not opted into teacher progress sharing.
+    const seen = (await app.inject({
+      method: 'GET',
+      url: `/api/children/${ava.id}/school`,
+      headers: { cookie: ava.cookie },
+    })).json();
+    expect(seen.homework).toMatchObject({
+      objective: 'Add and subtract fractions using equivalence',
+      curriculumRefs: ['au-ac-v9:AC9M6N05'],
+    });
+  });
+
+  it('rejects unknown structured objectives and invalid due dates', async () => {
+    const { app, schoolId, teacher } = await classWith();
+    const put = (payload: object) => app.inject({
+      method: 'PUT',
+      url: `/api/schools/${schoolId}/homework`,
+      headers: { cookie: teacher.cookie },
+      payload,
+    });
+    expect((await put({ objectiveId: 'not-real' })).statusCode).toBe(400);
+    expect((await put({ objectiveId: 'au5-reading', dueAt: THURSDAY - 86_400_000 })).statusCode).toBe(400);
+  });
+
   it('rejects unknown topics, contact details, links and worrying notes, and other people', async () => {
     const { app, schoolId, teacher, ava } = await classWith();
     const put = (payload: object, cookie = teacher.cookie) => app.inject({ method: 'PUT', url: `/api/schools/${schoolId}/homework`, headers: { cookie }, payload });
