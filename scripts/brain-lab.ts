@@ -7,6 +7,7 @@ import {
   staticMidlevelPolicy,
 } from '../src/brain-lab/benchmark';
 import {
+  blendedAbilityGrid,
   productionRuns,
   shadowAbilityGrid,
 } from '../src/brain-lab/dual-ability';
@@ -24,17 +25,22 @@ const gate = evaluateBrainLabGate(current);
 
 const runs = productionRuns(population, answersPerLearner, seed);
 const shadowGrid = shadowAbilityGrid(runs);
+const blendedGrid = blendedAbilityGrid(runs);
+const score = (benchmark: (typeof shadowGrid)[number]) => ({
+  benchmark,
+  vsCurrentAbilityMae: current.finalAbilityMae - benchmark.finalAbilityMae,
+  vsCurrentMedianStable:
+    benchmark.medianAnswersToStableEstimate === null
+    || current.medianAnswersToStableEstimate === null
+      ? null
+      : current.medianAnswersToStableEstimate - benchmark.medianAnswersToStableEstimate,
+  vsCurrentStableCoverage: benchmark.stableEstimateRate - current.stableEstimateRate,
+});
 const dualAbility = shadowGrid
-  .map((benchmark) => ({
-    benchmark,
-    vsCurrentAbilityMae: current.finalAbilityMae - benchmark.finalAbilityMae,
-    vsCurrentMedianStable:
-      benchmark.medianAnswersToStableEstimate === null
-      || current.medianAnswersToStableEstimate === null
-        ? null
-        : current.medianAnswersToStableEstimate - benchmark.medianAnswersToStableEstimate,
-    vsCurrentStableCoverage: benchmark.stableEstimateRate - current.stableEstimateRate,
-  }))
+  .map(score)
+  .sort((a, b) => b.vsCurrentAbilityMae - a.vsCurrentAbilityMae);
+const blendedAbility = blendedGrid
+  .map(score)
   .sort((a, b) => b.vsCurrentAbilityMae - a.vsCurrentAbilityMae);
 
 process.stdout.write(JSON.stringify({
@@ -45,6 +51,7 @@ process.stdout.write(JSON.stringify({
   dualAbility: {
     note: 'Shadow independent-ability estimates do not affect production routing or prediction metrics.',
     candidates: dualAbility,
+    blendedCandidates: blendedAbility,
   },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
