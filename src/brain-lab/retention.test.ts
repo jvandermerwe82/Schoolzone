@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   hiddenRecallProbability,
   retentionPopulation,
+  retentionScheduleChallengers,
   runRetentionBenchmark,
   runRetentionLearner,
 } from './retention';
@@ -45,6 +46,35 @@ describe('Brain Lab retention and spaced review', () => {
       seed: 92,
     });
     expect(run.finalReviewIntervalDays).toBeGreaterThanOrEqual(8);
+  });
+
+  it('reproduces the production schedule when the multiplier is 2', () => {
+    const population = retentionPopulation(20);
+    expect(runRetentionBenchmark({
+      population,
+      horizonDays: 45,
+      seed: 94,
+    })).toEqual(runRetentionBenchmark({
+      population,
+      horizonDays: 45,
+      seed: 94,
+      intervalMultiplier: 2,
+    }));
+  });
+
+  it('compares review schedules using both retention and total maintenance burden', () => {
+    const population = retentionPopulation(20);
+    const current = runRetentionBenchmark({
+      population,
+      horizonDays: 45,
+      seed: 95,
+    });
+    const challengers = retentionScheduleChallengers(population, current, {
+      horizonDays: 45,
+      seed: 95,
+    });
+    expect(challengers.map((item) => item.intervalMultiplier)).toEqual([1.5, 1.75, 2, 2.25]);
+    expect(challengers.find((item) => item.intervalMultiplier === 2)?.benchmark).toEqual(current);
   });
 
   it('reports retention quality and review burden separately', () => {
