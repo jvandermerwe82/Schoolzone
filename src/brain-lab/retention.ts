@@ -33,6 +33,7 @@ export interface RetentionLearnerRun {
   finalRecallProbability: number;
   finalReviewIntervalDays: number;
   masteredAtEnd: boolean;
+  maintenanceActions: number;
 }
 
 export interface RetentionBenchmark {
@@ -43,6 +44,7 @@ export interface RetentionBenchmark {
   reviewSuccessRate: number;
   meanReviewsPerLearner: number;
   meanRecoveryPracticePerLearner: number;
+  meanMaintenanceActionsPerLearner: number;
   lapseRate: number;
   meanFinalRecallProbability: number;
   medianFinalReviewIntervalDays: number | null;
@@ -109,10 +111,15 @@ function masteredState(learner: HiddenRetentionLearner): SkillState {
 
 export function runRetentionLearner(
   learner: HiddenRetentionLearner,
-  options: { horizonDays?: number; seed?: number } = {},
+  options: {
+    horizonDays?: number;
+    seed?: number;
+    intervalMultiplier?: number;
+  } = {},
 ): RetentionLearnerRun {
   const horizonDays = options.horizonDays ?? 60;
   const seed = options.seed ?? 20260925;
+  const intervalMultiplier = options.intervalMultiplier ?? 2;
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber, 0x7265746e));
 
@@ -135,6 +142,7 @@ export function runRetentionLearner(
     if (state.nextReviewAt === null || now < state.nextReviewAt) continue;
 
     reviews++;
+    const previousInterval = state.reviewIntervalDays;
     const correct = rng() < recall;
     state = updateSkill(
       state,
@@ -149,6 +157,21 @@ export function runRetentionLearner(
       successfulReviews++;
       halfLifeDays = Math.min(120, halfLifeDays * learner.successGrowth);
       lastReinforcedDay = day;
+
+      // updateSkill() implements the production 2x interval. Lab challengers
+      // override only the next due interval so we can compare scheduling
+      // policies without mutating production code.
+      if (intervalMultiplier !== 2 && isMastered(state)) {
+        const nextInterval = Math.min(
+          60,
+          Math.max(1, previousInterval * intervalMultiplier),
+        );
+        state = {
+          ...state,
+          reviewIntervalDays: nextInterval,
+          nextReviewAt: now + nextInterval * DAY,
+        };
+      }
       continue;
     }
 
@@ -189,6 +212,7 @@ export function runRetentionLearner(
     finalRecallProbability,
     finalReviewIntervalDays: state.reviewIntervalDays,
     masteredAtEnd: isMastered(state),
+    maintenanceActions: reviews + recoveryPractice,
   };
 }
 
@@ -197,6 +221,7 @@ export function runRetentionBenchmark(
     population?: HiddenRetentionLearner[];
     horizonDays?: number;
     seed?: number;
+    intervalMultiplier?: number;
   } = {},
 ): RetentionBenchmark {
   const population = options.population ?? retentionPopulation();
@@ -206,6 +231,7 @@ export function runRetentionBenchmark(
     runRetentionLearner(learner, {
       horizonDays,
       seed: mixSeed(seed, index + 1),
+      intervalMultiplier: options.intervalMultiplier ?? 2,
     }));
 
   const totalReviews = runs.reduce((sum, run) => sum + run.reviews, 0);
@@ -220,9 +246,57 @@ export function runRetentionBenchmark(
     reviewSuccessRate: totalReviews === 0 ? 0 : successful / totalReviews,
     meanReviewsPerLearner: mean(runs.map((run) => run.reviews)),
     meanRecoveryPracticePerLearner: mean(runs.map((run) => run.recoveryPractice)),
+    meanMaintenanceActionsPerLearner: mean(runs.map((run) => run.maintenanceActions)),
     lapseRate: totalReviews === 0 ? 0 : lapses / totalReviews,
     meanFinalRecallProbability: mean(runs.map((run) => run.finalRecallProbability)),
     medianFinalReviewIntervalDays: median(runs.map((run) => run.finalReviewIntervalDays)),
     masteredAtEndRate: mean(runs.map((run) => run.masteredAtEnd ? 1 : 0)),
   };
+}
+
+
+export interface RetentionScheduleChallenger {
+  intervalMultiplier: number;
+  benchmark: RetentionBenchmark;
+  deltaVsCurrent: {
+    retentionCoverage70: number;
+    reviewSuccessRate: number;
+    meanMaintenanceActionsPerLearner: number;
+    lapseRate: number;
+    meanFinalRecallProbability: number;
+  };
+}
+
+export function retentionScheduleChallengers(
+  population: HiddenRetentionLearner[],
+  current: RetentionBenchmark,
+  options: { horizonDays?: number; seed?: number } = {},
+): RetentionScheduleChallenger[] {
+  const horizonDays = options.horizonDays ?? 60;
+  const seed = options.seed ?? 20260925;
+
+  return [1.5, 1.75, 2, 2.25].map((intervalMultiplier) => {
+    const benchmark = runRetentionBenchmark({
+      population,
+      horizonDays,
+      seed,
+      intervalMultiplier,
+    });
+    return {
+      intervalMultiplier,
+      benchmark,
+      deltaVsCurrent: {
+        retentionCoverage70:
+          benchmark.retentionCoverage70 - current.retentionCoverage70,
+        reviewSuccessRate:
+          benchmark.reviewSuccessRate - current.reviewSuccessRate,
+        meanMaintenanceActionsPerLearner:
+          current.meanMaintenanceActionsPerLearner
+          - benchmark.meanMaintenanceActionsPerLearner,
+        lapseRate: current.lapseRate - benchmark.lapseRate,
+        meanFinalRecallProbability:
+          benchmark.meanFinalRecallProbability - current.meanFinalRecallProbability,
+      },
+    };
+  });
 }
