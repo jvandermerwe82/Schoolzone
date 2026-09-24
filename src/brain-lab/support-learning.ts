@@ -251,3 +251,48 @@ export function runSupportBenchmark(
     stablePreferenceRate: runs.length === 0 ? 0 : stable.length / runs.length,
   };
 }
+
+
+export const SUPPORT_LAB_THRESHOLDS = {
+  minFinal5PreferredRate: 0.8,
+  maxMeanRegret: 0.18,
+  maxMedianTrialsToStablePreference: 4,
+  minStablePreferenceRate: 0.8,
+} as const;
+
+export interface SupportLabGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateSupportLabGate(
+  benchmark: SupportBenchmark,
+): SupportLabGate {
+  const failures: string[] = [];
+
+  if (benchmark.final5PreferredRate < SUPPORT_LAB_THRESHOLDS.minFinal5PreferredRate) {
+    failures.push(
+      `final-5 preferred rate ${benchmark.final5PreferredRate.toFixed(3)} is below ${SUPPORT_LAB_THRESHOLDS.minFinal5PreferredRate}`,
+    );
+  }
+  if (benchmark.meanRegret > SUPPORT_LAB_THRESHOLDS.maxMeanRegret) {
+    failures.push(
+      `mean support regret ${benchmark.meanRegret.toFixed(3)} exceeds ${SUPPORT_LAB_THRESHOLDS.maxMeanRegret}`,
+    );
+  }
+  if (
+    benchmark.medianTrialsToStablePreference === null
+    || benchmark.medianTrialsToStablePreference > SUPPORT_LAB_THRESHOLDS.maxMedianTrialsToStablePreference
+  ) {
+    failures.push(
+      `median trials to stable preference ${benchmark.medianTrialsToStablePreference ?? 'none'} exceeds ${SUPPORT_LAB_THRESHOLDS.maxMedianTrialsToStablePreference}`,
+    );
+  }
+  if (benchmark.stablePreferenceRate < SUPPORT_LAB_THRESHOLDS.minStablePreferenceRate) {
+    failures.push(
+      `stable preference rate ${benchmark.stablePreferenceRate.toFixed(3)} is below ${SUPPORT_LAB_THRESHOLDS.minStablePreferenceRate}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
