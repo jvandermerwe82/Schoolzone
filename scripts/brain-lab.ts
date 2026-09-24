@@ -13,6 +13,7 @@ import {
   oracleSupportPolicy,
   roundRobinSupportPolicy,
   runSupportBenchmark,
+  supportPreferenceBenchmarks,
 } from '../src/brain-lab/support-learning';
 import { syntheticPopulation } from '../src/brain-lab/synthetic';
 
@@ -35,6 +36,11 @@ const supportHistory = runSupportBenchmark('history-only', historyOnlySupportPol
 const supportRoundRobin = runSupportBenchmark('round-robin', roundRobinSupportPolicy, supportOptions);
 const supportOracle = runSupportBenchmark('oracle', oracleSupportPolicy, supportOptions);
 const supportGate = evaluateSupportLabGate(supportCurrent);
+const supportPreferencePriors = supportPreferenceBenchmarks(
+  supportPopulation,
+  supportCurrent,
+  { trialsPerLearner: 20, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -48,6 +54,7 @@ process.stdout.write(JSON.stringify({
     historyOnly: supportHistory,
     roundRobin: supportRoundRobin,
     oracle: supportOracle,
+    preferencePriors: supportPreferencePriors,
     currentVsHistory: {
       final5PreferredRate:
         supportCurrent.final5PreferredRate - supportHistory.final5PreferredRate,
