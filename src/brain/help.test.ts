@@ -8,6 +8,7 @@ import { scienceQuestions, scienceSkillIds } from '../content/science';
 import { getSkill } from '../content/skills';
 import { newProfile } from '../storage';
 import { nextStrategy, STRATEGIES } from './help';
+import { recordSupportOutcome, setSupportPreference } from './learning-intelligence';
 import { itemKey, type ItemStats } from './items';
 import { ACTIVE, allMisconceptionIds, diagnose, getMisconception } from './misconceptions';
 import { guessRate, initialSkillState, levelDifficulty, predictCorrect } from './model';
@@ -250,6 +251,53 @@ describe('when a child is stuck', () => {
     expect(first).toBe('worked-example');
     const we = p.help.strategies['worked-example']!;
     expect(we.helped / we.tried).toBeGreaterThan(0.6);
+  });
+});
+
+describe('support-aware help selection', () => {
+  it('uses a learner preference to break an otherwise neutral tie', () => {
+    const p = newProfile('Sim', '🙂', 6);
+    p.learningIntelligence = setSupportPreference(p.learningIntelligence!, {
+      strategy: 'worked-examples',
+      source: 'learner',
+      value: 'prefer',
+      at: 1,
+    });
+    expect(nextStrategy(p, { skillId: 'algebra', stuckLevel: 4, tried: [] }).strategy).toBe('worked-example');
+  });
+
+  it('keeps strong proven help history ahead of a weak stated preference', () => {
+    const p = newProfile('Sim', '🙂', 6);
+    p.help = {
+      ...p.help,
+      strategies: {
+        similar: { tried: 8, helped: 7 },
+        'worked-example': { tried: 0, helped: 0 },
+      },
+    };
+    p.learningIntelligence = setSupportPreference(p.learningIntelligence!, {
+      strategy: 'worked-examples',
+      source: 'learner',
+      value: 'prefer',
+      at: 1,
+    });
+    expect(nextStrategy(p, { skillId: 'algebra', stuckLevel: 4, tried: [] }).strategy).toBe('similar');
+  });
+
+  it('uses repeated measured evidence to break a neutral tie only after confidence has built', () => {
+    const p = newProfile('Sim', '🙂', 6);
+    let state = p.learningIntelligence!;
+    for (let i = 0; i < 4; i++) {
+      state = recordSupportOutcome(state, {
+        strategy: 'graduated-hints',
+        at: i,
+        delta: 1,
+        weight: 1,
+        source: 'observed-learning',
+      });
+    }
+    p.learningIntelligence = state;
+    expect(nextStrategy(p, { skillId: 'algebra', stuckLevel: 4, tried: [] }).strategy).toBe('hint');
   });
 });
 
