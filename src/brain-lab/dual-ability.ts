@@ -213,8 +213,8 @@ export function blendedAbilityBenchmark(
 
 export const BLENDED_ABILITY_GRID: readonly BlendedAbilityConfig[] = [
   ...[0.75, 0.9, 1].flatMap((hintedWeight) =>
-    [0, 0.05, 0.1].flatMap((rapidWeight) =>
-      [0.25, 0.5, 0.75].map((shadowShare) => ({
+    [0, 0.05].flatMap((rapidWeight) =>
+      [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.5, 0.75].map((shadowShare) => ({
         name: `blend-s${Math.round(shadowShare * 100)}-h${Math.round(hintedWeight * 100)}-r${Math.round(rapidWeight * 100)}`,
         hintedWeight,
         rapidWeight,
