@@ -16,7 +16,10 @@ import {
   supportPreferenceBenchmarks,
 } from '../src/brain-lab/support-learning';
 import { syntheticPopulation } from '../src/brain-lab/synthetic';
-import { runMisconceptionBenchmark } from '../src/brain-lab/misconception-learning';
+import {
+  evaluateMisconceptionLabGate,
+  runMisconceptionBenchmark,
+} from '../src/brain-lab/misconception-learning';
 
 const population = syntheticPopulation(84);
 const options = { population, answersPerLearner: 30, seed: 20260925 };
@@ -43,6 +46,7 @@ const supportPreferencePriors = supportPreferenceBenchmarks(
   { trialsPerLearner: 20, seed: 20260925 },
 );
 const misconceptionLearning = runMisconceptionBenchmark({ seed: 20260925 });
+const misconceptionGate = evaluateMisconceptionLabGate(misconceptionLearning);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -72,11 +76,14 @@ process.stdout.write(JSON.stringify({
             - supportCurrent.medianTrialsToStablePreference,
     },
   },
-  misconceptionLearning,
+  misconceptionLearning: {
+    gate: misconceptionGate,
+    ...misconceptionLearning,
+  },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
   },
 }, null, 2) + '\n');
 
-if (!gate.pass || !supportGate.pass) process.exitCode = 1;
+if (!gate.pass || !supportGate.pass || !misconceptionGate.pass) process.exitCode = 1;
