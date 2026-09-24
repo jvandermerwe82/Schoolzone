@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  evaluateRetentionLabGate,
   hiddenRecallProbability,
   retentionPopulation,
   retentionScheduleChallengers,
@@ -75,6 +76,18 @@ describe('Brain Lab retention and spaced review', () => {
     });
     expect(challengers.map((item) => item.intervalMultiplier)).toEqual([1.5, 1.75, 2, 2.25]);
     expect(challengers.find((item) => item.intervalMultiplier === 2)?.benchmark).toEqual(current);
+  });
+
+  it('passes the locked retention regression gate', () => {
+    const benchmark = runRetentionBenchmark({
+      population: retentionPopulation(80),
+      horizonDays: 60,
+      seed: 20260925,
+    });
+    expect(evaluateRetentionLabGate(benchmark)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('reports retention quality and review burden separately', () => {
