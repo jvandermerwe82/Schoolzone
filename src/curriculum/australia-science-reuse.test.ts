@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { AUSTRALIAN_YEARS4_6_SCIENCE_NODES } from './australia-science';
+import { AUSTRALIA_YEARS4_6_SCIENCE_NODES } from './australia-science';
 import { AUSTRALIAN_SCIENCE_EXISTING_REUSE, AUSTRALIAN_SCIENCE_LAUNCH_CRITICAL_GAPS } from './australia-science-reuse';
 
 describe('Australian science reuse audit', () => {
   it('maps only to canonical nodes that exist', () => {
-    const ids = new Set(AUSTRALIAN_YEARS4_6_SCIENCE_NODES.map((node) => node.id));
+    const ids = new Set(AUSTRALIA_YEARS4_6_SCIENCE_NODES.map((node) => node.id));
     for (const mapping of AUSTRALIAN_SCIENCE_EXISTING_REUSE) {
       expect(ids.has(mapping.canonicalNodeId)).toBe(true);
     }
   });
 
   it('keeps every launch-critical gap attached to a canonical node', () => {
-    const ids = new Set(AUSTRALIAN_YEARS4_6_SCIENCE_NODES.map((node) => node.id));
+    const ids = new Set(AUSTRALIA_YEARS4_6_SCIENCE_NODES.map((node) => node.id));
     for (const gap of AUSTRALIAN_SCIENCE_LAUNCH_CRITICAL_GAPS) {
       expect(ids.has(gap)).toBe(true);
     }
