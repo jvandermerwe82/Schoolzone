@@ -28,6 +28,11 @@ export interface ShadowAbilityBenchmark {
   learningCurve: ShadowAbilityCurvePoint[];
 }
 
+export interface BlendedAbilityConfig extends ShadowAbilityWeights {
+  /** 0 = production ability only; 1 = shadow independent ability only. */
+  shadowShare: number;
+}
+
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 const mean = (values: readonly number[]) =>
@@ -135,6 +140,92 @@ export function shadowAbilityBenchmark(
     stableEstimateRate: runs.length === 0 ? 0 : stable.length / runs.length,
     learningCurve: points,
   };
+}
+
+export function blendedAbilityBenchmark(
+  runs: readonly LearnerRun[],
+  config: BlendedAbilityConfig,
+  curveAt: readonly number[] = [2, 5, 10, 20, 30],
+): ShadowAbilityBenchmark {
+  const hintedWeight = clamp01(config.hintedWeight);
+  const rapidWeight = clamp01(config.rapidWeight);
+  const shadowShare = clamp01(config.shadowShare);
+
+  const learnerErrors = runs.map((run) => {
+    const skill = getSkill(run.learner.skillId);
+    let shadowAbility = initialSkillState(run.learner.year, skill.typicalYear).ability;
+    let effectiveAttempts = 0;
+    const errors: number[] = [];
+
+    for (const step of run.steps) {
+      const reliability = step.rapid
+        ? rapidWeight
+        : step.hinted
+          ? hintedWeight
+          : 1;
+      const expected = predictCorrect(
+        shadowAbility,
+        step.level,
+        guessRate(step.level, skill.choices),
+      );
+      if (reliability > 0) {
+        shadowAbility += kFactor(effectiveAttempts)
+          * reliability
+          * ((step.correct ? 1 : 0) - expected);
+        effectiveAttempts += reliability;
+      }
+
+      const estimate = shadowShare * shadowAbility
+        + (1 - shadowShare) * step.abilityEstimate;
+      errors.push(Math.abs(estimate - run.learner.trueAbility));
+    }
+
+    return { errors, stableAt: stableAt(errors) };
+  });
+
+  const finalErrors = learnerErrors.map((item) => item.errors.at(-1) ?? 0);
+  const stable = learnerErrors
+    .map((item) => item.stableAt)
+    .filter((value): value is number => value !== null);
+  const answersPerLearner = runs[0]?.steps.length ?? 0;
+  const points = [...new Set(curveAt)]
+    .filter((answer) => answer > 0 && answer <= answersPerLearner)
+    .sort((a, b) => a - b)
+    .map((afterAnswers) => ({
+      afterAnswers,
+      abilityMae: mean(
+        learnerErrors.map((item) => item.errors[Math.min(afterAnswers, item.errors.length) - 1] ?? 0),
+      ),
+    }));
+
+  return {
+    name: config.name,
+    learnerCount: runs.length,
+    answersPerLearner,
+    hintedWeight,
+    rapidWeight,
+    finalAbilityMae: mean(finalErrors),
+    medianAnswersToStableEstimate: median(stable),
+    stableEstimateRate: runs.length === 0 ? 0 : stable.length / runs.length,
+    learningCurve: points,
+  };
+}
+
+export const BLENDED_ABILITY_GRID: readonly BlendedAbilityConfig[] = [
+  ...[0.75, 0.9, 1].flatMap((hintedWeight) =>
+    [0, 0.05, 0.1].flatMap((rapidWeight) =>
+      [0.25, 0.5, 0.75].map((shadowShare) => ({
+        name: `blend-s${Math.round(shadowShare * 100)}-h${Math.round(hintedWeight * 100)}-r${Math.round(rapidWeight * 100)}`,
+        hintedWeight,
+        rapidWeight,
+        shadowShare,
+      })))),
+] as const;
+
+export function blendedAbilityGrid(
+  runs: readonly LearnerRun[],
+): ShadowAbilityBenchmark[] {
+  return BLENDED_ABILITY_GRID.map((config) => blendedAbilityBenchmark(runs, config));
 }
 
 export const SHADOW_ABILITY_GRID: readonly ShadowAbilityWeights[] = [
