@@ -9,6 +9,7 @@ import { itemKey } from '../brain/items';
 import { planNext, recordAnswer, skillState, type Plan } from '../brain/tutor';
 import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
+import { curriculumEvidenceForQuestion } from '../curriculum/evidence';
 import { hintLadder, topicNotes, wordsIn } from '../content/solver';
 import { getSkill, skillsFor } from '../content/skills';
 import { useSpeech } from '../speech';
@@ -166,8 +167,9 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
   function submit(given: string) {
     if (feedback || !given.trim()) return;
     const correct = checkAnswer(question, given);
+    const curriculumEvidence = curriculumEvidenceForQuestion(profile, question);
     const result = recordAnswer(profile, question, correct, Date.now() - turn.shownAt, Date.now(), {
-      given, hinted: usedSolver, items, strategy: plan.strategy,
+      given, hinted: usedSolver, items, strategy: plan.strategy, curriculumEvidence,
     });
     onUpdate(result.profile);
     onItems(result.items);
