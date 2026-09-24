@@ -18,6 +18,7 @@ import { Home } from './ui/Home';
 import { ParentArea, type ParentTools } from './ui/ParentArea';
 import { Practice, type TutorFn } from './ui/Practice';
 import { ProfilePicker } from './ui/ProfilePicker';
+import { syncTeacherHomeworkIntent } from './curriculum/australia-teacher-objectives';
 
 type Screen =
   | { name: 'profiles' }
@@ -45,7 +46,7 @@ const SCHOOL_TOOLS = {
 const TEACHER_TOOLS: TeacherTools = {
   list: () => api.mySchools(),
   classView: (schoolId) => api.classView(schoolId),
-  setHomework: (schoolId, skillId, note) => api.setHomework(schoolId, skillId, note),
+  setHomework: (schoolId, objectiveId, note, priority, dueAt) => api.setHomework(schoolId, objectiveId, note, priority, dueAt),
   clearHomework: (schoolId) => api.clearHomework(schoolId),
   register: (name) => api.registerSchool(name),
   newCode: (schoolId) => api.newJoinCode(schoolId),
@@ -174,7 +175,15 @@ export function App() {
     setHomework(null);
     if (mode !== 'cloud' || !currentKey || !onHome) return;
     let live = true;
-    api.school(currentKey).then((m) => live && setHomework(m.homework ?? null)).catch(() => {});
+    api.school(currentKey).then((m) => {
+      if (!live) return;
+      const nextHomework = m.homework ?? null;
+      setHomework(nextHomework);
+      if (current) {
+        const intelligence = syncTeacherHomeworkIntent(current.learningIntelligence!, nextHomework, current.year);
+        if (intelligence !== current.learningIntelligence) updateProfile({ ...current, learningIntelligence: intelligence });
+      }
+    }).catch(() => {});
     return () => { live = false; };
   }, [mode, currentKey, onHome]);
 
