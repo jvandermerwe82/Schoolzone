@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   activeLearningIntents,
+  clearSupportPreference,
   emptyLearningIntelligence,
   recordEngagementSignal,
   recordLearningEvidenceFromAnswer,
   recordSupportOutcome,
   setCurriculumContext,
   setSupportPreference,
+  supportPreference,
   summariseSupportStrategy,
   upsertLearningIntent,
   type LearningIntent,
@@ -211,5 +213,54 @@ describe('answer-derived support learning', () => {
       delta: -0.6,
       weight: 0.35,
     });
+  });
+});
+
+
+describe('support preference provenance', () => {
+  it('keeps learner and parent preferences separate even when they disagree', () => {
+    let state = emptyLearningIntelligence();
+    state = setSupportPreference(state, {
+      strategy: 'shorter-missions',
+      source: 'learner',
+      value: 'prefer',
+      at: 1,
+    });
+    state = setSupportPreference(state, {
+      strategy: 'shorter-missions',
+      source: 'parent',
+      value: 'avoid',
+      at: 2,
+    });
+    expect(supportPreference(state, 'shorter-missions', 'learner')?.value).toBe('prefer');
+    expect(supportPreference(state, 'shorter-missions', 'parent')?.value).toBe('avoid');
+  });
+
+  it('clearing one source never erases another source or measured outcome evidence', () => {
+    let state = emptyLearningIntelligence();
+    state = setSupportPreference(state, {
+      strategy: 'worked-examples',
+      source: 'learner',
+      value: 'prefer',
+      at: 1,
+    });
+    state = setSupportPreference(state, {
+      strategy: 'worked-examples',
+      source: 'parent',
+      value: 'prefer',
+      at: 2,
+    });
+    state = recordSupportOutcome(state, {
+      strategy: 'worked-examples',
+      at: 3,
+      delta: 0.8,
+      weight: 0.5,
+      source: 'observed-learning',
+    });
+
+    state = clearSupportPreference(state, 'worked-examples', 'learner');
+    expect(supportPreference(state, 'worked-examples', 'learner')).toBeNull();
+    expect(supportPreference(state, 'worked-examples', 'parent')?.value).toBe('prefer');
+    expect(state.supportOutcomes).toHaveLength(1);
   });
 });
