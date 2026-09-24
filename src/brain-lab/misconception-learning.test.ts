@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  evaluateMisconceptionLabGate,
   misconceptionPopulation,
   runMisconceptionBenchmark,
   runMisconceptionLearner,
@@ -63,6 +64,17 @@ describe('Brain Lab misconception learning', () => {
     expect(benchmark.detectionRecall).toBeGreaterThan(0.5);
     expect(benchmark.detectionPrecision).toBeGreaterThan(0.8);
     expect(benchmark.falsePositiveRate).toBeLessThan(0.2);
+  });
+
+  it('passes the locked misconception-learning regression gate', () => {
+    const benchmark = runMisconceptionBenchmark({
+      population: misconceptionPopulation(120),
+      seed: 20260925,
+    });
+    expect(evaluateMisconceptionLabGate(benchmark)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('reports both detection and recovery speed', () => {
