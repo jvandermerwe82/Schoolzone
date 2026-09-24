@@ -4,6 +4,8 @@ import type { ItemStats } from '../brain/items';
 import { describeReward, getBadge } from '../brain/badges';
 import { getMisconception } from '../brain/misconceptions';
 import { isMastered } from '../brain/model';
+import type { AnswerEvent, TutorTurn } from '../api';
+import { itemKey } from '../brain/items';
 import { planNext, recordAnswer, skillState, type Plan } from '../brain/tutor';
 import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
@@ -24,11 +26,19 @@ const KEYBOARD: Record<string, 'text' | 'decimal'> = {
 };
 
 const EVENT_MESSAGE: Record<Exclude<HelpEvent, null>, string> = {
-  stuck: 'This one is tricky. We\'ll work on it together before moving on.',
-  switched: 'Let\'s try a different way of looking at it.',
-  helped: 'That helped! Now let\'s build back up.',
-  resolved: '🎉 You cracked it on your own!',
+  stuck: 'Tricky one. We\'ll crack it together before moving on.',
+  switched: 'Let\'s come at it from a different angle.',
+  helped: 'That clicked. Now let\'s level back up.',
+  resolved: 'You cracked it on your own! +40 XP bonus',
 };
+
+const RIGHT = ['Nailed it', 'Correct', 'Spot on', 'Yes!', 'Sorted'];
+
+/** Asks the AI tutor about the current question (only when a parent has switched it on). */
+export type TutorFn = (body: {
+  question: Question; given?: string; misconception?: string;
+  history: TutorTurn[]; message: string;
+}) => Promise<{ reply: string; flagged: string | null }>;
 
 const minus = (s: string) => s.replace(/^-/, '−');
 
@@ -38,6 +48,9 @@ interface Props {
   onUpdate: (p: Profile) => void;
   items: ItemStats;
   onItems: (items: ItemStats) => void;
+  /** Called with each answer, so it can be sent to the server. */
+  onAnswer: (childId: string, e: AnswerEvent) => void;
+  tutor?: TutorFn;
   onExit: () => void;
 }
 
@@ -56,6 +69,7 @@ interface Feedback {
   rapid: boolean;
   event: HelpEvent;
   badges: string[];
+  xp: number;
 }
 
 function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, answered: number, items: ItemStats): Turn {
@@ -71,7 +85,7 @@ function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, an
   return { plan, question, example, shownAt: Date.now() };
 }
 
-export function Practice({ profile, subject, onUpdate, items, onItems, onExit }: Props) {
+export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer, tutor, onExit }: Props) {
   const masteredAtStart = useRef(
     new Set(skillsFor(subject).filter((s) => isMastered(skillState(profile, s.id))).map((s) => s.id)),
   );
@@ -88,13 +102,20 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
   const [cracked, setCracked] = useState(0);
   const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [streak, setStreak] = useState(0);
+  // AI tutor chat for the current question.
+  const [chat, setChat] = useState<TutorTurn[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   const { plan, question, example } = turn;
   const skill = getSkill(question.skillId);
   const ladder = useMemo(() => hintLadder(question, Math.random), [question]);
   const words = useMemo(() => wordsIn(question), [question]);
   // Any use of the Problem Solver means the answer counts as practice, not proof.
-  const usedSolver = hintsShown > 0 || showNotes || showWords || solverExample !== null;
+  const usedSolver = hintsShown > 0 || showNotes || showWords || solverExample !== null || chat.length > 0;
   const removed = ladder.slice(0, hintsShown).find((h) => h.kind === 'remove');
 
   function start(t: Turn) {
@@ -107,6 +128,26 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     setSolverExample(null);
     setFeedback(null);
     setInput('');
+    setChat([]);
+    setChatInput('');
+    setChatError('');
+  }
+
+  async function askTutor() {
+    if (!tutor || !chatInput.trim() || chatBusy) return;
+    const message = chatInput.trim();
+    setChatBusy(true);
+    setChatError('');
+    setChatInput('');
+    try {
+      const res = await tutor({ question, history: chat, message, given: feedback?.given });
+      setChat((c) => [...c, { role: 'user', content: message }, { role: 'assistant', content: res.reply }]);
+    } catch (err) {
+      setChatError((err as Error).message);
+      setChatInput(message);
+    } finally {
+      setChatBusy(false);
+    }
   }
 
   function submit(given: string) {
@@ -117,8 +158,15 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     });
     onUpdate(result.profile);
     onItems(result.items);
-    setFeedback({ correct, given, misconception: result.misconception, rapid: result.rapid, event: result.event, badges: result.badges });
+    onAnswer(profile.id, {
+      at: Date.now(), skillId: question.skillId, level: question.level, itemKey: itemKey(question), correct,
+      hinted: usedSolver, rapid: result.rapid, timeMs: Date.now() - turn.shownAt, predicted: result.predicted,
+      misconception: result.misconception, strategy: plan.strategy ?? null,
+    });
+    setFeedback({ correct, given, misconception: result.misconception, rapid: result.rapid, event: result.event, badges: result.badges, xp: result.xp });
     setAnswered((n) => n + 1);
+    setSessionXp((x) => x + result.xp);
+    setStreak((st) => (correct && !usedSolver ? st + 1 : 0));
     if (correct) setScore((n) => n + 1);
     if (result.event === 'resolved') setCracked((n) => n + 1);
   }
@@ -134,20 +182,21 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
     const open = profile.help.episode && getSkill(profile.help.episode.skillId).subject === subject ? profile.help.episode : null;
     return (
       <main className="page">
-        <div className="card center">
-          <h2>Session complete! 🎉</h2>
-          <p className="big">{score} / {SESSION_LENGTH} correct</p>
+        <div className="card center results">
+          <p className="eyebrow">Mission complete</p>
+          <p className="big">{score}/{SESSION_LENGTH}</p>
+          <p className="xp-total">+{sessionXp} XP</p>
           {cracked > 0 && <p>💪 You worked through {cracked} tricky {cracked === 1 ? 'problem' : 'problems'}.</p>}
           {newlyMastered.length > 0 && (
             <p>🏆 You mastered: <strong>{newlyMastered.map((s) => s.name).join(', ')}</strong></p>
           )}
           {open && <p>We'll keep working on <strong>{getSkill(open.skillId).name}</strong> together next time, until you've got it.</p>}
-          <p>The brain has updated what it knows about you, so the next session starts in the right place.</p>
+          <p className="muted">Schoolzone has updated what it knows about you, so next time starts at the right level.</p>
           <div className="row center">
             <button className="primary" onClick={() => { setAnswered(0); setScore(0); setCracked(0); start(nextTurn(profile, subject, null, 0, items)); }}>
-              Keep going
+              Next mission
             </button>
-            <button onClick={onExit}>Done</button>
+            <button onClick={onExit}>Back to base</button>
           </div>
         </div>
       </main>
@@ -156,11 +205,13 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
 
   const header = (
     <>
-      <header className="topbar">
-        <button className="link" onClick={onExit}>← Back</button>
-        <span className="progress-text">Question {Math.min(answered + (feedback ? 0 : 1), SESSION_LENGTH)} of {SESSION_LENGTH}</span>
+      <header className="topbar hud">
+        <button className="link" onClick={onExit} aria-label="Leave mission">✕</button>
+        <div className="segments" aria-label={`Question ${Math.min(answered + (feedback ? 0 : 1), SESSION_LENGTH)} of ${SESSION_LENGTH}`}>
+          {Array.from({ length: SESSION_LENGTH }, (_, i) => <span key={i} className={i < answered ? 'done' : i === answered ? 'now' : ''} />)}
+        </div>
+        <span className="hud-stats"><span title="Correct in a row">🔥{streak}</span> <span className="xp-chip">{sessionXp} XP</span></span>
       </header>
-      <div className="progress"><div style={{ width: `${(answered / SESSION_LENGTH) * 100}%` }} /></div>
     </>
   );
 
@@ -187,6 +238,30 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
       </main>
     );
   }
+
+  const tutorPanel = tutor ? (
+    <div className="solver-panel tutor-chat">
+                    <strong>🤖 Ask the AI tutor</strong>
+                    {chat.length === 0 && (
+                      <p className="muted"><small>
+                        This tutor is an AI (a computer program), not a person. It helps you think but won't give you the answer.
+                        Never share your full name, address, school or passwords. A parent can read these chats.
+                      </small></p>
+                    )}
+                    {chat.map((t, i) => <p key={i} className={`chat-line ${t.role}`}>{t.role === 'user' ? 'You' : 'AI tutor'}: {t.content}</p>)}
+                    <form className="answer-row" onSubmit={(e) => { e.preventDefault(); void askTutor(); }}>
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Explain your thinking or ask a question"
+                        maxLength={300}
+                        aria-label="Message to the tutor"
+                      />
+                      <button type="submit" disabled={chatBusy || !chatInput.trim()}>{chatBusy ? '…' : 'Send'}</button>
+                    </form>
+                    {chatError && <p className="error" role="alert">{chatError}</p>}
+                  </div>
+  ) : null;
 
   const shownChoices = question.choices?.filter((c) => !(removed?.kind === 'remove' && c === removed.choice));
   const m = feedback?.misconception ? getMisconception(feedback.misconception) : null;
@@ -277,7 +352,8 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
                     <p><strong>Answer:</strong> {minus(solverExample.answer)}</p>
                   </div>
                 )}
-                <p className="muted"><small>Using the Problem Solver is a great way to learn. This answer will count as practice.</small></p>
+                {tutorPanel}
+                <p className="muted"><small>Using the Problem Solver is a smart move. This answer counts as practice (half XP).</small></p>
               </div>
             )}
           </section>
@@ -286,7 +362,8 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
         {feedback && (
           <div className={`feedback ${feedback.correct ? 'good' : 'bad'}`}>
             <p className="feedback-title">
-              {feedback.correct ? '✅ Correct!' : `❌ Not quite. The answer is ${minus(question.answer)}.`}
+              {feedback.correct ? `✓ ${RIGHT[answered % RIGHT.length]}` : `✗ Not quite. The answer is ${minus(question.answer)}.`}
+              {feedback.xp > 0 && <span className="xp-pop">+{feedback.xp} XP</span>}
             </p>
             {feedback.rapid && <p>⏱️ That was very quick! Take your time and read the question carefully.</p>}
             {m && (
@@ -297,6 +374,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onExit }:
             )}
             <p>{question.explanation}</p>
             {feedback.event && <p className="event">{EVENT_MESSAGE[feedback.event]}</p>}
+            {!feedback.correct && tutorPanel}
             {feedback.badges.map((id) => {
               const b = getBadge(id);
               const reward = describeReward(profile, id);

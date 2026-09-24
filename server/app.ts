@@ -1,0 +1,373 @@
+/**
+ * Schoolzone API. Build with `buildApp(options)`; `server/index.ts` starts it.
+ *
+ * Parents have accounts; children don't (a child uses the app on a parent's
+ * signed-in device). Before any child data is stored, a parent must accept
+ * the data-processing consent. The AI tutor and research use of answer data
+ * are separate, optional consents.
+ */
+import cookie from '@fastify/cookie';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
+import { createHmac } from 'node:crypto';
+import { updateItem, type ItemStats } from '../src/brain/items';
+import type { Level, Question } from '../src/brain/types';
+import type { DB } from './db';
+import { hashSecret, hashToken, newId, newToken, RateLimiter, verifySecret } from './security';
+import { askTutor, type TutorModel, type TutorTurn } from './tutor';
+
+export const CONSENT_VERSION = '2026-09-v1';
+
+export interface AppOptions {
+  db: DB;
+  /** Absent when no Anthropic credentials are configured: the tutor is switched off. */
+  tutor?: TutorModel | null;
+  /** Mark cookies Secure (production, behind HTTPS). */
+  secureCookies?: boolean;
+  /** Enables the research export when set. */
+  adminToken?: string;
+  /** Secret used to pseudonymise child ids in research exports. */
+  exportSalt?: string;
+  /** Maximum AI tutor messages per child per day. */
+  tutorDailyLimit?: number;
+  now?: () => number;
+  logger?: boolean;
+}
+
+const SESSION_DAYS = 30;
+const COOKIE = 'sz_session';
+const MAX_PROFILE_BYTES = 512 * 1024;
+
+interface Parent { id: string; email: string }
+interface ConsentRow { version: string; data_processing: number; ai_tutor: number; research: number; created_at: number }
+
+declare module 'fastify' {
+  interface FastifyRequest { parent?: Parent }
+}
+
+export function buildApp(opts: AppOptions) {
+  const { db } = opts;
+  const now = opts.now ?? Date.now;
+  const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 1024 * 1024 });
+  app.register(cookie);
+
+  const loginLimiter = new RateLimiter(10, 15 * 60_000);
+  const signupLimiter = new RateLimiter(5, 60 * 60_000);
+
+  // ---------- helpers ----------
+  const setSession = (reply: FastifyReply, parentId: string) => {
+    const token = newToken();
+    const t = now();
+    db.prepare('INSERT INTO sessions (token_hash, parent_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
+      .run(hashToken(token), parentId, t, t + SESSION_DAYS * 86_400_000);
+    reply.setCookie(COOKIE, token, {
+      path: '/', httpOnly: true, sameSite: 'lax', secure: !!opts.secureCookies, maxAge: SESSION_DAYS * 86_400,
+    });
+  };
+
+  const currentParent = (req: FastifyRequest): Parent | null => {
+    const token = req.cookies[COOKIE];
+    if (!token) return null;
+    const row = db.prepare(
+      'SELECT p.id, p.email FROM sessions s JOIN parents p ON p.id = s.parent_id WHERE s.token_hash = ? AND s.expires_at > ?',
+    ).get(hashToken(token), now()) as Parent | undefined;
+    return row ?? null;
+  };
+
+  const requireParent = async (req: FastifyRequest, reply: FastifyReply) => {
+    const parent = currentParent(req);
+    if (!parent) return reply.code(401).send({ error: 'Please sign in.' });
+    req.parent = parent;
+  };
+
+  const latestConsent = (parentId: string): ConsentRow | null =>
+    (db.prepare('SELECT version, data_processing, ai_tutor, research, created_at FROM consents WHERE parent_id = ? ORDER BY id DESC LIMIT 1')
+      .get(parentId) as ConsentRow | undefined) ?? null;
+
+  const hasDataConsent = (parentId: string) => {
+    const c = latestConsent(parentId);
+    return !!c && c.version === CONSENT_VERSION && c.data_processing === 1;
+  };
+
+  /** Child routes: signed in, consent given, and the child belongs to this parent. */
+  const requireChild = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    await requireParent(req, reply);
+    if (reply.sent) return;
+    if (!hasDataConsent(req.parent!.id)) return reply.code(403).send({ error: 'Consent needed first.' });
+    const owns = db.prepare('SELECT 1 FROM children WHERE id = ? AND parent_id = ?').get(req.params.id, req.parent!.id);
+    if (!owns) return reply.code(404).send({ error: 'Not found.' });
+  };
+
+  const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 254;
+
+  // ---------- health ----------
+  app.get('/api/health', async () => ({ ok: true, tutor: !!opts.tutor, consentVersion: CONSENT_VERSION }));
+
+  // ---------- auth ----------
+  const credentials = {
+    type: 'object',
+    required: ['email', 'password'],
+    additionalProperties: false,
+    properties: { email: { type: 'string', maxLength: 254 }, password: { type: 'string', maxLength: 200 } },
+  } as const;
+
+  app.post<{ Body: { email: string; password: string } }>('/api/auth/signup', { schema: { body: credentials } }, async (req, reply) => {
+    if (!signupLimiter.take(req.ip, now())) return reply.code(429).send({ error: 'Too many sign-ups. Try again later.' });
+    const email = req.body.email.trim().toLowerCase();
+    if (!emailOk(email)) return reply.code(400).send({ error: 'Please enter a valid email address.' });
+    if (req.body.password.length < 10) return reply.code(400).send({ error: 'Please use a password of at least 10 characters.' });
+    if (db.prepare('SELECT 1 FROM parents WHERE email = ?').get(email)) {
+      return reply.code(409).send({ error: 'An account with that email already exists.' });
+    }
+    const id = newId();
+    db.prepare('INSERT INTO parents (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)')
+      .run(id, email, await hashSecret(req.body.password), now());
+    setSession(reply, id);
+    return reply.code(201).send({ email });
+  });
+
+  app.post<{ Body: { email: string; password: string } }>('/api/auth/login', { schema: { body: credentials } }, async (req, reply) => {
+    const email = req.body.email.trim().toLowerCase();
+    if (!loginLimiter.take(`${req.ip}|${email}`, now())) return reply.code(429).send({ error: 'Too many attempts. Try again in 15 minutes.' });
+    const row = db.prepare('SELECT id, password_hash FROM parents WHERE email = ?').get(email) as { id: string; password_hash: string } | undefined;
+    // Same message either way, so the form doesn't reveal which emails have accounts.
+    if (!row || !(await verifySecret(req.body.password, row.password_hash))) {
+      return reply.code(401).send({ error: 'Email or password is not right.' });
+    }
+    setSession(reply, row.id);
+    return { email };
+  });
+
+  app.post('/api/auth/logout', async (req, reply) => {
+    const token = req.cookies[COOKIE];
+    if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token));
+    reply.clearCookie(COOKIE, { path: '/' });
+    return { ok: true };
+  });
+
+  app.get('/api/me', { preHandler: requireParent }, async (req) => {
+    const c = latestConsent(req.parent!.id);
+    const pin = db.prepare('SELECT pin_hash FROM parents WHERE id = ?').get(req.parent!.id) as { pin_hash: string | null };
+    const flags = db.prepare(`SELECT COUNT(*) AS n FROM tutor_messages t JOIN children c ON c.id = t.child_id
+      WHERE c.parent_id = ? AND t.flagged LIKE 'safety:%' AND t.at > ?`).get(req.parent!.id, now() - 30 * 86_400_000) as { n: number };
+    return {
+      email: req.parent!.email,
+      safetyFlags: flags.n,
+      hasPin: !!pin.pin_hash,
+      consent: c && c.version === CONSENT_VERSION
+        ? { version: c.version, dataProcessing: !!c.data_processing, aiTutor: !!c.ai_tutor, research: !!c.research, at: c.created_at }
+        : null,
+      tutorAvailable: !!opts.tutor,
+    };
+  });
+
+  // ---------- consent ----------
+  app.post<{ Body: { version: string; dataProcessing: boolean; aiTutor: boolean; research: boolean } }>('/api/consent', {
+    preHandler: requireParent,
+    schema: {
+      body: {
+        type: 'object', additionalProperties: false,
+        required: ['version', 'dataProcessing', 'aiTutor', 'research'],
+        properties: { version: { type: 'string' }, dataProcessing: { type: 'boolean' }, aiTutor: { type: 'boolean' }, research: { type: 'boolean' } },
+      },
+    },
+  }, async (req, reply) => {
+    if (req.body.version !== CONSENT_VERSION) return reply.code(400).send({ error: 'Please review the latest consent text.' });
+    db.prepare('INSERT INTO consents (parent_id, version, data_processing, ai_tutor, research, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(req.parent!.id, req.body.version, req.body.dataProcessing ? 1 : 0, req.body.aiTutor ? 1 : 0, req.body.research ? 1 : 0, now());
+    if (!req.body.research) {
+      // Withdrawing research consent removes stored answer events.
+      db.prepare('DELETE FROM events WHERE child_id IN (SELECT id FROM children WHERE parent_id = ?)').run(req.parent!.id);
+    }
+    return { ok: true };
+  });
+
+  // ---------- parent PIN ----------
+  app.post<{ Body: { pin: string } }>('/api/pin', {
+    preHandler: requireParent,
+    schema: { body: { type: 'object', required: ['pin'], additionalProperties: false, properties: { pin: { type: 'string', pattern: '^\\d{4}$' } } } },
+  }, async (req) => {
+    db.prepare('UPDATE parents SET pin_hash = ? WHERE id = ?').run(await hashSecret(req.body.pin), req.parent!.id);
+    return { ok: true };
+  });
+
+  const pinLimiter = new RateLimiter(10, 15 * 60_000);
+  app.post<{ Body: { pin: string } }>('/api/pin/check', {
+    preHandler: requireParent,
+    schema: { body: { type: 'object', required: ['pin'], additionalProperties: false, properties: { pin: { type: 'string', maxLength: 10 } } } },
+  }, async (req, reply) => {
+    if (!pinLimiter.take(req.parent!.id, now())) return reply.code(429).send({ error: 'Too many tries. Try again later.' });
+    const row = db.prepare('SELECT pin_hash FROM parents WHERE id = ?').get(req.parent!.id) as { pin_hash: string | null };
+    return { ok: !!row.pin_hash && (await verifySecret(req.body.pin, row.pin_hash)) };
+  });
+
+  // ---------- children ----------
+  app.get('/api/children', { preHandler: requireParent }, async (req) => {
+    const rows = db.prepare('SELECT id, profile_json, version FROM children WHERE parent_id = ? ORDER BY created_at').all(req.parent!.id) as
+      { id: string; profile_json: string; version: number }[];
+    return rows.map((r) => ({ id: r.id, version: r.version, profile: JSON.parse(r.profile_json) }));
+  });
+
+  app.post<{ Body: { profile: Record<string, unknown> } }>('/api/children', {
+    preHandler: requireParent,
+    schema: { body: { type: 'object', required: ['profile'], properties: { profile: { type: 'object' } } } },
+  }, async (req, reply) => {
+    if (!hasDataConsent(req.parent!.id)) return reply.code(403).send({ error: 'Consent needed first.' });
+    const json = JSON.stringify(req.body.profile);
+    if (json.length > MAX_PROFILE_BYTES) return reply.code(413).send({ error: 'Profile too large.' });
+    const id = newId();
+    const t = now();
+    const profile = { ...req.body.profile, id };
+    db.prepare('INSERT INTO children (id, parent_id, profile_json, version, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)')
+      .run(id, req.parent!.id, JSON.stringify(profile), t, t);
+    return reply.code(201).send({ id, version: 1, profile });
+  });
+
+  /** Save a child's profile. `version` must match, so two devices can't silently overwrite each other. */
+  app.put<{ Params: { id: string }; Body: { profile: Record<string, unknown>; version: number } }>('/api/children/:id', {
+    preHandler: requireChild,
+    schema: { body: { type: 'object', required: ['profile', 'version'], properties: { profile: { type: 'object' }, version: { type: 'integer' } } } },
+  }, async (req, reply) => {
+    const json = JSON.stringify({ ...req.body.profile, id: req.params.id });
+    if (json.length > MAX_PROFILE_BYTES) return reply.code(413).send({ error: 'Profile too large.' });
+    const res = db.prepare('UPDATE children SET profile_json = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?')
+      .run(json, now(), req.params.id, req.body.version);
+    if (res.changes === 0) {
+      const cur = db.prepare('SELECT profile_json, version FROM children WHERE id = ?').get(req.params.id) as { profile_json: string; version: number };
+      return reply.code(409).send({ error: 'Updated on another device.', version: cur.version, profile: JSON.parse(cur.profile_json) });
+    }
+    return { version: req.body.version + 1 };
+  });
+
+  /** Erase a child and everything recorded about them. */
+  app.delete<{ Params: { id: string } }>('/api/children/:id', { preHandler: requireChild }, async (req) => {
+    db.prepare('DELETE FROM children WHERE id = ?').run(req.params.id);
+    return { ok: true };
+  });
+
+  // ---------- answer events and shared question difficulty ----------
+  interface EventIn {
+    at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean;
+    rapid: boolean; timeMs: number; predicted: number; misconception?: string | null; strategy?: string | null;
+  }
+  const eventSchema = {
+    type: 'object', additionalProperties: false,
+    required: ['at', 'skillId', 'level', 'itemKey', 'correct', 'hinted', 'rapid', 'timeMs', 'predicted'],
+    properties: {
+      at: { type: 'integer' }, skillId: { type: 'string', maxLength: 64 }, level: { type: 'integer', minimum: 1, maximum: 5 },
+      itemKey: { type: 'string', maxLength: 128 }, correct: { type: 'boolean' }, hinted: { type: 'boolean' }, rapid: { type: 'boolean' },
+      timeMs: { type: 'integer', minimum: 0 }, predicted: { type: 'number', minimum: 0, maximum: 1 },
+      misconception: { type: ['string', 'null'], maxLength: 128 }, strategy: { type: ['string', 'null'], maxLength: 32 },
+    },
+  } as const;
+
+  const loadItems = (): ItemStats => {
+    const rows = db.prepare('SELECT key, offset, n FROM items').all() as { key: string; offset: number; n: number }[];
+    return Object.fromEntries(rows.map((r) => [r.key, { offset: r.offset, n: r.n }]));
+  };
+
+  app.post<{ Params: { id: string }; Body: { events: EventIn[] } }>('/api/children/:id/events', {
+    preHandler: requireChild,
+    schema: { body: { type: 'object', required: ['events'], properties: { events: { type: 'array', maxItems: 200, items: eventSchema } } } },
+  }, async (req) => {
+    const research = latestConsent(req.parent!.id)?.research === 1;
+    const insert = db.prepare(`INSERT INTO events (child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const upsert = db.prepare('INSERT INTO items (key, offset, n) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET offset = excluded.offset, n = excluded.n');
+    let items = loadItems();
+    db.exec('BEGIN');
+    try {
+      for (const e of req.body.events) {
+        if (research) {
+          insert.run(req.params.id, e.at, e.skillId, e.level, e.itemKey, e.correct ? 1 : 0, e.hinted ? 1 : 0, e.rapid ? 1 : 0,
+            e.timeMs, e.predicted, e.misconception ?? null, e.strategy ?? null);
+        }
+        // Shared learning of question difficulty uses no personal data; skip hinted or rushed answers.
+        // The key must belong to the skill, so one bad client can't disturb other skills' data.
+        const keyOk = e.itemKey === `${e.skillId}:L${e.level}` || e.itemKey.startsWith(`${e.skillId}#`);
+        if (!e.hinted && !e.rapid && keyOk) {
+          const before = items;
+          items = updateItem(items, { id: e.itemKey, skillId: e.skillId, level: e.level as Level }, e.correct ? 1 : 0, e.predicted);
+          for (const [k, v] of Object.entries(items)) if (before[k] !== v) upsert.run(k, v.offset, v.n);
+        }
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { ok: true, stored: research ? req.body.events.length : 0 };
+  });
+
+  app.get('/api/items', async () => loadItems());
+
+  // ---------- AI tutor ----------
+  const tutorLimit = opts.tutorDailyLimit ?? 60;
+  app.post<{ Params: { id: string }; Body: { question: Question; given?: string; misconception?: string; history: TutorTurn[]; message: string } }>(
+    '/api/children/:id/tutor',
+    {
+      preHandler: requireChild,
+      schema: {
+        body: {
+          type: 'object', required: ['question', 'history', 'message'],
+          properties: {
+            question: {
+              type: 'object', required: ['skillId', 'level', 'id', 'prompt', 'answer', 'explanation'],
+              properties: {
+                skillId: { type: 'string', maxLength: 64 }, level: { type: 'integer' }, id: { type: 'string', maxLength: 300 },
+                prompt: { type: 'string', maxLength: 500 }, answer: { type: 'string', maxLength: 200 },
+                explanation: { type: 'string', maxLength: 1000 }, choices: { type: 'array', maxItems: 6, items: { type: 'string', maxLength: 200 } },
+              },
+            },
+            given: { type: 'string', maxLength: 200 },
+            misconception: { type: 'string', maxLength: 300 },
+            history: {
+              type: 'array', maxItems: 20,
+              items: { type: 'object', required: ['role', 'content'], properties: { role: { enum: ['user', 'assistant'] }, content: { type: 'string', maxLength: 1000 } } },
+            },
+            message: { type: 'string', minLength: 1, maxLength: 1000 },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!opts.tutor) return reply.code(503).send({ error: 'The tutor is not switched on.' });
+      if (latestConsent(req.parent!.id)?.ai_tutor !== 1) return reply.code(403).send({ error: 'A parent needs to switch on the AI tutor first.' });
+      const since = now() - 86_400_000;
+      const used = db.prepare("SELECT COUNT(*) AS n FROM tutor_messages WHERE child_id = ? AND role = 'user' AND at > ?").get(req.params.id, since) as { n: number };
+      if (used.n >= tutorLimit) return reply.code(429).send({ error: 'That\'s enough tutor chat for today. Try the hints and examples!' });
+
+      const result = await askTutor(opts.tutor, req.body);
+      const log = db.prepare('INSERT INTO tutor_messages (child_id, at, role, text, flagged) VALUES (?, ?, ?, ?, ?)');
+      log.run(req.params.id, now(), 'user', req.body.message.slice(0, 1000), null);
+      log.run(req.params.id, now(), 'assistant', result.reply, result.flagged);
+      return result;
+    },
+  );
+
+  /** Parents can read everything their child said to the tutor, and every reply. */
+  app.get<{ Params: { id: string } }>('/api/children/:id/tutor', { preHandler: requireChild }, async (req) =>
+    db.prepare('SELECT at, role, text, flagged FROM tutor_messages WHERE child_id = ? ORDER BY id DESC LIMIT 200').all(req.params.id));
+
+  // ---------- account deletion ----------
+  app.delete('/api/account', { preHandler: requireParent }, async (req, reply) => {
+    db.prepare('DELETE FROM parents WHERE id = ?').run(req.parent!.id); // cascades to everything else
+    reply.clearCookie(COOKIE, { path: '/' });
+    return { ok: true };
+  });
+
+  // ---------- research export (pseudonymised, research-consented events only) ----------
+  app.get('/api/admin/events.csv', async (req, reply) => {
+    if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
+    const salt = opts.exportSalt ?? opts.adminToken;
+    const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
+    const rows = db.prepare('SELECT child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy FROM events ORDER BY id')
+      .all() as Record<string, string | number | null>[];
+    const esc = (v: string | number | null) => (v === null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    const header = 'learner,at,skill,level,item,correct,hinted,rapid,time_ms,predicted,misconception,strategy';
+    const lines = rows.map((r) => [pseudo(String(r.child_id)), r.at, r.skill_id, r.level, r.item_key, r.correct, r.hinted, r.rapid, r.time_ms, r.predicted, r.misconception, r.strategy].map(esc).join(','));
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    return [header, ...lines].join('\n');
+  });
+
+  return app;
+}

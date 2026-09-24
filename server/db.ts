@@ -1,0 +1,89 @@
+/**
+ * SQLite storage, using Node's built-in `node:sqlite` (no native build step).
+ *
+ * Data minimisation (ICO Children's Code): children are identified by a random
+ * id; their first name lives only inside the profile the parent created. Answer
+ * events never contain names, and are only kept if the parent opted in to
+ * research use. Parents can delete a child or their whole account at any time.
+ */
+import { DatabaseSync } from 'node:sqlite';
+
+export type DB = DatabaseSync;
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS parents (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  pin_hash TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  parent_id TEXT NOT NULL REFERENCES parents(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS consents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_id TEXT NOT NULL REFERENCES parents(id) ON DELETE CASCADE,
+  version TEXT NOT NULL,
+  data_processing INTEGER NOT NULL,
+  ai_tutor INTEGER NOT NULL,
+  research INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS children (
+  id TEXT PRIMARY KEY,
+  parent_id TEXT NOT NULL REFERENCES parents(id) ON DELETE CASCADE,
+  profile_json TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  child_id TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  at INTEGER NOT NULL,
+  skill_id TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  item_key TEXT NOT NULL,
+  correct INTEGER NOT NULL,
+  hinted INTEGER NOT NULL,
+  rapid INTEGER NOT NULL,
+  time_ms INTEGER NOT NULL,
+  predicted REAL NOT NULL,
+  misconception TEXT,
+  strategy TEXT
+);
+CREATE INDEX IF NOT EXISTS events_child ON events(child_id);
+CREATE TABLE IF NOT EXISTS items (
+  key TEXT PRIMARY KEY,
+  offset REAL NOT NULL,
+  n INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tutor_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  child_id TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  at INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  text TEXT NOT NULL,
+  flagged TEXT
+);
+CREATE INDEX IF NOT EXISTS tutor_child ON tutor_messages(child_id, at);
+`;
+
+export function openDb(path: string): DB {
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA foreign_keys = ON;');
+  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
+  db.exec(SCHEMA);
+  return db;
+}
+
+/** Remove expired sessions and answer events older than the retention period. */
+export function pruneOldData(db: DB, now: number, retentionDays: number): void {
+  db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
+  db.prepare('DELETE FROM events WHERE at < ?').run(now - retentionDays * 86_400_000);
+  db.prepare('DELETE FROM tutor_messages WHERE at < ?').run(now - retentionDays * 86_400_000);
+}

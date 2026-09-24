@@ -12,12 +12,33 @@ const ITEMS_KEY = 'schoolzone:items:v1';
 export function loadProfiles(): Profile[] {
   try {
     const raw = localStorage.getItem(KEY);
-    const profiles = raw ? (JSON.parse(raw) as (Profile & { grade?: number })[]) : [];
-    // Early profiles stored `grade`; it is now `year`.
-    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp(), badges: p.badges ?? {}, rewards: p.rewards ?? {}, rewardsSetUp: p.rewardsSetUp ?? false, currency: p.currency ?? '£' }));
+    const profiles = raw ? (JSON.parse(raw) as Partial<Profile>[]) : [];
+    return profiles.map(normalizeProfile);
   } catch {
     return [];
   }
+}
+
+/** Fill in fields added in later versions, so older saved profiles keep working. */
+export function normalizeProfile(raw: Partial<Profile> & { grade?: number }): Profile {
+  const { grade, ...p } = raw;
+  return {
+    id: p.id ?? '',
+    name: p.name ?? 'Player',
+    avatar: p.avatar ?? '🦊',
+    year: p.year ?? grade ?? 6, // early profiles stored `grade`
+    createdAt: p.createdAt ?? Date.now(),
+    skills: p.skills ?? {},
+    history: p.history ?? [],
+    recentQuestionIds: p.recentQuestionIds ?? [],
+    misconceptions: p.misconceptions ?? {},
+    help: p.help ?? emptyHelp(),
+    badges: p.badges ?? {},
+    rewards: p.rewards ?? {},
+    rewardsSetUp: p.rewardsSetUp ?? false,
+    currency: p.currency ?? '£',
+    xp: p.xp ?? 0,
+  };
 }
 
 export function saveProfiles(profiles: Profile[]): void {
@@ -44,6 +65,7 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     rewards: {},
     rewardsSetUp: false,
     currency: '£',
+    xp: 0,
   };
 }
 

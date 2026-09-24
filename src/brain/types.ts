@@ -152,6 +152,8 @@ export interface Profile {
   rewardsSetUp: boolean;
   /** Currency symbol for money rewards, e.g. "£", "R", "$", "€". */
   currency: string;
+  /** Total XP earned (kept separately so trimming old history never lowers it). */
+  xp: number;
 }
 
 export interface EarnedBadge {

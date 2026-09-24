@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { api, serverAvailable, type AnswerEvent, type Me } from './api';
 import type { ItemStats } from './brain/items';
 import type { Profile, SubjectId } from './brain/types';
-import { loadItems, loadProfiles, saveItems, saveProfiles } from './storage';
+import { loadItems, loadParentPin, loadProfiles, normalizeProfile, saveItems, saveParentPin, saveProfiles } from './storage';
+import { flushEvents, ProfileSaver, queueEvent } from './sync';
+import { Auth } from './ui/Auth';
+import { Consent } from './ui/Consent';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
-import { ParentArea } from './ui/ParentArea';
-import { Practice } from './ui/Practice';
+import { ParentArea, type ParentTools } from './ui/ParentArea';
+import { Practice, type TutorFn } from './ui/Practice';
 import { ProfilePicker } from './ui/ProfilePicker';
 
 type Screen =
@@ -15,26 +19,139 @@ type Screen =
   | { name: 'dashboard' }
   | { name: 'parents' };
 
+/** 'cloud' when a Schoolzone server is reachable; otherwise everything stays on this device. */
+type Mode = 'checking' | 'local' | 'cloud';
+
 export function App() {
-  const [profiles, setProfiles] = useState<Profile[]>(loadProfiles);
+  const [mode, setMode] = useState<Mode>('checking');
+  const [me, setMe] = useState<Me | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [items, setItems] = useState<ItemStats>(loadItems);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'profiles' });
+  const [error, setError] = useState('');
 
-  const [items, setItems] = useState<ItemStats>(loadItems);
+  const saver = useRef<ProfileSaver | null>(null);
+  if (!saver.current && typeof window !== 'undefined') {
+    saver.current = new ProfileSaver((serverProfile) => {
+      const p = normalizeProfile(serverProfile);
+      setProfiles((all) => all.map((x) => (x.id === p.id ? p : x)));
+    });
+  }
 
-  useEffect(() => saveProfiles(profiles), [profiles]);
+  const loadCloud = useCallback(async () => {
+    try {
+      const who = await api.me();
+      setMe(who);
+      if (!who.consent) return;
+      const children = await api.children();
+      children.forEach((c) => saver.current!.setVersion(c.id, c.version));
+      setProfiles(children.map((c) => normalizeProfile({ ...c.profile, id: c.id })));
+      const shared = await api.items().catch(() => null);
+      if (shared) setItems((local) => ({ ...local, ...shared }));
+      void flushEvents();
+    } catch {
+      setMe(null); // not signed in
+    }
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      if (await serverAvailable()) {
+        setMode('cloud');
+        await loadCloud();
+      } else {
+        setMode('local');
+        setProfiles(loadProfiles());
+      }
+    })();
+  }, [loadCloud]);
+
+  useEffect(() => { if (mode === 'local') saveProfiles(profiles); }, [mode, profiles]);
   useEffect(() => saveItems(items), [items]);
 
   const current = profiles.find((p) => p.id === currentId) ?? null;
-  const updateProfile = (p: Profile) => setProfiles((all) => all.map((x) => (x.id === p.id ? p : x)));
+
+  const updateProfile = useCallback((p: Profile) => {
+    setProfiles((all) => all.map((x) => (x.id === p.id ? p : x)));
+    if (mode === 'cloud') saver.current!.save(p);
+  }, [mode]);
+
+  const createProfile = async (p: Profile) => {
+    setError('');
+    if (mode === 'cloud') {
+      try {
+        const created = await api.createChild(p);
+        saver.current!.setVersion(created.id, created.version);
+        const np = normalizeProfile({ ...created.profile, id: created.id });
+        setProfiles((all) => [...all, np]);
+        setCurrentId(np.id);
+      } catch (e) {
+        setError((e as Error).message);
+        return;
+      }
+    } else {
+      setProfiles((all) => [...all, p]);
+      setCurrentId(p.id);
+    }
+    setScreen({ name: 'home' });
+  };
+
+  const deleteProfile = async (id: string) => {
+    if (mode === 'cloud') await api.deleteChild(id);
+    setProfiles((all) => all.filter((p) => p.id !== id));
+    setCurrentId(null);
+    setScreen({ name: 'profiles' });
+  };
+
+  const onAnswer = useCallback((childId: string, e: AnswerEvent) => {
+    if (mode === 'cloud') queueEvent(childId, e);
+  }, [mode]);
+
+  const tutor: TutorFn | undefined = useMemo(() => {
+    if (mode !== 'cloud' || !me?.tutorAvailable || !me.consent?.aiTutor || !current) return undefined;
+    const id = current.id;
+    return (body) => api.tutor(id, body);
+  }, [mode, me, current]);
+
+  const parentTools: ParentTools = mode === 'cloud' && me
+    ? {
+        hasPin: me.hasPin,
+        checkPin: async (pin) => (await api.checkPin(pin)).ok,
+        setPin: async (pin) => { await api.setPin(pin); setMe({ ...me, hasPin: true }); },
+        cloud: {
+          email: me.email,
+          consent: me.consent!,
+          safetyFlags: me.safetyFlags,
+          tutorAvailable: me.tutorAvailable,
+          updateConsent: async (c) => { await api.consent(c); await loadCloud(); },
+          tutorLog: (childId) => api.tutorLog(childId),
+          deleteChild: deleteProfile,
+          deleteAccount: async () => { await api.deleteAccount(); setMe(null); setProfiles([]); setScreen({ name: 'profiles' }); },
+          signOut: async () => { await api.logout(); setMe(null); setProfiles([]); setScreen({ name: 'profiles' }); },
+        },
+      }
+    : {
+        hasPin: loadParentPin() !== null,
+        checkPin: async (pin) => pin === loadParentPin(),
+        setPin: async (pin) => saveParentPin(pin),
+        deleteLocal: deleteProfile,
+      };
+
+  if (mode === 'checking') {
+    return <main className="page center-screen"><p className="loading">Loading Schoolzone…</p></main>;
+  }
+  if (mode === 'cloud' && !me) return <Auth onDone={loadCloud} />;
+  if (mode === 'cloud' && me && !me.consent) return <Consent tutorAvailable={me.tutorAvailable} onDone={loadCloud} />;
 
   if (!current || screen.name === 'profiles') {
     return (
       <ProfilePicker
         profiles={profiles}
+        error={error}
+        offline={mode === 'local'}
         onPick={(id) => { setCurrentId(id); setScreen({ name: 'home' }); }}
-        onCreate={(p) => { setProfiles((all) => [...all, p]); setCurrentId(p.id); setScreen({ name: 'home' }); }}
-        onDelete={(id) => setProfiles((all) => all.filter((p) => p.id !== id))}
+        onCreate={createProfile}
       />
     );
   }
@@ -46,6 +163,7 @@ export function App() {
         key={current.id}
         profile={current}
         firstTime={!current.rewardsSetUp}
+        tools={parentTools}
         onSave={updateProfile}
         onDone={() => setScreen({ name: 'home' })}
         onCancel={() => setScreen({ name: 'profiles' })}
@@ -58,6 +176,7 @@ export function App() {
       return (
         <Home
           profile={current}
+          offline={mode === 'local'}
           onPractice={(subject) => setScreen({ name: 'practice', subject })}
           onDashboard={() => setScreen({ name: 'dashboard' })}
           onParents={() => setScreen({ name: 'parents' })}
@@ -73,6 +192,8 @@ export function App() {
           onUpdate={updateProfile}
           items={items}
           onItems={setItems}
+          onAnswer={onAnswer}
+          tutor={tutor}
           onExit={() => setScreen({ name: 'home' })}
         />
       );

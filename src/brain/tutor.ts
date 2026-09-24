@@ -7,6 +7,7 @@
 import { canTest } from '../content';
 import { getSkill, skillsFor } from '../content/skills';
 import { awardBadges } from './badges';
+import { XP_BADGE, XP_RESOLVED, xpForAnswer } from './xp';
 import { emptyHelp, updateHelp, type HelpEvent } from './help';
 import { itemKey, itemOffset, updateItem, type ItemStats } from './items';
 import { activeMisconceptionFor, diagnose, updateMisconceptions } from './misconceptions';
@@ -224,6 +225,8 @@ export interface AnswerResult {
   event: HelpEvent;
   /** Badges earned with this answer. */
   badges: string[];
+  /** XP earned with this answer (including bonuses). */
+  xp: number;
 }
 
 /** Record an answer and update everything the brain knows. */
@@ -263,5 +266,10 @@ export function recordAnswer(
   // Rapid guesses and hinted answers say little about the question itself.
   const nextItems = rapid || hinted ? items : updateItem(items, question, answerScore(correct), predicted);
   const { profile: withBadges, earned } = awardBadges({ ...updated, help }, now);
-  return { profile: withBadges, items: nextItems, predicted, misconception, rapid, event, badges: earned };
+  const xp = xpForAnswer({ correct, hinted, rapid, level: question.level })
+    + (event === 'resolved' ? XP_RESOLVED : 0) + earned.length * XP_BADGE;
+  return {
+    profile: { ...withBadges, xp: (withBadges.xp ?? 0) + xp },
+    items: nextItems, predicted, misconception, rapid, event, badges: earned, xp,
+  };
 }

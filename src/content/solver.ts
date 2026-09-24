@@ -290,7 +290,7 @@ export function wordsIn(q: Question): { term: string; meaning: string }[] {
 const tidy = (s: string) => s.toLowerCase().replace(/−/g, '-');
 
 /** True if the text gives the answer away. */
-function revealsAnswer(text: string, answer: string): boolean {
+export function revealsAnswer(text: string, answer: string): boolean {
   const t = tidy(text), a = tidy(answer).trim().replace(/%$/, '');
   if (/^-?[\d.]+(\/\d+)?%?$|^\d+ \d+\/\d+$/.test(a)) {
     const escaped = a.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');

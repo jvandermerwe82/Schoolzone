@@ -7,8 +7,11 @@ import { SKILLS } from '../content/skills';
 import { isMastered } from './model';
 import type { Profile, SubjectId } from './types';
 
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+
 export interface Badge {
   id: string;
+  rarity: Rarity;
   emoji: string;
   name: string;
   /** How to earn it, shown to the child (unless hidden and not yet earned). */
@@ -58,40 +61,40 @@ const masteredAllYear6 = (p: Profile, subject: SubjectId) =>
   year6Skills(subject).every((s) => p.skills[s.id] && isMastered(p.skills[s.id]));
 
 export const BADGES: Badge[] = [
-  { id: 'first-steps', emoji: '🌱', name: 'First Steps', description: 'Answer your first 10 questions.',
+  { id: 'first-steps', rarity: 'common', emoji: '🌱', name: 'First Steps', description: 'Answer your first 10 questions.',
     suggestion: 'A sticker', earned: (p) => answered(p) >= 10 },
-  { id: 'hot-streak', emoji: '🔥', name: 'Hot Streak', description: 'Get 5 right in a row without a hint.',
+  { id: 'hot-streak', rarity: 'common', emoji: '🔥', name: 'Hot Streak', description: 'Get 5 right in a row without a hint.',
     suggestion: 'Choose what\'s for pudding', earned: (p) => bestStreak(p) >= 5 },
-  { id: 'unstoppable', emoji: '☄️', name: 'Unstoppable', description: 'Get 15 right in a row without a hint.',
+  { id: 'unstoppable', rarity: 'rare', emoji: '☄️', name: 'Unstoppable', description: 'Get 15 right in a row without a hint.',
     suggestion: '15 minutes of extra screen time', earned: (p) => bestStreak(p) >= 15 },
-  { id: 'first-mastery', emoji: '⭐', name: 'First Mastery', description: 'Master your first skill.',
+  { id: 'first-mastery', rarity: 'common', emoji: '⭐', name: 'First Mastery', description: 'Master your first skill.',
     suggestion: 'Stay up 15 minutes later', earned: (p) => masteredCount(p) >= 1 },
-  { id: 'star-learner', emoji: '🌟', name: 'Star Learner', description: 'Master 5 skills.',
+  { id: 'star-learner', rarity: 'rare', emoji: '🌟', name: 'Star Learner', description: 'Master 5 skills.',
     suggestion: 'A trip to the park', earned: (p) => masteredCount(p) >= 5 },
-  { id: 'summit', emoji: '🏔️', name: 'Summit', description: 'Get a level-5 question right without a hint.',
+  { id: 'summit', rarity: 'rare', emoji: '🏔️', name: 'Summit', description: 'Get a level-5 question right without a hint.',
     suggestion: 'Pick a film for movie night', earned: (p) => p.history.some((h) => h.level === 5 && h.correct && !h.hinted) },
-  { id: 'regular', emoji: '📅', name: 'Regular', description: 'Practise on 3 different days.',
+  { id: 'regular', rarity: 'common', emoji: '📅', name: 'Regular', description: 'Practise on 3 different days.',
     suggestion: 'A small treat', earned: (p) => practiceDays(p).size >= 3 },
-  { id: 'week-warrior', emoji: '🗓️', name: 'Week Warrior', description: 'Practise 7 days in a row.',
+  { id: 'week-warrior', rarity: 'epic', emoji: '🗓️', name: 'Week Warrior', description: 'Practise 7 days in a row.',
     suggestion: 'A day out of your choice', earned: (p) => bestDayRun(p) >= 7 },
-  { id: 'century', emoji: '💯', name: 'Century', description: 'Answer 100 questions.',
+  { id: 'century', rarity: 'rare', emoji: '💯', name: 'Century', description: 'Answer 100 questions.',
     suggestion: 'A new book', earned: (p) => answered(p) >= 100 },
-  { id: 'marathon', emoji: '🏃', name: 'Marathon', description: 'Answer 500 questions.',
+  { id: 'marathon', rarity: 'epic', emoji: '🏃', name: 'Marathon', description: 'Answer 500 questions.',
     suggestion: 'A bigger treat', earned: (p) => answered(p) >= 500 },
-  { id: 'maths-champion', emoji: '🧮', name: 'Year 6 Maths Champion', description: 'Master every Year 6 maths skill.',
+  { id: 'maths-champion', rarity: 'legendary', emoji: '🧮', name: 'Year 6 Maths Champion', description: 'Master every Year 6 maths skill.',
     suggestion: 'Something special', earned: (p) => masteredAllYear6(p, 'maths') },
-  { id: 'english-champion', emoji: '📖', name: 'Year 6 English Champion', description: 'Master every Year 6 English skill.',
+  { id: 'english-champion', rarity: 'legendary', emoji: '📖', name: 'Year 6 English Champion', description: 'Master every Year 6 English skill.',
     suggestion: 'Something special', earned: (p) => masteredAllYear6(p, 'english') },
-  { id: 'science-champion', emoji: '🔬', name: 'Year 6 Science Champion', description: 'Master every Year 6 science skill.',
+  { id: 'science-champion', rarity: 'legendary', emoji: '🔬', name: 'Year 6 Science Champion', description: 'Master every Year 6 science skill.',
     suggestion: 'Something special', earned: (p) => masteredAllYear6(p, 'science') },
   // Easter eggs
-  { id: 'comeback-kid', emoji: '💪', name: 'Comeback Kid', hidden: true, description: 'Get stuck on a problem, then crack it on your own.',
+  { id: 'comeback-kid', rarity: 'rare', emoji: '💪', name: 'Comeback Kid', hidden: true, description: 'Get stuck on a problem, then crack it on your own.',
     suggestion: 'A high five and a treat', earned: (p) => (p.help?.resolved ?? 0) >= 1 },
-  { id: 'never-give-up', emoji: '🧗', name: 'Never Give Up', hidden: true, description: 'Work through 5 tricky problems.',
+  { id: 'never-give-up', rarity: 'epic', emoji: '🧗', name: 'Never Give Up', hidden: true, description: 'Work through 5 tricky problems.',
     suggestion: 'Choose a family activity', earned: (p) => (p.help?.resolved ?? 0) >= 5 },
-  { id: 'bug-squasher', emoji: '🐛', name: 'Bug Squasher', hidden: true, description: 'Stop making a mistake you used to make.',
+  { id: 'bug-squasher', rarity: 'rare', emoji: '🐛', name: 'Bug Squasher', hidden: true, description: 'Stop making a mistake you used to make.',
     suggestion: 'A small treat', earned: (p) => Object.values(p.misconceptions ?? {}).some((m) => m.fixedAt !== null) },
-  { id: 'all-rounder', emoji: '🎨', name: 'All-Rounder', hidden: true, description: 'Practise maths, English and science on the same day.',
+  { id: 'all-rounder', rarity: 'rare', emoji: '🎨', name: 'All-Rounder', hidden: true, description: 'Practise maths, English and science on the same day.',
     suggestion: 'Pick tonight\'s dinner', earned: (p) => {
       const subjectsByDay = new Map<string, Set<string>>();
       for (const h of p.history) {

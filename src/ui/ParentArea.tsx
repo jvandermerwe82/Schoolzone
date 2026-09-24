@@ -1,9 +1,30 @@
 import { useState } from 'react';
+import type { Consent } from '../api';
 import { BADGES, formatMoney, moneyTotals, parseMoney, rewardsOwed } from '../brain/badges';
 import type { BadgeReward, Profile } from '../brain/types';
-import { loadParentPin, saveParentPin } from '../storage';
+
+/** What the parent area can do. Server mode adds account and privacy controls. */
+export interface ParentTools {
+  hasPin: boolean;
+  checkPin: (pin: string) => Promise<boolean>;
+  setPin: (pin: string) => Promise<void>;
+  /** On-device mode: remove this player from the device. */
+  deleteLocal?: (childId: string) => Promise<void>;
+  cloud?: {
+    email: string;
+    consent: Consent;
+    safetyFlags: number;
+    tutorAvailable: boolean;
+    updateConsent: (c: { dataProcessing: boolean; aiTutor: boolean; research: boolean }) => Promise<void>;
+    tutorLog: (childId: string) => Promise<{ at: number; role: string; text: string; flagged: string | null }[]>;
+    deleteChild: (childId: string) => Promise<void>;
+    deleteAccount: () => Promise<void>;
+    signOut: () => Promise<void>;
+  };
+}
 
 interface Props {
+  tools: ParentTools;
   profile: Profile;
   onSave: (p: Profile) => void;
   onDone: () => void;
@@ -14,30 +35,33 @@ interface Props {
 }
 
 /** PIN gate: create a PIN the first time, then ask for it. */
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const existing = loadParentPin();
+function PinGate({ tools, onUnlock }: { tools: ParentTools; onUnlock: () => void }) {
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
-  const creating = existing === null;
+  const creating = !tools.hasPin;
   return (
     <form
-      className="card form"
-      onSubmit={(e) => {
+      className="card form narrow-card"
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (creating) {
-          if (!/^\d{4}$/.test(pin)) return setError('Please use 4 digits.');
-          if (pin !== confirm) return setError('The two PINs don\'t match.');
-          saveParentPin(pin);
-          onUnlock();
-        } else if (pin === existing) onUnlock();
-        else setError('That PIN isn\'t right.');
+        try {
+          if (creating) {
+            if (!/^\d{4}$/.test(pin)) return setError('Please use 4 digits.');
+            if (pin !== confirm) return setError('The two PINs don\'t match.');
+            await tools.setPin(pin);
+            onUnlock();
+          } else if (await tools.checkPin(pin)) onUnlock();
+          else setError('That PIN isn\'t right.');
+        } catch (err) {
+          setError((err as Error).message);
+        }
       }}
     >
-      <h2>👪 Parents only</h2>
+      <h2>Parents only</h2>
       <p className="muted">
         {creating
-          ? 'Create a 4-digit parent PIN. It keeps the rewards settings for grown-ups. (It only keeps children out casually; it isn\'t strong security.)'
+          ? 'Create a 4-digit parent PIN to keep rewards and settings for grown-ups. It keeps children out casually; it isn\'t strong security.'
           : 'Enter the parent PIN.'}
       </p>
       <label>
@@ -50,13 +74,89 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
           <input type="password" inputMode="numeric" maxLength={4} value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required />
         </label>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       <button type="submit" className="primary">{creating ? 'Create PIN' : 'Unlock'}</button>
     </form>
   );
 }
 
-export function ParentArea({ profile, onSave, onDone, onCancel, firstTime }: Props) {
+/** Account, privacy and data controls. */
+function Privacy({ tools, profile }: { tools: ParentTools; profile: Profile }) {
+  const cloud = tools.cloud;
+  const [log, setLog] = useState<Awaited<ReturnType<NonNullable<ParentTools['cloud']>['tutorLog']>> | null>(null);
+  const [msg, setMsg] = useState('');
+  const confirmDelete = (what: string) => window.confirm(`Delete ${what}? This can't be undone.`);
+
+  if (!cloud) {
+    return (
+      <section className="card">
+        <h2>Data on this device</h2>
+        <p className="muted">Offline mode: {profile.name}'s progress is saved only in this browser. Nothing is sent anywhere.</p>
+        <button className="danger" onClick={() => confirmDelete(`${profile.name}'s player and progress`) && tools.deleteLocal?.(profile.id)}>
+          Delete {profile.name}'s player
+        </button>
+      </section>
+    );
+  }
+  const c = cloud.consent;
+  return (
+    <section className="card">
+      <h2>Account &amp; privacy</h2>
+      {cloud.safetyFlags > 0 && (
+        <p className="banner help" role="alert">
+          ⚠ {cloud.safetyFlags} AI tutor {cloud.safetyFlags === 1 ? 'message was' : 'messages were'} flagged in the last 30 days.
+          Please read the chats below. Flagged messages are never sent to the AI; your child was shown a message pointing them to a trusted adult and Childline (0800 1111).
+        </p>
+      )}
+      <p className="muted">Signed in as {cloud.email}.</p>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={c.aiTutor}
+          disabled={!cloud.tutorAvailable}
+          onChange={async (e) => { await cloud.updateConsent({ dataProcessing: true, aiTutor: e.target.checked, research: c.research }); setMsg('Saved.'); }}
+        />
+        <span><strong>AI tutor</strong>: {profile.name} can ask Claude AI about a question. {!cloud.tutorAvailable && <em>(Not switched on for this server.)</em>}</span>
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={c.research}
+          onChange={async (e) => { await cloud.updateConsent({ dataProcessing: true, aiTutor: c.aiTutor, research: e.target.checked }); setMsg(e.target.checked ? 'Saved.' : 'Saved. Stored answers have been deleted.'); }}
+        />
+        <span><strong>Help improve Schoolzone</strong>: keep answers without names, for up to a year. Unticking deletes them.</span>
+      </label>
+      {msg && <p className="muted" role="status">{msg}</p>}
+      <div className="row">
+        <button onClick={async () => setLog(await cloud.tutorLog(profile.id))}>Read {profile.name}'s AI tutor chats</button>
+        <button onClick={() => cloud.signOut()}>Sign out</button>
+      </div>
+      {log && (
+        <div className="chat-log">
+          {log.length === 0 && <p className="muted">No tutor chats yet.</p>}
+          {log.map((m, i) => (
+            <p key={i} className={`chat-line ${m.role}`}>
+              <small className="muted">{new Date(m.at).toLocaleString()}</small><br />
+              <strong>{m.role === 'user' ? profile.name : 'AI tutor'}:</strong> {m.text}
+              {m.flagged?.startsWith('safety:') && <strong className="error"> ⚠ Flagged for you to check ({m.flagged.slice(7)}). This message was not sent to the AI.</strong>}
+              {m.flagged && !m.flagged.startsWith('safety:') && <em className="muted"> (the AI's reply was replaced with a safe hint: {m.flagged})</em>}
+            </p>
+          ))}
+        </div>
+      )}
+      <div className="row danger-zone">
+        <button className="danger" onClick={() => confirmDelete(`all of ${profile.name}'s data`) && cloud.deleteChild(profile.id)}>
+          Delete {profile.name}'s data
+        </button>
+        <button className="danger" onClick={() => confirmDelete('your account and all your children\'s data') && cloud.deleteAccount()}>
+          Delete my account
+        </button>
+      </div>
+    </section>
+  );
+}
+
+export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime }: Props) {
   const [unlocked, setUnlocked] = useState(false);
   const [rewards, setRewards] = useState<Record<string, BadgeReward>>(() =>
     Object.fromEntries(BADGES.map((b) => {
@@ -77,19 +177,19 @@ export function ParentArea({ profile, onSave, onDone, onCancel, firstTime }: Pro
     <main className="page wide-page">
       <header className="topbar">
         {firstTime
-          ? <button className="link" onClick={onCancel}>← Switch learner</button>
+          ? <button className="link" onClick={onCancel}>← Switch player</button>
           : <button className="link" onClick={onDone}>← Back</button>}
-        <span className="who"><span className="avatar small">{profile.avatar}</span> {profile.name}'s badges &amp; rewards</span>
+        <span className="who"><span className="avatar small">{profile.avatar}</span> Parent area: {profile.name}</span>
       </header>
 
       {firstTime && (
         <p className="banner help">
-          Before {profile.name} starts, a grown-up needs to decide what each badge is worth.
+          Before {profile.name} starts, a grown-up needs to decide what each achievement is worth.
         </p>
       )}
 
       {!unlocked ? (
-        <PinGate onUnlock={() => setUnlocked(true)} />
+        <PinGate tools={tools} onUnlock={() => setUnlocked(true)} />
       ) : (
         <>
           {owed.length > 0 && (
@@ -122,10 +222,10 @@ export function ParentArea({ profile, onSave, onDone, onCancel, firstTime }: Pro
               onDone();
             }}
           >
-            <h2>🏅 What is each badge worth?</h2>
+            <h2>What is each achievement worth?</h2>
             <p className="muted">
               Write any reward you like, add an amount of money, or both. Leave both blank for "just the badge".
-              Untick a badge to switch it off. Easter eggs are secret: {profile.name} only sees "???" until earning them.
+              Untick one to switch it off. Easter eggs are secret: {profile.name} only sees "Secret" until earning them.
             </p>
             <label className="currency">
               Currency for money rewards
@@ -170,6 +270,8 @@ export function ParentArea({ profile, onSave, onDone, onCancel, firstTime }: Pro
             ))}
             <button type="submit" className="primary wide">{firstTime ? `Save and let ${profile.name} start` : 'Save rewards'}</button>
           </form>
+
+          {!firstTime && <Privacy tools={tools} profile={profile} />}
         </>
       )}
     </main>

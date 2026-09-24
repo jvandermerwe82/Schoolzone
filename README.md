@@ -8,12 +8,66 @@ Extra maths, English and science practice for kids, with a **brain** that learns
 
 ```bash
 npm install
-npm run dev      # open the URL it prints
-npm test         # brain, content and simulated-learner tests
-npm run build    # production build in dist/
+npm test                  # all tests (brain, content, badges, server API)
+
+# App only (offline mode: progress stays in this browser)
+npm run dev
+
+# App + server (accounts, sync, AI tutor)
+cp .env.example .env      # add ANTHROPIC_API_KEY to switch the AI tutor on
+npm run dev:server        # API on http://127.0.0.1:8787
+npm run dev               # app; /api calls are proxied to the server
+
+# Try the AI tutor screens without an API key (scripted replies, real safety checks)
+npm run preview:scripted-tutor   # http://127.0.0.1:8788
+
+# Production: build, then serve app + API from one process behind HTTPS
+npm run build && npm start
 ```
 
-Progress is saved in the browser (localStorage), so no account or server is needed yet.
+If no server is reachable, the app runs in **offline mode**: everything stays in the browser and nothing is sent anywhere.
+
+## Server ("the plumbing")
+
+`server/` is a small Node server (Fastify, with Node's built-in SQLite). What it does:
+
+| Area | What's in place |
+| --- | --- |
+| **Accounts** | Parent accounts (children never have logins). Passwords hashed with scrypt. Only a hash of each session token is stored. Cookies are http-only and SameSite=Lax, and Secure in production. Logins, sign-ups and PIN checks are rate-limited. |
+| **Consent** | Versioned parental consent is recorded before any child data is stored. The AI tutor and research use are separate opt-ins, off by default. |
+| **Data minimisation** | Only first name or nickname, year, avatar and practice data are stored. Children get random ids, and names never appear in answer logs. |
+| **Sync** | Profiles are saved with version checks, so two devices can't silently overwrite each other; the copy with more practice wins. Answers queue on the device and are sent in batches, so nothing is lost offline. |
+| **Shared learning** | Question difficulty is learned from every child's answers across the whole server, not per device. This uses no personal data. |
+| **Research data** | Answer events are stored only with research consent. An admin export (`ADMIN_TOKEN`) gives pseudonymised CSV with no names or real ids. |
+| **Deletion and retention** | Parents can delete a child or their whole account. Everything is removed. Withdrawing research consent deletes stored answers. Old events and chats are pruned after `RETENTION_DAYS`. |
+| **AI tutor** | Claude via the official SDK (`TUTOR_MODEL`, default `claude-opus-5`, with Anthropic's server-side safety fallback enabled). It's switched on only with an API key and parental opt-in. Details below. |
+
+### AI tutor safeguards
+
+Anthropic has [guidelines for organisations whose products are used by minors](https://support.claude.com/en/articles/9307344-responsible-use-of-anthropic-s-models-guidelines-for-organizations-serving-minors). How each is covered:
+
+- **Clear that it's an AI:** the panel is labelled "AI tutor" and explains it's a computer program, not a person. The model is told to say so if asked.
+- **Safety guidance for children:** shown before the first message (don't share personal details; a parent can read chats).
+- **Content screening:** worrying messages (self-harm, being hurt, sexual content, arranging contact, violence) are never sent to the AI. The child gets a kind, fixed reply pointing to a trusted adult and [Childline, free on 0800 1111](https://www.childline.org.uk/). The message is flagged for the parent. AI replies are screened the same way.
+- **Contact details:** emails, phone numbers and links are removed before anything is sent.
+- **Never gives the answer:** tutors that hand out answers can harm learning ([Bastani et al., PNAS 2025](https://www.pnas.org/doi/10.1073/pnas.2422633122)). Every reply is checked by code: if it contains the answer or a wrong sum, it's retried once and then replaced with a pre-written hint.
+- **Monitoring:** parents can read every chat. Flagged messages are highlighted with a warning in the parent area.
+- **Limits:** 60 messages per child per day by default (`TUTOR_DAILY_LIMIT`).
+
+The safety screen is a simple word-and-phrase check. It will flag some harmless messages and miss some worrying ones. It's a first layer, not a full moderation system.
+
+### Before children use it: pilot checklist
+
+In place and tested: everything above (server API tests cover auth, consent, privacy between families, sync conflicts, events, research export, deletion, retention, tutor safeguards and safety flags).
+
+Still needed, and some of these are decisions for you:
+- [ ] **Hosting** with HTTPS, plus a backup plan for the database file (SQLite suits a single-server pilot).
+- [ ] **An Anthropic API key.** Then review Anthropic's minors guidelines, and add Anthropic's child-safety system prompt if they provide one.
+- [ ] **A privacy notice and a data protection impact assessment.** The [ICO Children's Code](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/) applies to UK services likely to be used by children. Having someone qualified review the consent wording is worthwhile.
+- [ ] **A process for flagged chats:** who reads them, and how quickly.
+- [ ] **Password reset and email verification.** Not built yet.
+- [ ] **A Year 6 teacher's review** of the questions, explanations and topic notes.
+- [ ] **An evaluation plan:** short checkpoint tests before and after the pilot, to measure whether it actually helps.
 
 ## What's covered
 
@@ -88,6 +142,17 @@ Every question has a **🧩 Problem Solver** panel the child can open (`src/cont
 
 Using the Problem Solver is encouraged. The answer then counts as practice (half credit, not proof of mastery), the same as a hint.
 
+## Look and feel
+
+The app is designed for Year 6 (age 10–11), not young children. The [Nielsen Norman Group](https://www.nngroup.com/articles/childrens-websites-usability-issues/) found children are acutely aware of age: they reject designs that look aimed at younger kids, and advise designing separately for 9–12s. Online gaming is near-universal at this age: 78% of 8–9-year-olds play online according to Ofcom's 2025 report, and Roblox was UK 7–12s' top mobile game in Childwise's summer 2025 survey ([Kidscreen](https://kidscreen.com/2025/10/17/which-roblox-games-are-kids-favorites/)). So the app uses the language of games:
+- dark, game-launcher look with colour-coded **zones** (Maths, English, Science);
+- a **player card** with level, XP bar and day streak;
+- **missions** of 10 questions, with a progress bar, streak counter and "+XP" pop-ups;
+- **achievements** with rarity (Common to Legendary), including secret Easter eggs;
+- teen-friendly avatars and plain, non-babyish wording.
+
+XP rewards effort: unaided correct answers earn most, answers after a hint earn half, rushed guesses earn nothing. The app uses the device's own fonts, so no font service receives children's IP addresses.
+
 ## Badges and rewards
 
 Children earn **badges** for reaching levels (for example "Year 6 Maths Champion" for mastering every Year 6 maths skill) and for achievements like streaks, practice days and 100 questions answered. Some are **Easter eggs** that stay secret ("???") until found:
@@ -111,7 +176,9 @@ The PIN is stored on the device and only keeps children out casually. It isn't s
 ```
 src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
 src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, Problem Solver (hints, notes, word meanings)
-src/ui/        React screens: profiles, home (with badges), practice, parent dashboard, parent rewards area
+src/ui/        React screens: sign-in, consent, player select, home, missions, skills, parent area
+src/api.ts     server client; src/sync.ts: offline-safe syncing
+server/        API (app.ts), database (db.ts), security, AI tutor (tutor.ts), safety screening (safety.ts), tests
 ```
 
 ## Adding content
@@ -121,11 +188,10 @@ src/ui/        React screens: profiles, home (with badges), practice, parent das
 
 ## Next steps worth considering
 
-- Accounts and a backend so progress syncs across devices, plus a parent login.
 - Fitting the constants to real data, per skill.
 - An LLM tutor that talks through mistakes in the child's own words, using the learner model (and the diagnosed misconception) as context.
 - More mistake patterns, especially for English grammar and science, where only some wrong options are tagged so far.
-- Sharing question difficulty across all children (needs a backend); today it is learned per device.
+- A child-friendly light theme option.
 - Review of the English and science question banks by a Year 6 teacher.
 - Reading comprehension (needs passages written or licensed for the app).
 - Remaining Year 6 maths topics: ratio, converting units, coordinates and pie charts.

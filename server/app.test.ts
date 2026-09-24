@@ -1,0 +1,315 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { Question } from '../src/brain/types';
+import { buildApp, CONSENT_VERSION } from './app';
+import { openDb, pruneOldData, type DB } from './db';
+import { findWrongSum, scrub, type TutorModel } from './tutor';
+
+const PASSWORD = 'correct horse battery';
+
+/** A stand-in for Claude that returns scripted replies, so tests never call the real API. */
+class FakeTutor implements TutorModel {
+  calls: { system: string; messages: { role: string; content: string }[] }[] = [];
+  constructor(private replies: string[]) {}
+  async reply(system: string, messages: { role: 'user' | 'assistant'; content: string }[]) {
+    this.calls.push({ system, messages });
+    return { text: this.replies.shift() ?? 'What could you try first?', refused: false };
+  }
+}
+
+const question: Question = {
+  skillId: 'addition', level: 4, id: 'addition:47 + 38 = ?', prompt: '47 + 38 = ?', answer: '85',
+  explanation: 'Add the ones first: 7 + 8 = 15. That makes 15, so write 5 and carry 1. Then add the rest: 47 + 38 = 85.',
+};
+
+function setup(tutor: TutorModel | null = null, extra: Partial<Parameters<typeof buildApp>[0]> = {}) {
+  const db = openDb(':memory:');
+  const app = buildApp({ db, tutor, adminToken: 'admin-secret', exportSalt: 'salt', ...extra });
+  return { db, app };
+}
+
+async function signUp(app: ReturnType<typeof buildApp>, email = 'parent@example.com') {
+  const res = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email, password: PASSWORD } });
+  expect(res.statusCode).toBe(201);
+  const cookie = res.cookies.find((c) => c.name === 'sz_session')!;
+  return { cookie: `sz_session=${cookie.value}`, raw: cookie };
+}
+
+async function consent(app: ReturnType<typeof buildApp>, cookie: string, aiTutor = true, research = true) {
+  const res = await app.inject({
+    method: 'POST', url: '/api/consent', headers: { cookie },
+    payload: { version: CONSENT_VERSION, dataProcessing: true, aiTutor, research },
+  });
+  expect(res.statusCode).toBe(200);
+}
+
+async function addChild(app: ReturnType<typeof buildApp>, cookie: string, name = 'Ava') {
+  const res = await app.inject({ method: 'POST', url: '/api/children', headers: { cookie }, payload: { profile: { name, year: 6 } } });
+  expect(res.statusCode).toBe(201);
+  return res.json() as { id: string; version: number };
+}
+
+const event = (over: Record<string, unknown> = {}) => ({
+  at: 1, skillId: 'addition', level: 4, itemKey: 'addition:L4', correct: true, hinted: false, rapid: false,
+  timeMs: 5000, predicted: 0.8, misconception: null, strategy: null, ...over,
+});
+
+describe('accounts', () => {
+  let app: ReturnType<typeof buildApp>;
+  beforeEach(() => { app = setup().app; });
+
+  it('signs up with a secure, http-only session cookie', async () => {
+    const { raw } = await signUp(app);
+    expect(raw.httpOnly).toBe(true);
+    expect(raw.sameSite).toBe('Lax');
+  });
+
+  it('marks cookies Secure in production', async () => {
+    const { app: prod } = setup(null, { secureCookies: true });
+    const { raw } = await signUp(prod);
+    expect(raw.secure).toBe(true);
+  });
+
+  it('rejects weak passwords, bad emails and duplicate accounts', async () => {
+    const weak = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'a@b.co', password: 'short' } });
+    expect(weak.statusCode).toBe(400);
+    const bad = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'nope', password: PASSWORD } });
+    expect(bad.statusCode).toBe(400);
+    await signUp(app);
+    const dup = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'Parent@Example.com', password: PASSWORD } });
+    expect(dup.statusCode).toBe(409);
+  });
+
+  it('logs in and out, and gives the same error for unknown email or wrong password', async () => {
+    await signUp(app);
+    const wrong = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'parent@example.com', password: 'wrong password!' } });
+    const unknown = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'nobody@example.com', password: PASSWORD } });
+    expect(wrong.statusCode).toBe(401);
+    expect(unknown.json().error).toBe(wrong.json().error);
+    const ok = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'parent@example.com', password: PASSWORD } });
+    expect(ok.statusCode).toBe(200);
+    const cookie = `sz_session=${ok.cookies.find((c) => c.name === 'sz_session')!.value}`;
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(200);
+    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { cookie } });
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(401);
+  });
+
+  it('rate-limits repeated login attempts', async () => {
+    await signUp(app);
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      codes.push((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'parent@example.com', password: 'wrong password!' } })).statusCode);
+    }
+    expect(codes.slice(0, 10).every((c) => c === 401)).toBe(true);
+    expect(codes.at(-1)).toBe(429);
+  });
+
+  it('stores the parent PIN hashed and checks it', async () => {
+    const { db, app } = setup();
+    const { cookie } = await signUp(app);
+    await app.inject({ method: 'POST', url: '/api/pin', headers: { cookie }, payload: { pin: '4321' } });
+    const stored = (db.prepare('SELECT pin_hash FROM parents').get() as { pin_hash: string }).pin_hash;
+    expect(stored).not.toContain('4321');
+    expect((await app.inject({ method: 'POST', url: '/api/pin/check', headers: { cookie }, payload: { pin: '4321' } })).json().ok).toBe(true);
+    expect((await app.inject({ method: 'POST', url: '/api/pin/check', headers: { cookie }, payload: { pin: '1111' } })).json().ok).toBe(false);
+  });
+});
+
+describe('consent and children', () => {
+  it('stores no child data until a parent consents', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    const res = await app.inject({ method: 'POST', url: '/api/children', headers: { cookie }, payload: { profile: { name: 'Ava' } } });
+    expect(res.statusCode).toBe(403);
+    const old = await app.inject({ method: 'POST', url: '/api/consent', headers: { cookie }, payload: { version: 'old', dataProcessing: true, aiTutor: false, research: false } });
+    expect(old.statusCode).toBe(400);
+  });
+
+  it('keeps each family\'s children private', async () => {
+    const { app } = setup();
+    const a = await signUp(app, 'a@example.com');
+    const b = await signUp(app, 'b@example.com');
+    await consent(app, a.cookie);
+    await consent(app, b.cookie);
+    const child = await addChild(app, a.cookie);
+    const asB = await app.inject({ method: 'PUT', url: `/api/children/${child.id}`, headers: { cookie: b.cookie }, payload: { profile: { name: 'X' }, version: 1 } });
+    expect(asB.statusCode).toBe(404);
+    const list = await app.inject({ method: 'GET', url: '/api/children', headers: { cookie: b.cookie } });
+    expect(list.json()).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: '/api/children' })).statusCode).toBe(401);
+  });
+
+  it('saves profiles with version checks so devices can\'t overwrite each other', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie);
+    const child = await addChild(app, cookie);
+    const ok = await app.inject({ method: 'PUT', url: `/api/children/${child.id}`, headers: { cookie }, payload: { profile: { name: 'Ava', year: 6, xp: 10 }, version: 1 } });
+    expect(ok.json().version).toBe(2);
+    const stale = await app.inject({ method: 'PUT', url: `/api/children/${child.id}`, headers: { cookie }, payload: { profile: { name: 'Ava', xp: 0 }, version: 1 } });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().profile.xp).toBe(10);
+  });
+});
+
+describe('answer events and shared question difficulty', () => {
+  it('learns question difficulty from answers even without research consent, but stores events only with it', async () => {
+    const { db, app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, false, false);
+    const child = await addChild(app, cookie);
+    const res = await app.inject({
+      method: 'POST', url: `/api/children/${child.id}/events`, headers: { cookie },
+      payload: { events: [event(), event({ level: 2, itemKey: 'addition:L2', correct: false, predicted: 0.9 })] },
+    });
+    expect(res.json()).toEqual({ ok: true, stored: 0 });
+    expect((db.prepare('SELECT COUNT(*) n FROM events').get() as { n: number }).n).toBe(0);
+    const items = (await app.inject({ method: 'GET', url: '/api/items' })).json();
+    expect(items['addition:L2'].offset).toBeGreaterThan(0); // missed when expected to pass → harder
+  });
+
+  it('stores events with research consent, removes them if consent is withdrawn, and ignores keys from other skills', async () => {
+    const { db, app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, true, true);
+    const child = await addChild(app, cookie);
+    await app.inject({
+      method: 'POST', url: `/api/children/${child.id}/events`, headers: { cookie },
+      payload: { events: [event(), event({ itemKey: 'subtraction:L4' })] },
+    });
+    expect((db.prepare('SELECT COUNT(*) n FROM events').get() as { n: number }).n).toBe(2);
+    expect((db.prepare("SELECT COUNT(*) n FROM items WHERE key LIKE 'subtraction%'").get() as { n: number }).n).toBe(0);
+    await consent(app, cookie, true, false);
+    expect((db.prepare('SELECT COUNT(*) n FROM events').get() as { n: number }).n).toBe(0);
+  });
+
+  it('exports research data pseudonymised, with no names or real ids, and only with the admin token', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie);
+    const child = await addChild(app, cookie, 'Zanele');
+    await app.inject({ method: 'POST', url: `/api/children/${child.id}/events`, headers: { cookie }, payload: { events: [event()] } });
+    expect((await app.inject({ method: 'GET', url: '/api/admin/events.csv' })).statusCode).toBe(404);
+    const csv = (await app.inject({ method: 'GET', url: '/api/admin/events.csv', headers: { 'x-admin-token': 'admin-secret' } })).body;
+    expect(csv.split('\n')).toHaveLength(2);
+    expect(csv).not.toContain(child.id);
+    expect(csv).not.toContain('Zanele');
+    expect(csv).not.toContain('parent@example.com');
+  });
+});
+
+describe('deletion and retention', () => {
+  it('deleting a child or the account removes all their data', async () => {
+    const { db, app } = setup(new FakeTutor(['What do the ones add up to?']));
+    const { cookie } = await signUp(app);
+    await consent(app, cookie);
+    const child = await addChild(app, cookie);
+    await app.inject({ method: 'POST', url: `/api/children/${child.id}/events`, headers: { cookie }, payload: { events: [event()] } });
+    await app.inject({ method: 'POST', url: `/api/children/${child.id}/tutor`, headers: { cookie }, payload: { question, history: [], message: 'help' } });
+    await app.inject({ method: 'DELETE', url: `/api/children/${child.id}`, headers: { cookie } });
+    for (const t of ['children', 'events', 'tutor_messages']) expect((db.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n, t).toBe(0);
+    await addChild(app, cookie);
+    await app.inject({ method: 'DELETE', url: '/api/account', headers: { cookie } });
+    for (const t of ['parents', 'sessions', 'consents', 'children']) expect((db.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n, t).toBe(0);
+  });
+
+  it('prunes old events and expired sessions', () => {
+    const db: DB = openDb(':memory:');
+    db.prepare("INSERT INTO parents VALUES ('p', 'e@x.co', 'h', NULL, 0)").run();
+    db.prepare("INSERT INTO children VALUES ('c', 'p', '{}', 1, 0, 0)").run();
+    db.prepare("INSERT INTO events (child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted) VALUES ('c', 0, 's', 1, 'k', 1, 0, 0, 1, 0.5)").run();
+    db.prepare("INSERT INTO sessions VALUES ('t', 'p', 0, 5)").run();
+    pruneOldData(db, 400 * 86_400_000, 365);
+    expect((db.prepare('SELECT COUNT(*) n FROM events').get() as { n: number }).n).toBe(0);
+    expect((db.prepare('SELECT COUNT(*) n FROM sessions').get() as { n: number }).n).toBe(0);
+  });
+});
+
+describe('AI tutor', () => {
+  async function tutorSetup(replies: string[], aiTutor = true, limit = 60) {
+    const fake = new FakeTutor(replies);
+    const { db, app } = setup(fake, { tutorDailyLimit: limit });
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, aiTutor, false);
+    const child = await addChild(app, cookie);
+    const ask = (message: string, given?: string) => app.inject({
+      method: 'POST', url: `/api/children/${child.id}/tutor`, headers: { cookie },
+      payload: { question, given, history: [], message },
+    });
+    return { fake, db, app, cookie, child, ask };
+  }
+
+  it('is off without credentials, and needs the parent to switch it on', async () => {
+    const { app } = setup(null);
+    const { cookie } = await signUp(app);
+    await consent(app, cookie);
+    const child = await addChild(app, cookie);
+    const off = await app.inject({ method: 'POST', url: `/api/children/${child.id}/tutor`, headers: { cookie }, payload: { question, history: [], message: 'hi' } });
+    expect(off.statusCode).toBe(503);
+    const { ask } = await tutorSetup([], false);
+    expect((await ask('hi')).statusCode).toBe(403);
+  });
+
+  it('passes a good reply through, with the answer kept out of the child\'s view', async () => {
+    const { ask, fake } = await tutorSetup(['What do 7 and 8 add up to? What do you do with the tens?']);
+    const res = await ask('I got 75', '75');
+    expect(res.json()).toEqual({ reply: 'What do 7 and 8 add up to? What do you do with the tens?', flagged: null });
+    expect(fake.calls[0].system).toMatch(/Never state the final answer/);
+    expect(fake.calls[0].messages[0].content).toContain('Correct answer: 85');
+  });
+
+  it('never lets the answer through: retries once, then uses a safe hint', async () => {
+    const { ask, fake } = await tutorSetup(['The answer is 85!', 'It is 85, well done.']);
+    const res = (await ask('just tell me')).json();
+    expect(res.flagged).toBe('answer-leak');
+    expect(res.reply).not.toMatch(/\b85\b/);
+    expect(fake.calls).toHaveLength(2);
+  });
+
+  it('catches wrong sums in replies', async () => {
+    const { ask } = await tutorSetup(['Well, 7 + 8 = 16, so carry the 1.', 'Also 7 + 8 = 14.']);
+    const res = (await ask('help')).json();
+    expect(res.flagged).toBe('wrong-maths');
+    expect(findWrongSum('7 + 8 = 15 and 3 × 4 = 12')).toBeNull();
+    expect(findWrongSum('12 ÷ 4 = 4')).toBe('12 ÷ 4 = 4');
+  });
+
+  it('removes contact details before anything is sent, and logs chats for parents', async () => {
+    const { ask, fake, app, cookie, child } = await tutorSetup(['Let\'s look at the ones column.']);
+    await ask('my email is kid@example.com and number 07700 900123, see www.site.com');
+    const sent = fake.calls[0].messages.at(-1)!.content;
+    expect(sent).not.toContain('kid@example.com');
+    expect(sent).not.toContain('07700');
+    expect(sent).not.toContain('www.site.com');
+    expect(scrub('x'.repeat(1000)).length).toBe(400);
+    const log = (await app.inject({ method: 'GET', url: `/api/children/${child.id}/tutor`, headers: { cookie } })).json();
+    expect(log).toHaveLength(2);
+  });
+
+  it('never sends worrying messages to the AI: gives a kind fixed reply and flags it for the parent', async () => {
+    const { ask, fake, app, cookie } = await tutorSetup(['What do the ones add up to?']);
+    const res = (await ask('i want to hurt myself')).json();
+    expect(res.flagged).toBe('safety:wellbeing');
+    expect(res.reply).toMatch(/trusted|trust/);
+    expect(res.reply).toContain('0800 1111');
+    expect(fake.calls).toHaveLength(0);
+    expect((await ask('add me on snapchat')).json().flagged).toBe('safety:contact');
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json().safetyFlags).toBe(2);
+    // Ordinary maths talk is not flagged.
+    const ok = (await ask('I added 7 and 8 and got 15 so I wrote 15')).json();
+    expect(ok.flagged).toBeNull();
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it('tells the model to say it is an AI', async () => {
+    const { ask, fake } = await tutorSetup(['Let\'s look at the ones.']);
+    await ask('are you a real person?');
+    expect(fake.calls[0].system).toMatch(/you are an AI, not a person/);
+  });
+
+  it('limits tutor use per day', async () => {
+    const { ask } = await tutorSetup([], true, 2);
+    expect((await ask('a')).statusCode).toBe(200);
+    expect((await ask('b')).statusCode).toBe(200);
+    expect((await ask('c')).statusCode).toBe(429);
+  });
+});
