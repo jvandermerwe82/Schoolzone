@@ -20,7 +20,11 @@ import {
   evaluateMisconceptionLabGate,
   runMisconceptionBenchmark,
 } from '../src/brain-lab/misconception-learning';
-import { runRetentionBenchmark } from '../src/brain-lab/retention';
+import {
+  retentionPopulation,
+  retentionScheduleChallengers,
+  runRetentionBenchmark,
+} from '../src/brain-lab/retention';
 
 const population = syntheticPopulation(84);
 const options = { population, answersPerLearner: 30, seed: 20260925 };
@@ -48,7 +52,19 @@ const supportPreferencePriors = supportPreferenceBenchmarks(
 );
 const misconceptionLearning = runMisconceptionBenchmark({ seed: 20260925 });
 const misconceptionGate = evaluateMisconceptionLabGate(misconceptionLearning);
-const retentionLearning = runRetentionBenchmark({ seed: 20260925 });
+const retentionPopulationLocked = retentionPopulation(80);
+const retentionLearning = runRetentionBenchmark({
+  population: retentionPopulationLocked,
+  seed: 20260925,
+});
+const retentionChallengers = retentionScheduleChallengers(
+  retentionPopulationLocked,
+  retentionLearning: {
+    current: retentionLearning,
+    scheduleChallengers: retentionChallengers,
+  },
+  { seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
