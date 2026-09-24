@@ -103,12 +103,13 @@ const creditIntelligence = (
   strategy: StrategyId,
   success: boolean,
   now: number,
+  weightScale = 1,
 ): LearningIntelligenceState =>
   recordSupportOutcome(state, {
     strategy: SUPPORT_FOR_HELP[strategy],
     at: now,
     delta: success ? 0.9 : -0.6,
-    weight: success ? 0.5 : 0.35,
+    weight: (success ? 0.5 : 0.35) * weightScale,
     source: 'observed-learning',
     subject: 'maths',
     skillId: 'fractions-y6',
@@ -164,6 +165,7 @@ export function runSupportLearner(
   trials = 20,
   seed = 1,
   recordIntelligence = true,
+  outcomeWeightScale = 1,
 ): SupportLearnerRun {
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber, 0x51f15e));
@@ -196,6 +198,7 @@ export function runSupportLearner(
           selected,
           success,
           now,
+          outcomeWeightScale,
         ),
       };
     }
@@ -222,6 +225,7 @@ export function runSupportBenchmark(
     trialsPerLearner?: number;
     seed?: number;
     recordIntelligence?: boolean;
+    outcomeWeightScale?: number;
   } = {},
 ): SupportBenchmark {
   const population = options.population ?? syntheticPopulation(100);
@@ -234,6 +238,7 @@ export function runSupportBenchmark(
       trialsPerLearner,
       mixSeed(seed, index + 1),
       options.recordIntelligence ?? true,
+      options.outcomeWeightScale ?? 1,
     ));
   const stable = runs
     .map((run) => run.trialsToStablePreference)
@@ -295,4 +300,48 @@ export function evaluateSupportLabGate(
   }
 
   return { pass: failures.length === 0, failures };
+}
+
+
+export interface SupportWeightChallenger {
+  name: string;
+  outcomeWeightScale: number;
+  benchmark: SupportBenchmark;
+  deltaVsCurrent: {
+    final5PreferredRate: number;
+    meanRegret: number;
+    medianTrialsToStablePreference: number | null;
+    stablePreferenceRate: number;
+  };
+}
+
+export function supportWeightChallengers(
+  population: HiddenLearner[],
+  current: SupportBenchmark,
+  options: { trialsPerLearner?: number; seed?: number } = {},
+): SupportWeightChallenger[] {
+  const trialsPerLearner = options.trialsPerLearner ?? 20;
+  const seed = options.seed ?? 20260925;
+  return [1.25, 1.5, 1.75, 2].map((outcomeWeightScale) => {
+    const benchmark = runSupportBenchmark(
+      `current-weight-${outcomeWeightScale}`,
+      currentSupportPolicy,
+      { population, trialsPerLearner, seed, outcomeWeightScale },
+    );
+    return {
+      name: benchmark.policy,
+      outcomeWeightScale,
+      benchmark,
+      deltaVsCurrent: {
+        final5PreferredRate: benchmark.final5PreferredRate - current.final5PreferredRate,
+        meanRegret: current.meanRegret - benchmark.meanRegret,
+        medianTrialsToStablePreference:
+          benchmark.medianTrialsToStablePreference === null
+          || current.medianTrialsToStablePreference === null
+            ? null
+            : current.medianTrialsToStablePreference - benchmark.medianTrialsToStablePreference,
+        stablePreferenceRate: benchmark.stablePreferenceRate - current.stablePreferenceRate,
+      },
+    };
+  });
 }
