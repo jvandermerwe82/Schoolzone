@@ -50,8 +50,10 @@ const supportPreferencePriors = supportPreferenceBenchmarks(
   supportCurrent,
   { trialsPerLearner: 20, seed: 20260925 },
 );
+
 const misconceptionLearning = runMisconceptionBenchmark({ seed: 20260925 });
 const misconceptionGate = evaluateMisconceptionLabGate(misconceptionLearning);
+
 const retentionPopulationLocked = retentionPopulation(80);
 const retentionLearning = runRetentionBenchmark({
   population: retentionPopulationLocked,
@@ -59,10 +61,7 @@ const retentionLearning = runRetentionBenchmark({
 });
 const retentionChallengers = retentionScheduleChallengers(
   retentionPopulationLocked,
-  retentionLearning: {
-    current: retentionLearning,
-    scheduleChallengers: retentionChallengers,
-  },
+  retentionLearning,
   { seed: 20260925 },
 );
 
@@ -98,7 +97,10 @@ process.stdout.write(JSON.stringify({
     gate: misconceptionGate,
     ...misconceptionLearning,
   },
-  retentionLearning,
+  retentionLearning: {
+    current: retentionLearning,
+    scheduleChallengers: retentionChallengers,
+  },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
