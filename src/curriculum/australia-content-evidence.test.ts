@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { Level, Question } from '../brain/types';
 import { australianEvidenceForQuestion, isKnownAustralianEvidenceTarget } from './australia-content-evidence';
 
-const q = (skillId: string, level: Level, prompt: string): Question => ({
+const q = (skillId: string, level: Level, prompt: string, answer = 'x'): Question => ({
   skillId,
   level,
   id: `${skillId}:${prompt}`,
   prompt,
-  answer: 'x',
+  answer,
   explanation: '',
 });
 
@@ -53,7 +53,7 @@ describe('Australian content evidence mapping', () => {
       .toMatchObject({ canonicalNodeId: 'science.earth.water-cycle' });
     expect(australianEvidenceForQuestion(q('earth-space', 3, 'What causes day and night?'), '6')[0])
       .toMatchObject({ canonicalNodeId: 'science.space.earth-sun-cycles' });
-    expect(australianEvidenceForQuestion(q('forces-energy', 2, 'Which force slows down a ball rolling on grass?'), '4')[0])
+    expect(australianEvidenceForQuestion(q('forces-energy', 2, 'Which force slows down a ball rolling on grass?', 'Friction'), '4')[0])
       .toMatchObject({ canonicalNodeId: 'science.forces.friction-gravity-magnetism', strength: 'direct' });
   });
 
