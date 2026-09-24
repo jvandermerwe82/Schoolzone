@@ -33,6 +33,12 @@ export interface CurriculumReference {
 export interface CurriculumSkillMapping {
   curriculumRefId: string;
   skillId: string;
+  /**
+   * Strong means the existing SchoolZone skill substantially teaches the mapped
+   * curriculum idea. Partial means useful content exists but the skill must be
+   * split, extended or narrowed before it can claim full coverage.
+   */
+  coverage: 'strong' | 'partial';
   /** Why this mapping exists; useful for review/audit when curricula change. */
   rationale: string;
   /** Mapping confidence is editorial/review confidence, not learner confidence. */
