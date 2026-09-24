@@ -23,6 +23,11 @@ import {
 export const TARGET_SUCCESS = 0.8;
 /** Unaided correct answers in a row before trying a harder level. */
 export const STRETCH_RUN = 4;
+/** Early clean success can accelerate placement before the long-run stretch rule. */
+export const FAST_PLACEMENT_RUN = 2;
+export const FAST_PLACEMENT_MAX_ATTEMPTS = 4;
+/** Fast placement is exploratory, but never serves a level the model thinks is implausible. */
+export const FAST_PLACEMENT_MIN_CHANCE = 0.45;
 /** Only stretch if the model gives the child at least this chance at the harder level. */
 export const STRETCH_MIN_CHANCE = 0.5;
 /** While helping a stuck child, aim higher so they can rebuild confidence. */
@@ -108,17 +113,30 @@ export function planNext(
     // Stretch: after a run of unaided correct answers, try one level up if the
     // child has a fair chance at it. Easy questions tell the rating little, so
     // without this a child can stay on easy questions long after they're ready.
-    const run = profile.history.filter((h) => h.skillId === skillId).slice(-STRETCH_RUN);
-    const onARoll = run.length === STRETCH_RUN && run.every((h) => h.correct && !h.hinted);
+    const history = profile.history.filter((h) => h.skillId === skillId);
+    const clean = (h: (typeof history)[number]) => h.correct && !h.hinted && !h.rapid;
+    const st = skillState(profile, skillId);
+    const normalRun = history.slice(-STRETCH_RUN);
+    const fastRun = history.slice(-FAST_PLACEMENT_RUN);
+    const normalStretch = normalRun.length === STRETCH_RUN && normalRun.every(clean);
+    const fastPlacement = (reason === 'new' || reason === 'continue')
+      && st.attempts > 0
+      && st.attempts <= FAST_PLACEMENT_MAX_ATTEMPTS
+      && fastRun.length === FAST_PLACEMENT_RUN
+      && fastRun.every(clean);
+    const run = fastPlacement ? fastRun : normalRun;
+    const onARoll = fastPlacement || normalStretch;
     if (onARoll) {
       const top = Math.max(...run.map((h) => h.level));
       const next = Math.min(5, top + 1) as Level;
-      const st = skillState(profile, skillId);
       const chance = predictCorrect(st.ability, next, guessRate(next, getSkill(skillId).choices),
         itemOffset(items, itemKey({ id: '', skillId, level: next })));
-      if (top >= level && top < 5 && chance >= STRETCH_MIN_CHANCE) {
+      const minChance = fastPlacement ? FAST_PLACEMENT_MIN_CHANCE : STRETCH_MIN_CHANCE;
+      if (top >= level && top < 5 && chance >= minChance) {
         level = (top + 1) as Level;
-        message = message || 'You\'re on a roll! Let\'s try a harder one.';
+        message = message || (fastPlacement
+          ? 'That looked comfortable. Let\'s see what you already know!'
+          : 'You\'re on a roll! Let\'s try a harder one.');
       }
     }
     return { skillId, reason, message, level, target: activeMisconceptionFor(profile, skillId) };
