@@ -1,4 +1,4 @@
-import type { SubjectId } from '../brain/types';
+import type { Level, SubjectId } from '../brain/types';
 import type { LearningIntelligenceState, LearningIntent } from '../brain/learning-intelligence';
 
 export type TeacherIntentPriority = 1 | 2 | 3;
@@ -12,6 +12,8 @@ export interface TeacherObjectiveDefinition {
   curriculumRefs: string[];
   /** Current executable SchoolZone route while native Australian banks are built. */
   practiceSkillId: string;
+  /** Levels in the legacy practice skill that actually teach this canonical objective. */
+  practiceLevels?: readonly Level[];
   /** Whether current content directly or only partially teaches this objective. */
   routeStrength: 'direct' | 'supporting';
 }
@@ -49,8 +51,9 @@ const objective = (
   curriculumRefs: string[],
   practiceSkillId: string,
   routeStrength: 'direct' | 'supporting',
+  practiceLevels?: readonly Level[],
 ): TeacherObjectiveDefinition => ({
-  id, title, subject, yearLevel, canonicalNodeId, curriculumRefs, practiceSkillId, routeStrength,
+  id, title, subject, yearLevel, canonicalNodeId, curriculumRefs, practiceSkillId, routeStrength, practiceLevels,
 });
 
 /**
@@ -72,13 +75,15 @@ export const AUSTRALIAN_TEACHER_OBJECTIVES: readonly TeacherObjectiveDefinition[
     'english.spelling.homophones-context-y4', ['au-ac-v9:AC9E4LY11'], 'homophones', 'direct'),
 
   objective('au5-factors', 'Factors, multiples and divisibility', 'maths', '5',
-    'math.number.factors-multiples-divisibility', ['au-ac-v9:AC9M5N02'], 'factors-primes', 'supporting'),
+    'math.number.factors-multiples-divisibility', ['au-ac-v9:AC9M5N02'], 'factors-primes', 'supporting', [2, 3, 4]),
   objective('au5-fraction-equivalence', 'Fraction, decimal and percentage equivalence', 'maths', '5',
-    'math.percentages.fraction-decimal-equivalence', ['au-ac-v9:AC9M5N04'], 'decimals-percentages', 'direct'),
+    'math.percentages.fraction-decimal-equivalence', ['au-ac-v9:AC9M5N04'], 'decimals-percentages', 'direct', [1]),
+  objective('au5-fractions-add-subtract', 'Add and subtract fractions with related denominators', 'maths', '5',
+    'math.fractions.add-subtract-related', ['au-ac-v9:AC9M5N05'], 'fractions-y6', 'direct', [2]),
   objective('au5-large-multiplication', 'Multiply larger whole numbers', 'maths', '5',
     'math.multiplication.large-numbers', ['au-ac-v9:AC9M5N06'], 'long-multiplication-division', 'direct'),
   objective('au5-unknowns', 'Unknowns in multiplication and division equations', 'maths', '5',
-    'math.equations.mul-div-unknowns', ['au-ac-v9:AC9M5A02'], 'algebra', 'direct'),
+    'math.equations.mul-div-unknowns', ['au-ac-v9:AC9M5A02'], 'algebra', 'direct', [2]),
   objective('au5-light', 'Light, shadows, reflection and refraction', 'science', '5',
     'science.light.travel-shadows-reflection-refraction', ['au-ac-v9:AC9S5U03'], 'light-y6', 'direct'),
   objective('au5-particles', 'Solids, liquids, gases and particle model', 'science', '5',
@@ -91,17 +96,17 @@ export const AUSTRALIAN_TEACHER_OBJECTIVES: readonly TeacherObjectiveDefinition[
   objective('au6-integers', 'Integers and negative numbers', 'maths', '6',
     'math.integers.number-line-cartesian', ['au-ac-v9:AC9M6N01'], 'negative-numbers', 'supporting'),
   objective('au6-primes', 'Prime, composite and square number properties', 'maths', '6',
-    'math.number.prime-composite-square', ['au-ac-v9:AC9M6N02'], 'factors-primes', 'supporting'),
+    'math.number.prime-composite-square', ['au-ac-v9:AC9M6N02'], 'factors-primes', 'supporting', [1]),
   objective('au6-fractions-add-subtract', 'Add and subtract fractions using equivalence', 'maths', '6',
-    'math.fractions.add-subtract-equivalent', ['au-ac-v9:AC9M6N05'], 'fractions-y6', 'direct'),
+    'math.fractions.add-subtract-equivalent', ['au-ac-v9:AC9M6N05'], 'fractions-y6', 'direct', [2, 3]),
   objective('au6-decimal-powers', 'Multiply and divide decimals by powers of 10', 'maths', '6',
-    'math.decimals.mul-div-powers-10', ['au-ac-v9:AC9M6N06'], 'decimals-percentages', 'direct'),
+    'math.decimals.mul-div-powers-10', ['au-ac-v9:AC9M6N06'], 'decimals-percentages', 'direct', [2]),
   objective('au6-percent-quantity', 'Find fractions, decimals and percentages of quantities', 'maths', '6',
-    'math.quantities.fraction-decimal-percent', ['au-ac-v9:AC9M6N07'], 'decimals-percentages', 'direct'),
+    'math.quantities.fraction-decimal-percent', ['au-ac-v9:AC9M6N07'], 'decimals-percentages', 'direct', [3, 4]),
   objective('au6-combined-operations', 'Unknowns with brackets and combined operations', 'maths', '6',
-    'math.equations.combined-operations', ['au-ac-v9:AC9M6A02'], 'algebra', 'direct'),
+    'math.equations.combined-operations', ['au-ac-v9:AC9M6A02'], 'algebra', 'direct', [3]),
   objective('au6-angle-relationships', 'Angle relationships and unknown angles', 'maths', '6',
-    'math.angles.relationships', ['au-ac-v9:AC9M6M04'], 'geometry-statistics', 'direct'),
+    'math.angles.relationships', ['au-ac-v9:AC9M6M04'], 'geometry-statistics', 'direct', [1, 2]),
   objective('au6-space', 'Earth, planets, the sun and observable cycles', 'science', '6',
     'science.space.earth-sun-cycles', ['au-ac-v9:AC9S6U02'], 'earth-space', 'supporting'),
   objective('au6-electricity', 'Electrical energy and circuits', 'science', '6',
