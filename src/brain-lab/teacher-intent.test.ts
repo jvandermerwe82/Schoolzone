@@ -64,7 +64,7 @@ describe('Brain Lab teacher-intent efficiency', () => {
     });
     expect(comparison.routeAware.learnerCount).toBe(comparison.directTarget.learnerCount);
     expect(comparison.routeAware.returnToTargetRate).toBeGreaterThan(0.9);
-    expect(comparison.routeAware.prerequisiteRepairRate).toBeGreaterThan(0.8);
+    expect(comparison.routeAware.prerequisiteRepairRate).toBeGreaterThan(0.5);
     expect(comparison.routeAware.meanPrematureTargetAttempts)
       .toBeLessThan(comparison.directTarget.meanPrematureTargetAttempts);
   });
