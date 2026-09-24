@@ -3,6 +3,7 @@ import {
   compareBenchmarks,
   currentBrainPolicy,
   evaluateBrainLabGate,
+  reliabilityWeightedAbilityAdjuster,
   runBenchmark,
   staticMidlevelPolicy,
   unaidedOnlyAbilityAdjuster,
@@ -15,10 +16,26 @@ const options = { population, answersPerLearner: 30, seed: 20260925 };
 const current = runBenchmark('current', currentBrainPolicy, options);
 const adaptive = runBenchmark('adaptive-80', adaptive80Policy, options);
 const baseline = runBenchmark('static-mid', staticMidlevelPolicy, options);
-const cleanAbility = runBenchmark('current+clean-ability', currentBrainPolicy, {
-  ...options,
-  abilityAdjuster: unaidedOnlyAbilityAdjuster,
-});
+
+const challengers = {
+  cleanAbility: runBenchmark('current+clean-ability', currentBrainPolicy, {
+    ...options,
+    abilityAdjuster: unaidedOnlyAbilityAdjuster,
+  }),
+  hinted25: runBenchmark('current+hinted25', currentBrainPolicy, {
+    ...options,
+    abilityAdjuster: reliabilityWeightedAbilityAdjuster(0.25, 0),
+  }),
+  hinted50: runBenchmark('current+hinted50', currentBrainPolicy, {
+    ...options,
+    abilityAdjuster: reliabilityWeightedAbilityAdjuster(0.5, 0),
+  }),
+  hinted25Rapid10: runBenchmark('current+hinted25+rapid10', currentBrainPolicy, {
+    ...options,
+    abilityAdjuster: reliabilityWeightedAbilityAdjuster(0.25, 0.1),
+  }),
+};
+
 const gate = evaluateBrainLabGate(current);
 
 process.stdout.write(JSON.stringify({
@@ -26,10 +43,15 @@ process.stdout.write(JSON.stringify({
   population: population.length,
   gate,
   current,
-  challenger: {
-    cleanAbility,
-    vsCurrent: compareBenchmarks(cleanAbility, current).delta,
-  },
+  challengers: Object.fromEntries(
+    Object.entries(challengers).map(([name, benchmark]) => [
+      name,
+      {
+        benchmark,
+        vsCurrent: compareBenchmarks(benchmark, current).delta,
+      },
+    ]),
+  ),
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
