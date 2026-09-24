@@ -13,6 +13,7 @@ import {
   oracleSupportPolicy,
   roundRobinSupportPolicy,
   runSupportBenchmark,
+  supportPreferenceBenchmarks,
   supportRoutingChallengers,
   supportWeightChallengers,
 } from '../src/brain-lab/support-learning';
@@ -47,6 +48,11 @@ const supportRoutingGrid = supportRoutingChallengers(
   supportCurrent,
   { trialsPerLearner: 20, seed: 20260925 },
 );
+const supportPreferencePriors = supportPreferenceBenchmarks(
+  supportPopulation,
+  supportCurrent,
+  { trialsPerLearner: 20, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -62,6 +68,7 @@ process.stdout.write(JSON.stringify({
     oracle: supportOracle,
     weightSpeedChallengers: supportSpeedChallengers,
     routingSpeedChallengers: supportRoutingGrid,
+    preferencePriors: supportPreferencePriors,
     currentVsHistory: {
       final5PreferredRate:
         supportCurrent.final5PreferredRate - supportHistory.final5PreferredRate,
