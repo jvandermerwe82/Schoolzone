@@ -29,6 +29,7 @@ import {
 import {
   compareTeacherIntentPolicies,
   runTeacherIntentBenchmark,
+  teacherDualEvidenceChallengers,
   teacherEvidenceChallengers,
   teacherHybridEvidenceChallengers,
   teacherRecoveryEvidenceChallengers,
@@ -106,6 +107,11 @@ const teacherIntentRecoveryEvidence = teacherRecoveryEvidenceChallengers(
   teacherIntentLifetime48,
   { horizonQuestions: 48, seed: 20260925 },
 );
+const teacherIntentDualEvidence = teacherDualEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -151,6 +157,7 @@ process.stdout.write(JSON.stringify({
     evidenceChallengers: teacherIntentEvidence,
     guardedEvidenceChallengers: teacherIntentHybridEvidence,
     recoveryEvidenceChallengers: teacherIntentRecoveryEvidence,
+    dualEvidenceChallengers: teacherIntentDualEvidence,
   },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
