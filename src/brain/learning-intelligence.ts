@@ -31,7 +31,10 @@ export type SupportStrategyId =
   | 'smaller-steps'
   | 'visual-example'
   | 'reduced-animation'
-  | 'optional-breaks';
+  | 'optional-breaks'
+  | 'similar-problem'
+  | 'graduated-hints'
+  | 'prerequisite-refresh';
 
 export type PreferenceSource = 'learner' | 'parent' | 'teacher';
 export type PreferenceValue = 'prefer' | 'avoid' | 'neutral';
@@ -268,4 +271,96 @@ export function setCurriculumContext(
   curriculum: CurriculumContext | null,
 ): LearningIntelligenceState {
   return { ...state, curriculum };
+}
+
+
+export interface AnswerLearningEvidence {
+  at: number;
+  correct: boolean;
+  hinted: boolean;
+  rapid: boolean;
+  /** Existing deterministic tutor strategy, if one was active. */
+  strategy?: 'similar' | 'worked-example' | 'hint' | 'smaller-steps' | 'prerequisite' | 'climb' | null;
+  /** Strategy credited by the existing help episode when climbing/resolving. */
+  helpedBy?: 'similar' | 'worked-example' | 'hint' | 'smaller-steps' | 'prerequisite' | null;
+  event?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
+  subject?: string;
+  skillId?: string;
+}
+
+const SUPPORT_FOR_HELP: Record<string, SupportStrategyId> = {
+  similar: 'similar-problem',
+  'worked-example': 'worked-examples',
+  hint: 'graduated-hints',
+  'smaller-steps': 'smaller-steps',
+  prerequisite: 'prerequisite-refresh',
+};
+
+const helpSupport = (evidence: AnswerLearningEvidence): SupportStrategyId | null => {
+  const source = evidence.strategy === 'climb' ? evidence.helpedBy : evidence.strategy;
+  if (source && SUPPORT_FOR_HELP[source]) return SUPPORT_FOR_HELP[source];
+  // Opening the Problem Solver outside a formal stuck strategy still gives a
+  // small amount of evidence about graduated hints.
+  return evidence.hinted ? 'graduated-hints' : null;
+};
+
+/**
+ * Convert one real practice outcome into low-weight learning-support and
+ * engagement evidence. This does not change routing yet: it only builds the
+ * evidence base that future adaptive-support decisions can use.
+ */
+export function recordLearningEvidenceFromAnswer(
+  state: LearningIntelligenceState,
+  evidence: AnswerLearningEvidence,
+): LearningIntelligenceState {
+  let next = state;
+  const common = { at: evidence.at, subject: evidence.subject, skillId: evidence.skillId };
+
+  if (evidence.rapid) {
+    next = recordEngagementSignal(next, { kind: 'rapid-guess', ...common });
+  }
+  if (evidence.hinted || (evidence.strategy && evidence.strategy !== 'climb')) {
+    next = recordEngagementSignal(next, { kind: 'requested-help', ...common });
+  }
+  if (evidence.event === 'resolved') {
+    next = recordEngagementSignal(next, { kind: 'persisted-after-error', ...common });
+  }
+
+  const strategy = helpSupport(evidence);
+  if (!strategy) return next;
+
+  let delta = 0;
+  let weight = 0.15;
+
+  if (evidence.rapid) {
+    delta = -0.4;
+    weight = 0.1;
+  } else if (evidence.event === 'switched') {
+    delta = -0.6;
+    weight = 0.35;
+  } else if (evidence.event === 'resolved') {
+    delta = 0.9;
+    weight = 0.5;
+  } else if (evidence.event === 'helped') {
+    delta = 0.5;
+    weight = 0.35;
+  } else if (evidence.correct) {
+    // One correct response after help is deliberately weak evidence; repeated
+    // outcomes are needed before confidence becomes meaningful.
+    delta = evidence.hinted ? 0.2 : 0.3;
+    weight = 0.15;
+  } else {
+    delta = -0.2;
+    weight = 0.15;
+  }
+
+  return recordSupportOutcome(next, {
+    strategy,
+    at: evidence.at,
+    delta,
+    weight,
+    source: 'observed-learning',
+    subject: evidence.subject,
+    skillId: evidence.skillId,
+  });
 }
