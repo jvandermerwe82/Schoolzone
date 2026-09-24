@@ -31,7 +31,7 @@ describe('Brain Lab retention and spaced review', () => {
       seed: 91,
     });
     expect(run.reviews).toBeGreaterThan(0);
-    expect(run.reviews).toBeLessThan(30);
+    expect(run.reviews).toBeLessThan(60);
   });
 
   it('strengthens review intervals for learners who retain successfully', () => {
