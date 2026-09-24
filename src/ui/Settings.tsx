@@ -1,5 +1,7 @@
 import type { AccessSettings, Profile } from '../brain/types';
+import { clearSupportPreference, emptyLearningIntelligence, setSupportPreference, type SupportStrategyId } from '../brain/learning-intelligence';
 import { useSpeech } from '../speech';
+import { SupportPreferenceEditor } from './SupportPreferenceEditor';
 
 const OPTIONS: { key: keyof AccessSettings; title: string; about: string }[] = [
   { key: 'autoRead', title: '🔊 Read questions aloud', about: 'Each question is read out when it appears. You can always tap 🔊 to hear it again.' },
@@ -7,6 +9,26 @@ const OPTIONS: { key: keyof AccessSettings; title: string; about: string }[] = [
   { key: 'bigText', title: '🔠 Bigger text', about: 'Makes everything larger.' },
   { key: 'calm', title: '🌙 Calm mode', about: 'Turns off animations and pop-up effects.' },
 ];
+
+const ACCESS_SUPPORT: Record<keyof AccessSettings, SupportStrategyId> = {
+  autoRead: 'read-aloud',
+  easyRead: 'easier-read-text',
+  bigText: 'larger-text',
+  calm: 'reduced-animation',
+};
+
+function updateAccessPreference(profile: Profile, key: keyof AccessSettings, checked: boolean): Profile {
+  const state = profile.learningIntelligence ?? emptyLearningIntelligence();
+  const strategy = ACCESS_SUPPORT[key];
+  const learningIntelligence = checked
+    ? setSupportPreference(state, { strategy, source: 'learner', value: 'prefer', at: Date.now() })
+    : clearSupportPreference(state, strategy, 'learner');
+  return {
+    ...profile,
+    settings: { ...profile.settings, [key]: checked },
+    learningIntelligence,
+  };
+}
 
 /** The child's own display and sound settings. */
 export function Settings({ profile, onSave, onBack }: { profile: Profile; onSave: (p: Profile) => void; onBack: () => void }) {
@@ -28,7 +50,7 @@ export function Settings({ profile, onSave, onBack }: { profile: Profile; onSave
                 type="checkbox"
                 checked={s[o.key] && !unavailable}
                 disabled={unavailable}
-                onChange={(e) => onSave({ ...profile, settings: { ...s, [o.key]: e.target.checked } })}
+                onChange={(e) => onSave(updateAccessPreference(profile, o.key, e.target.checked))}
               />
               <span>
                 <strong>{o.title}</strong><br />
@@ -42,6 +64,7 @@ export function Settings({ profile, onSave, onBack }: { profile: Profile; onSave
         )}
         <p className="muted small">Read-aloud uses a voice built into this device, so nothing you read is sent anywhere.</p>
       </section>
+      <SupportPreferenceEditor profile={profile} source="learner" onSave={onSave} excludeAccessSettings />
     </main>
   );
 }
