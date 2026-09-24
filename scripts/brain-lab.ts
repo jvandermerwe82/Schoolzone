@@ -13,6 +13,7 @@ import {
   oracleSupportPolicy,
   roundRobinSupportPolicy,
   runSupportBenchmark,
+  supportRoutingChallengers,
   supportWeightChallengers,
 } from '../src/brain-lab/support-learning';
 import { syntheticPopulation } from '../src/brain-lab/synthetic';
@@ -41,6 +42,11 @@ const supportSpeedChallengers = supportWeightChallengers(
   supportCurrent,
   { trialsPerLearner: 20, seed: 20260925 },
 );
+const supportRoutingGrid = supportRoutingChallengers(
+  supportPopulation,
+  supportCurrent,
+  { trialsPerLearner: 20, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -54,7 +60,8 @@ process.stdout.write(JSON.stringify({
     historyOnly: supportHistory,
     roundRobin: supportRoundRobin,
     oracle: supportOracle,
-    speedChallengers: supportSpeedChallengers,
+    weightSpeedChallengers: supportSpeedChallengers,
+    routingSpeedChallengers: supportRoutingGrid,
     currentVsHistory: {
       final5PreferredRate:
         supportCurrent.final5PreferredRate - supportHistory.final5PreferredRate,
