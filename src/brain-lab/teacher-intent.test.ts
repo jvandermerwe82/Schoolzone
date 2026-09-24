@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareTeacherIntentPolicies,
   runTeacherIntentBenchmark,
+  teacherEvidenceChallengers,
   runTeacherIntentLearner,
   teacherIntentPopulation,
   teacherIntentScenarios,
@@ -67,6 +68,31 @@ describe('Brain Lab teacher-intent efficiency', () => {
     expect(comparison.routeAware.prerequisiteRepairRate).toBeGreaterThan(0.5);
     expect(comparison.routeAware.meanPrematureTargetAttempts)
       .toBeLessThan(comparison.directTarget.meanPrematureTargetAttempts);
+  });
+
+  it('compares recency-aware evidence without allowing unsafe readiness', () => {
+    const population = teacherIntentPopulation(60);
+    const lifetime = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions: 48,
+      seed: 106,
+    });
+    const challengers = teacherEvidenceChallengers(population, lifetime, {
+      horizonQuestions: 48,
+      seed: 106,
+    });
+
+    expect(challengers.map((item) => item.evidencePolicy)).toEqual([
+      'recent-6',
+      'recent-8',
+      'recent-10',
+    ]);
+    for (const challenger of challengers) {
+      expect(challenger.benchmark.completionReadinessPrecision).toBeGreaterThanOrEqual(0);
+      expect(challenger.benchmark.completionReadinessPrecision).toBeLessThanOrEqual(1);
+      expect(challenger.benchmark.prerequisiteReadinessPrecision).toBeGreaterThanOrEqual(0);
+      expect(challenger.benchmark.prerequisiteReadinessPrecision).toBeLessThanOrEqual(1);
+    }
   });
 
   it('reports completion and learner-friction metrics separately', () => {
