@@ -28,6 +28,8 @@ import {
 } from '../src/brain-lab/retention';
 import {
   compareTeacherIntentPolicies,
+  runTeacherIntentBenchmark,
+  teacherEvidenceChallengers,
   teacherIntentHorizonCurve,
   teacherIntentPopulation,
 } from '../src/brain-lab/teacher-intent';
@@ -82,6 +84,16 @@ const teacherIntentCurve = teacherIntentHorizonCurve(
   [12, 24, 36, 48],
   20260925,
 );
+const teacherIntentLifetime48 = runTeacherIntentBenchmark('route-aware', {
+  population: teacherIntentPopulationLocked,
+  horizonQuestions: 48,
+  seed: 20260925,
+});
+const teacherIntentEvidence = teacherEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -123,6 +135,8 @@ process.stdout.write(JSON.stringify({
   teacherIntent: {
     current: teacherIntent,
     horizonCurve: teacherIntentCurve,
+    lifetime48: teacherIntentLifetime48,
+    evidenceChallengers: teacherIntentEvidence,
   },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
