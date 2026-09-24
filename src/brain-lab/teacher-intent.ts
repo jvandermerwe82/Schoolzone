@@ -29,7 +29,14 @@ export interface HiddenTeacherIntentLearner {
 }
 
 export type TeacherIntentPolicy = 'route-aware' | 'direct-target';
-export type TeacherEvidencePolicy = 'lifetime' | 'recent-6' | 'recent-8' | 'recent-10';
+export type TeacherEvidencePolicy =
+  | 'lifetime'
+  | 'recent-6'
+  | 'recent-8'
+  | 'recent-10'
+  | 'recent-8-after-8'
+  | 'recent-8-after-10'
+  | 'recent-10-after-10';
 
 export const TEACHER_INTENT_SAFE_TARGET_KNOWLEDGE = 0.70;
 export const TEACHER_INTENT_SAFE_PREREQUISITE_KNOWLEDGE = 0.65;
@@ -118,12 +125,20 @@ const homeworkFor = (
   target: TeacherObjectiveDefinition,
 ): StructuredHomework => structuredHomework(target, 1, { priority: 2 });
 
-const evidenceWindow = (policy: TeacherEvidencePolicy): number | null => {
+interface EvidenceWindowPolicy {
+  window: number | null;
+  minLifetimeDirectEvidence: number;
+}
+
+const evidenceWindowPolicy = (policy: TeacherEvidencePolicy): EvidenceWindowPolicy => {
   switch (policy) {
-    case 'recent-6': return 6;
-    case 'recent-8': return 8;
-    case 'recent-10': return 10;
-    case 'lifetime': return null;
+    case 'recent-6': return { window: 6, minLifetimeDirectEvidence: 0 };
+    case 'recent-8': return { window: 8, minLifetimeDirectEvidence: 0 };
+    case 'recent-10': return { window: 10, minLifetimeDirectEvidence: 0 };
+    case 'recent-8-after-8': return { window: 8, minLifetimeDirectEvidence: 8 };
+    case 'recent-8-after-10': return { window: 8, minLifetimeDirectEvidence: 10 };
+    case 'recent-10-after-10': return { window: 10, minLifetimeDirectEvidence: 10 };
+    case 'lifetime': return { window: null, minLifetimeDirectEvidence: 0 };
   }
 };
 
@@ -131,10 +146,21 @@ const historyForEvidencePolicy = (
   history: readonly AnswerRecord[],
   policy: TeacherEvidencePolicy,
 ): AnswerRecord[] => {
-  const window = evidenceWindow(policy);
-  if (window === null) return [...history];
+  const config = evidenceWindowPolicy(policy);
+  if (config.window === null) return [...history];
 
-  const counts = new Map<string, number>();
+  const lifetimeDirectCounts = new Map<string, number>();
+  for (const answer of history) {
+    for (const item of answer.curriculumEvidence ?? []) {
+      if (item.curriculumId !== 'au-ac-v9' || item.strength !== 'direct') continue;
+      lifetimeDirectCounts.set(
+        item.canonicalNodeId,
+        (lifetimeDirectCounts.get(item.canonicalNodeId) ?? 0) + 1,
+      );
+    }
+  }
+
+  const recentCounts = new Map<string, number>();
   const kept: AnswerRecord[] = [];
   for (let index = history.length - 1; index >= 0; index--) {
     const answer = history[index];
@@ -147,10 +173,20 @@ const historyForEvidencePolicy = (
       continue;
     }
 
-    const relevant = nodeIds.some((nodeId) => (counts.get(nodeId) ?? 0) < window);
+    const relevant = nodeIds.some((nodeId) => {
+      const lifetimeCount = lifetimeDirectCounts.get(nodeId) ?? 0;
+      if (lifetimeCount < config.minLifetimeDirectEvidence) return true;
+      return (recentCounts.get(nodeId) ?? 0) < config.window!;
+    });
     if (!relevant) continue;
+
     kept.push(answer);
-    for (const nodeId of nodeIds) counts.set(nodeId, (counts.get(nodeId) ?? 0) + 1);
+    for (const nodeId of nodeIds) {
+      const lifetimeCount = lifetimeDirectCounts.get(nodeId) ?? 0;
+      if (lifetimeCount >= config.minLifetimeDirectEvidence) {
+        recentCounts.set(nodeId, (recentCounts.get(nodeId) ?? 0) + 1);
+      }
+    }
   }
   return kept.reverse();
 };
@@ -521,6 +557,42 @@ export function teacherEvidenceChallengers(
   const horizonQuestions = options.horizonQuestions ?? 48;
   const seed = options.seed ?? 20260925;
   const policies: TeacherEvidencePolicy[] = ['recent-6', 'recent-8', 'recent-10'];
+
+  return policies.map((evidencePolicy) => {
+    const benchmark = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions,
+      seed,
+      evidencePolicy,
+    });
+    return {
+      evidencePolicy,
+      benchmark,
+      deltaVsLifetime: {
+        completionRate: benchmark.completionRate - lifetime.completionRate,
+        wrongAnswerRate: lifetime.wrongAnswerRate - benchmark.wrongAnswerRate,
+        prerequisiteRepairRate:
+          benchmark.prerequisiteRepairRate - lifetime.prerequisiteRepairRate,
+        meanTargetKnowledge:
+          benchmark.meanFinalTargetKnowledge - lifetime.meanFinalTargetKnowledge,
+      },
+    };
+  });
+}
+
+
+export function teacherHybridEvidenceChallengers(
+  population: HiddenTeacherIntentLearner[],
+  lifetime: TeacherIntentBenchmark,
+  options: { horizonQuestions?: number; seed?: number } = {},
+): TeacherEvidenceChallenger[] {
+  const horizonQuestions = options.horizonQuestions ?? 48;
+  const seed = options.seed ?? 20260925;
+  const policies: TeacherEvidencePolicy[] = [
+    'recent-8-after-8',
+    'recent-8-after-10',
+    'recent-10-after-10',
+  ];
 
   return policies.map((evidencePolicy) => {
     const benchmark = runTeacherIntentBenchmark('route-aware', {
