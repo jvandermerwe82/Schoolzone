@@ -35,13 +35,19 @@ describe('Australian teacher objectives', () => {
   it('syncs teacher homework into Current Direction and cancels the old teacher intent', () => {
     const first = structuredHomework(australianTeacherObjective('au5-reading')!, 1000, {});
     const second = structuredHomework(australianTeacherObjective('au5-spelling')!, 2000, {});
-    let state = syncTeacherHomeworkIntent(emptyLearningIntelligence(), first);
-    state = syncTeacherHomeworkIntent(state, second);
+    let state = syncTeacherHomeworkIntent(emptyLearningIntelligence(), first, 5);
+    state = syncTeacherHomeworkIntent(state, second, 5);
     expect(state.intents.find((intent) => intent.id === first.id)?.status).toBe('cancelled');
     expect(state.intents.find((intent) => intent.id === second.id)).toMatchObject({
       source: 'teacher',
       status: 'active',
       canonicalNodeIds: ['english.spelling.word-building-y5'],
+    });
+    expect(state.curriculum).toEqual({
+      jurisdiction: 'AU',
+      curriculumId: 'au-ac-v9',
+      curriculumVersion: '9.0',
+      yearLevel: '5',
     });
   });
 });
