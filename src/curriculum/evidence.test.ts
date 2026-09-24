@@ -67,3 +67,52 @@ describe('curriculum evidence answer persistence', () => {
     expect(result.profile.skills['decimals-percentages'].attempts).toBe(1);
   });
 });
+
+
+describe('structured curriculum focus evidence', () => {
+  const fractionQuestion: Question = {
+    skillId: 'fractions-y6',
+    level: 2,
+    id: 'fraction-related',
+    prompt: '1/2 + 1/4 = ?',
+    answer: '3/4',
+    explanation: '',
+  };
+
+  const profile = () => {
+    const p = newProfile('Ava', '🦊', 6);
+    p.learningIntelligence = setCurriculumContext(p.learningIntelligence!, {
+      jurisdiction: 'AU',
+      curriculumId: 'au-ac-v9',
+      curriculumVersion: '9.0',
+      yearLevel: '6',
+    });
+    return p;
+  };
+
+  it('credits only the active prerequisite when a verified structured route is active', () => {
+    expect(curriculumEvidenceForQuestion(profile(), fractionQuestion, {
+      curriculumId: 'au-ac-v9',
+      canonicalNodeId: 'math.fractions.add-subtract-related',
+      practiceSkillId: 'fractions-y6',
+      practiceLevels: [2],
+      strength: 'direct',
+    })).toEqual([{
+      curriculumId: 'au-ac-v9',
+      canonicalNodeId: 'math.fractions.add-subtract-related',
+      strength: 'direct',
+    }]);
+  });
+
+  it('does not credit an easier helper question to the active objective when it falls outside the verified levels', () => {
+    const helper = { ...fractionQuestion, id: 'fraction-helper', level: 1 as const };
+    const evidence = curriculumEvidenceForQuestion(profile(), helper, {
+      curriculumId: 'au-ac-v9',
+      canonicalNodeId: 'math.fractions.add-subtract-related',
+      practiceSkillId: 'fractions-y6',
+      practiceLevels: [2],
+      strength: 'direct',
+    });
+    expect(evidence.some((item) => item.canonicalNodeId === 'math.fractions.add-subtract-related')).toBe(false);
+  });
+});
