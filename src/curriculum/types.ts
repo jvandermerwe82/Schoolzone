@@ -44,3 +44,30 @@ export interface CurriculumSkillMapping {
   /** Mapping confidence is editorial/review confidence, not learner confidence. */
   confidence: 'provisional' | 'reviewed' | 'verified';
 }
+
+
+export type EvidenceMode =
+  | 'selected-response'
+  | 'typed-response'
+  | 'constructed-response'
+  | 'practical'
+  | 'investigation'
+  | 'teacher-observation';
+
+/**
+ * Curriculum-independent learning node. Curriculum packs map their official
+ * references onto these concepts; the Brain should eventually reason over the
+ * canonical node rather than a country-specific curriculum code.
+ */
+export interface CanonicalLearningNode {
+  id: string;
+  subject: string;
+  name: string;
+  strand: string;
+  /** Canonical node ids. Cross-year prerequisites can be added as packs expand. */
+  prerequisites: string[];
+  /** Valid ways SchoolZone may collect evidence for this concept. */
+  evidenceModes: EvidenceMode[];
+  /** Curriculum-pack references this node currently supports. */
+  curriculumRefs: string[];
+}
