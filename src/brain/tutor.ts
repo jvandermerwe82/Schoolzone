@@ -15,7 +15,7 @@ import {
   answerScore, guessRate, initialSkillState, isMastered, predictCorrect, READY_P_KNOWN, updateSkill,
 } from './model';
 import {
-  LEVELS, type Level, type Profile, type Question, type Skill, type SkillState, type StrategyId, type SubjectId,
+  LEVELS, type CurriculumEvidenceRecord, type Level, type Profile, type Question, type Skill, type SkillState, type StrategyId, type SubjectId,
 } from './types';
 
 /** Aim for questions the child gets right about 80% of the time. */
@@ -212,6 +212,8 @@ export interface AnswerOptions {
   items?: ItemStats;
   /** How the tutor was helping when this question was asked. */
   strategy?: StrategyId | 'climb';
+  /** Curriculum mapping supplied by an external curriculum pack. */
+  curriculumEvidence?: CurriculumEvidenceRecord[];
 }
 
 export interface AnswerResult {
@@ -238,7 +240,7 @@ export function recordAnswer(
   now: number,
   opts: AnswerOptions = {},
 ): AnswerResult {
-  const { given, hinted = false, items = {}, strategy } = opts;
+  const { given, hinted = false, items = {}, strategy, curriculumEvidence = [] } = opts;
   const before = skillState(profile, question.skillId);
   const guess = guessRate(question.level, question.choices?.length);
   const offset = itemOffset(items, itemKey(question));
@@ -257,6 +259,7 @@ export function recordAnswer(
         at: now, skillId: question.skillId, level: question.level, correct, timeMs, predicted,
         ...(misconception ? { misconception } : {}), ...(hinted ? { hinted } : {}), ...(rapid ? { rapid } : {}),
         ...(strategy ? { strategy } : {}),
+        ...(curriculumEvidence.length > 0 ? { curriculumEvidence } : {}),
       },
     ].slice(-2000),
     recentQuestionIds: [...profile.recentQuestionIds.filter((id) => id !== question.id), question.id].slice(-30),
