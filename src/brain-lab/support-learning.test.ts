@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   currentSupportPolicy,
+  evaluateSupportLabGate,
   historyOnlySupportPolicy,
   oracleSupportPolicy,
   roundRobinSupportPolicy,
@@ -40,6 +41,18 @@ describe('Brain Lab support learning', () => {
     });
     expect(roundRobin.final5PreferredRate).toBeLessThan(oracle.final5PreferredRate);
     expect(roundRobin.meanRegret).toBeGreaterThan(oracle.meanRegret);
+  });
+
+  it('passes the locked support-learning regression gate', () => {
+    const benchmark = runSupportBenchmark('current', currentSupportPolicy, {
+      population: syntheticPopulation(100),
+      trialsPerLearner: 20,
+      seed: 20260925,
+    });
+    expect(evaluateSupportLabGate(benchmark)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('can compare current support intelligence to historical success memory alone', () => {
