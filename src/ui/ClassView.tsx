@@ -36,7 +36,8 @@ export function ClassView({ schoolId, tools, onBack }: { schoolId: string; tools
 
   if (!view) return <main className="page"><p className="loading">{error || 'Loading…'}</p></main>;
   const structured = view.homework && isStructuredHomework(view.homework) ? view.homework : null;
-  const legacy = view.homework && !isStructuredHomework(view.homework) ? SKILLS.find((s) => s.id === view.homework!.skillId) : null;
+  const legacyHomework = view.homework && !isStructuredHomework(view.homework) ? view.homework : null;
+  const legacy = legacyHomework ? SKILLS.find((s) => s.id === legacyHomework.skillId) : null;
   // Skills with the most pupils struggling or still learning first.
   const needsWork = [...view.summary.skills].sort((a, b) => (b.struggling * 2 + b.learning) - (a.struggling * 2 + a.learning));
 
