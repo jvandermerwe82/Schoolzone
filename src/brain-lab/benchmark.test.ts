@@ -7,6 +7,7 @@ import {
   runBenchmark,
   runSyntheticLearner,
   staticMidlevelPolicy,
+  unaidedOnlyAbilityAdjuster,
 } from './benchmark';
 import { syntheticPopulation } from './synthetic';
 
@@ -75,6 +76,23 @@ describe('SchoolZone Brain Lab', () => {
     expect(comparison.champion.learnerCount).toBe(comparison.challenger.learnerCount);
     expect(Number.isFinite(comparison.delta.finalAbilityMae)).toBe(true);
     expect(Number.isFinite(comparison.delta.meanPredictionBrier)).toBe(true);
+  });
+
+  it('can run a model challenger without changing production code', () => {
+    const population = syntheticPopulation(21);
+    const current = runBenchmark('current', currentBrainPolicy, {
+      population,
+      answersPerLearner: 15,
+      seed: 33,
+    });
+    const challenger = runBenchmark('clean-ability', currentBrainPolicy, {
+      population,
+      answersPerLearner: 15,
+      seed: 33,
+      abilityAdjuster: unaidedOnlyAbilityAdjuster,
+    });
+    expect(challenger.learnerCount).toBe(current.learnerCount);
+    expect(Number.isFinite(challenger.finalAbilityMae)).toBe(true);
   });
 
   it('can benchmark an isolated adaptive policy without changing production code', () => {
