@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AnswerRecord, Profile } from '../brain/types';
+import type { AnswerRecord } from '../brain/types';
 import { newProfile } from '../storage';
 import { australianTeacherObjective, structuredHomework } from './australia-teacher-objectives';
 import { routeAustralianTeacherHomework } from './australia-intent-routing';
