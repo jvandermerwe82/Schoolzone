@@ -68,7 +68,11 @@ export function weakPrerequisite(profile: Profile, skillId: string, seen = new S
 }
 
 /** Pick the next way of helping: best for this child among those not yet tried this episode. */
-export function nextStrategy(profile: Profile, ep: Pick<HelpEpisode, 'skillId' | 'stuckLevel' | 'tried'>): { strategy: StrategyId; tried: StrategyId[]; prereqSkill: string | null } {
+export function nextStrategy(
+  profile: Profile,
+  ep: Pick<HelpEpisode, 'skillId' | 'stuckLevel' | 'tried'>,
+  now?: number,
+): { strategy: StrategyId; tried: StrategyId[]; prereqSkill: string | null } {
   const prereq = weakPrerequisite(profile, ep.skillId);
   const usable = STRATEGIES.filter((s) => (s !== 'prerequisite' || prereq) && (s !== 'smaller-steps' || ep.stuckLevel > 1));
   let tried = ep.tried;
@@ -79,8 +83,9 @@ export function nextStrategy(profile: Profile, ep: Pick<HelpEpisode, 'skillId' |
     options = usable;
   }
   const help = profile.help ?? emptyHelp();
+  const context = { subject: getSkill(ep.skillId).subject, skillId: ep.skillId, now };
   const routingScore = (strategy: StrategyId) =>
-    supportRoutingScore(profile, strategy, strategyScore(help, strategy)).total;
+    supportRoutingScore(profile, strategy, strategyScore(help, strategy), context).total;
   const strategy = [...options].sort(
     (a, b) => routingScore(b) - routingScore(a) || STRATEGIES.indexOf(a) - STRATEGIES.indexOf(b),
   )[0];
@@ -116,7 +121,7 @@ export function updateHelp(
   if (!ep) {
     if (correct) return { help, event: null };
     const start = { skillId: q.skillId, stuckLevel: q.level, tried: [] as StrategyId[] };
-    const { strategy, prereqSkill } = nextStrategy(profile, start);
+    const { strategy, prereqSkill } = nextStrategy(profile, start, now);
     return {
       help: {
         ...help,
@@ -137,7 +142,7 @@ export function updateHelp(
   const e: HelpEpisode = { ...ep, attempts: ep.attempts + 1, misconception: misconception ?? ep.misconception };
   const switchStrategy = (failed: StrategyId): { help: HelpState; event: HelpEvent } => {
     help = credit(help, failed, false);
-    const next = nextStrategy(profile, { ...e, tried: [...e.tried, failed] });
+    const next = nextStrategy(profile, { ...e, tried: [...e.tried, failed] }, now);
     return {
       help: {
         ...help,
@@ -179,7 +184,7 @@ export function updateHelp(
     if (correct) return { help: { ...help, episode: e }, event: null };
     // Slipped on the way back up: that help wasn't enough, so try a different way.
     if (e.helpedBy) return switchStrategy(e.helpedBy);
-    const next = nextStrategy(profile, e);
+    const next = nextStrategy(profile, e, now);
     return { help: { ...help, episode: { ...e, phase: next.strategy, tried: next.tried, prereqSkill: next.prereqSkill } }, event: 'switched' };
   }
 
