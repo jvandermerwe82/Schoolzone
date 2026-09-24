@@ -7,6 +7,9 @@ import {
   roundRobinSupportPolicy,
   runSupportBenchmark,
   runSupportLearner,
+  CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+  parameterizedSupportPolicy,
+  supportRoutingChallengers,
   supportWeightChallengers,
 } from './support-learning';
 import { syntheticPopulation } from './synthetic';
@@ -54,6 +57,41 @@ describe('Brain Lab support learning', () => {
       pass: true,
       failures: [],
     });
+  });
+
+  it('reproduces the production support selector with the current lab config', () => {
+    const learner = syntheticPopulation(1)[0];
+    expect(
+      runSupportLearner(learner, currentSupportPolicy, 15, 541),
+    ).toEqual(
+      runSupportLearner(
+        learner,
+        parameterizedSupportPolicy(CURRENT_SUPPORT_ROUTING_LAB_CONFIG),
+        15,
+        541,
+      ),
+    );
+  });
+
+  it('can compare tunable routing challengers on the same cohort', () => {
+    const population = syntheticPopulation(25);
+    const current = runSupportBenchmark('current', currentSupportPolicy, {
+      population,
+      trialsPerLearner: 15,
+      seed: 55,
+    });
+    const challengers = supportRoutingChallengers(population, current, {
+      trialsPerLearner: 15,
+      seed: 55,
+    });
+    expect(challengers.length).toBeGreaterThan(5);
+    expect(challengers[0].benchmark).toEqual(
+      runSupportBenchmark('current-routing', parameterizedSupportPolicy(CURRENT_SUPPORT_ROUTING_LAB_CONFIG), {
+        population,
+        trialsPerLearner: 15,
+        seed: 55,
+      }),
+    );
   });
 
   it('can compare faster confidence challengers without changing the production baseline', () => {
