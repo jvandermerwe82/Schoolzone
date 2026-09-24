@@ -3,6 +3,7 @@ import {
   activeLearningIntents,
   emptyLearningIntelligence,
   recordEngagementSignal,
+  recordLearningEvidenceFromAnswer,
   recordSupportOutcome,
   setCurriculumContext,
   setSupportPreference,
@@ -135,5 +136,80 @@ describe('learning intelligence recording', () => {
       yearLevel: '5',
     });
     expect(state.curriculum?.jurisdiction).toBe('AU');
+  });
+});
+
+
+describe('answer-derived support learning', () => {
+  it('records rapid guessing as behaviour without inventing a support conclusion', () => {
+    const state = recordLearningEvidenceFromAnswer(emptyLearningIntelligence(), {
+      at: 10,
+      correct: false,
+      hinted: false,
+      rapid: true,
+      skillId: 'fractions',
+      subject: 'maths',
+    });
+    expect(state.engagement.map((signal) => signal.kind)).toContain('rapid-guess');
+    expect(state.supportOutcomes).toEqual([]);
+  });
+
+  it('records low-weight positive evidence when a child succeeds after using a hint', () => {
+    const state = recordLearningEvidenceFromAnswer(emptyLearningIntelligence(), {
+      at: 10,
+      correct: true,
+      hinted: true,
+      rapid: false,
+      event: null,
+      skillId: 'fractions',
+      subject: 'maths',
+    });
+    expect(state.engagement.map((signal) => signal.kind)).toContain('requested-help');
+    expect(state.supportOutcomes).toEqual([
+      expect.objectContaining({
+        strategy: 'graduated-hints',
+        delta: 0.2,
+        weight: 0.15,
+        source: 'observed-learning',
+      }),
+    ]);
+  });
+
+  it('credits the actual strategy after a successful climb resolves a stuck episode', () => {
+    const state = recordLearningEvidenceFromAnswer(emptyLearningIntelligence(), {
+      at: 10,
+      correct: true,
+      hinted: false,
+      rapid: false,
+      strategy: 'climb',
+      helpedBy: 'worked-example',
+      event: 'resolved',
+      skillId: 'fractions',
+      subject: 'maths',
+    });
+    expect(state.engagement.map((signal) => signal.kind)).toContain('persisted-after-error');
+    expect(state.supportOutcomes[0]).toMatchObject({
+      strategy: 'worked-examples',
+      delta: 0.9,
+      weight: 0.5,
+    });
+  });
+
+  it('records a strategy switch as negative evidence rather than a diagnosis', () => {
+    const state = recordLearningEvidenceFromAnswer(emptyLearningIntelligence(), {
+      at: 10,
+      correct: false,
+      hinted: false,
+      rapid: false,
+      strategy: 'similar',
+      event: 'switched',
+      skillId: 'fractions',
+      subject: 'maths',
+    });
+    expect(state.supportOutcomes[0]).toMatchObject({
+      strategy: 'similar-problem',
+      delta: -0.6,
+      weight: 0.35,
+    });
   });
 });
