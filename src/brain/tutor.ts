@@ -233,6 +233,8 @@ export interface AnswerOptions {
   strategy?: StrategyId | 'climb';
   /** Curriculum mapping supplied by an external curriculum pack. */
   curriculumEvidence?: CurriculumEvidenceRecord[];
+  /** 1-based position within the current mission. */
+  sessionPosition?: number;
 }
 
 export interface AnswerResult {
@@ -259,7 +261,7 @@ export function recordAnswer(
   now: number,
   opts: AnswerOptions = {},
 ): AnswerResult {
-  const { given, hinted = false, items = {}, strategy, curriculumEvidence = [] } = opts;
+  const { given, hinted = false, items = {}, strategy, curriculumEvidence = [], sessionPosition } = opts;
   const before = skillState(profile, question.skillId);
   const guess = guessRate(question.level, question.choices?.length);
   const offset = itemOffset(items, itemKey(question));
@@ -297,6 +299,7 @@ export function recordAnswer(
       event,
       subject: getSkill(question.skillId).subject,
       skillId: question.skillId,
+      sessionPosition,
     },
   );
 

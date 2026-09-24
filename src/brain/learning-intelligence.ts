@@ -315,6 +315,8 @@ export interface AnswerLearningEvidence {
   event?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
   subject?: string;
   skillId?: string;
+  /** 1-based position within the current mission, when known. */
+  sessionPosition?: number;
 }
 
 const SUPPORT_FOR_HELP: Record<string, SupportStrategyId> = {
@@ -346,7 +348,11 @@ export function recordLearningEvidenceFromAnswer(
   const common = { at: evidence.at, subject: evidence.subject, skillId: evidence.skillId };
 
   if (evidence.rapid) {
-    next = recordEngagementSignal(next, { kind: 'rapid-guess', ...common });
+    next = recordEngagementSignal(next, {
+      kind: 'rapid-guess',
+      ...common,
+      ...(evidence.sessionPosition ? { value: evidence.sessionPosition } : {}),
+    });
   }
   if (evidence.hinted || (evidence.strategy && evidence.strategy !== 'climb')) {
     next = recordEngagementSignal(next, { kind: 'requested-help', ...common });
