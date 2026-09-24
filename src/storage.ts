@@ -5,6 +5,7 @@
 import type { ItemStats } from './brain/items';
 import { emptyHelp } from './brain/help';
 import { DEFAULT_SETTINGS, type Profile } from './brain/types';
+import { emptyLearningIntelligence } from './brain/learning-intelligence';
 
 const KEY = 'schoolzone:v1';
 const ITEMS_KEY = 'schoolzone:items:v1';
@@ -41,6 +42,7 @@ export function normalizeProfile(raw: Partial<Profile> & { grade?: number }): Pr
     checkpoints: p.checkpoints ?? [],
     settings: { ...DEFAULT_SETTINGS, ...p.settings },
     sats: p.sats ?? [],
+    learningIntelligence: p.learningIntelligence ?? emptyLearningIntelligence(),
   };
 }
 
@@ -72,6 +74,7 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     checkpoints: [],
     settings: { ...DEFAULT_SETTINGS },
     sats: [],
+    learningIntelligence: emptyLearningIntelligence(),
   };
 }
 
