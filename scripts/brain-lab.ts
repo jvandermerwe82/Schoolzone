@@ -28,6 +28,7 @@ import {
 } from '../src/brain-lab/retention';
 import {
   compareTeacherIntentPolicies,
+  evaluateTeacherIntentLabGate,
   runTeacherIntentBenchmark,
   teacherDualEvidenceChallengers,
   teacherEvidenceChallengers,
@@ -112,6 +113,10 @@ const teacherIntentDualEvidence = teacherDualEvidenceChallengers(
   teacherIntentLifetime48,
   { horizonQuestions: 48, seed: 20260925 },
 );
+const teacherIntentGate = evaluateTeacherIntentLabGate(
+  teacherIntent,
+  teacherIntentLifetime48,
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -151,6 +156,7 @@ process.stdout.write(JSON.stringify({
     scheduleChallengers: retentionChallengers,
   },
   teacherIntent: {
+    gate: teacherIntentGate,
     current: teacherIntent,
     horizonCurve: teacherIntentCurve,
     lifetime48: teacherIntentLifetime48,
@@ -165,4 +171,10 @@ process.stdout.write(JSON.stringify({
   },
 }, null, 2) + '\n');
 
-if (!gate.pass || !supportGate.pass || !misconceptionGate.pass || !retentionGate.pass) process.exitCode = 1;
+if (
+  !gate.pass
+  || !supportGate.pass
+  || !misconceptionGate.pass
+  || !retentionGate.pass
+  || !teacherIntentGate.pass
+) process.exitCode = 1;
