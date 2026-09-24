@@ -42,12 +42,22 @@ describe('information-efficient early diagnosis', () => {
     expect(predicted).toBeLessThanOrEqual(0.85);
   });
 
-  it('marks the first clean questions as diagnostic probes', () => {
+  it('marks an older learner confirming a foundation skill as diagnostic', () => {
     const profile = newProfile('Ava', '🦊', 6);
     const plan = planNext(profile, 'maths', { focus: 'number-sense', answered: 0 }, 0, () => 0.5);
     expect(plan.skillId).toBe('number-sense');
     expect(plan.diagnostic).toBe(true);
     expect(plan.message).toMatch(/best starting point/i);
+  });
+
+  it('does not probe aggressively when the prior ability is not already strong', () => {
+    const profile = newProfile('Ava', '🦊', 6);
+    profile.skills['number-sense'] = {
+      ...initialSkillState(6, 1),
+      ability: 0.5,
+    };
+    const plan = planNext(profile, 'maths', { focus: 'number-sense', answered: 0 }, 0, () => 0.5);
+    expect(plan.diagnostic).not.toBe(true);
   });
 
   it('stops diagnostic probing immediately after hinted evidence', () => {
