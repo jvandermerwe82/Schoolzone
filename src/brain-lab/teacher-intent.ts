@@ -6,7 +6,9 @@ import {
   type TeacherObjectiveDefinition,
 } from '../curriculum/australia-teacher-objectives';
 import { australianCanonicalProgress } from '../curriculum/australia-canonical';
-import type { AnswerRecord, Profile } from '../brain/types';
+import { isMastered, READY_P_KNOWN } from '../brain/model';
+import { recordAnswer, skillState } from '../brain/tutor';
+import type { AnswerRecord, Profile, Question } from '../brain/types';
 import { newProfile } from '../storage';
 import { mixSeed, seededRng } from './rng';
 
@@ -39,7 +41,10 @@ export type TeacherEvidencePolicy =
   | 'recent-10-after-10'
   | 'recovery-7-of-8'
   | 'recovery-8-of-8'
-  | 'recovery-9-of-10';
+  | 'recovery-9-of-10'
+  | 'recent-8-skill-ready'
+  | 'recovery-7-of-8-skill-ready'
+  | 'recent-8-skill-mastered';
 
 export const TEACHER_INTENT_SAFE_TARGET_KNOWLEDGE = 0.70;
 export const TEACHER_INTENT_SAFE_PREREQUISITE_KNOWLEDGE = 0.65;
@@ -132,6 +137,7 @@ interface EvidenceWindowPolicy {
   window: number | null;
   minLifetimeDirectEvidence: number;
   recoveryRequiredCorrect?: number;
+  skillGate?: 'ready' | 'mastered';
 }
 
 const evidenceWindowPolicy = (policy: TeacherEvidencePolicy): EvidenceWindowPolicy => {
@@ -148,14 +154,36 @@ const evidenceWindowPolicy = (policy: TeacherEvidencePolicy): EvidenceWindowPoli
       return { window: 8, minLifetimeDirectEvidence: 8, recoveryRequiredCorrect: 8 };
     case 'recovery-9-of-10':
       return { window: 10, minLifetimeDirectEvidence: 10, recoveryRequiredCorrect: 9 };
+    case 'recent-8-skill-ready':
+      return { window: 8, minLifetimeDirectEvidence: 8, skillGate: 'ready' };
+    case 'recovery-7-of-8-skill-ready':
+      return {
+        window: 8,
+        minLifetimeDirectEvidence: 8,
+        recoveryRequiredCorrect: 7,
+        skillGate: 'ready',
+      };
+    case 'recent-8-skill-mastered':
+      return { window: 8, minLifetimeDirectEvidence: 8, skillGate: 'mastered' };
     case 'lifetime': return { window: null, minLifetimeDirectEvidence: 0 };
   }
 };
 
+const skillIdForScenarioNode = (
+  scenario: TeacherIntentScenario,
+  nodeId: string,
+): string | null => {
+  if (nodeId === scenario.target.canonicalNodeId) return scenario.target.practiceSkillId;
+  if (nodeId === scenario.prerequisiteNodeId) return scenario.prerequisitePracticeSkillId;
+  return null;
+};
+
 const historyForEvidencePolicy = (
-  history: readonly AnswerRecord[],
+  profile: Profile,
   policy: TeacherEvidencePolicy,
+  scenario: TeacherIntentScenario,
 ): AnswerRecord[] => {
+  const { history } = profile;
   const config = evidenceWindowPolicy(policy);
   if (config.window === null) return [...history];
 
@@ -179,6 +207,16 @@ const historyForEvidencePolicy = (
   for (const [nodeId, rows] of byNode) {
     const directRows = rows.filter((row) => row.direct);
     if (directRows.length < config.minLifetimeDirectEvidence) continue;
+
+    if (config.skillGate) {
+      const skillId = skillIdForScenarioNode(scenario, nodeId);
+      if (!skillId) continue;
+      const state = skillState(profile, skillId);
+      const passesSkillGate = config.skillGate === 'mastered'
+        ? isMastered(state)
+        : state.pKnown >= READY_P_KNOWN;
+      if (!passesSkillGate) continue;
+    }
 
     if (config.recoveryRequiredCorrect !== undefined) {
       if (directRows.length < config.window) continue;
@@ -222,10 +260,12 @@ const historyForEvidencePolicy = (
 };
 
 const evidenceProfile = (
-  profile: Pick<Profile, 'history'>,
+  profile: Profile,
   policy: TeacherEvidencePolicy,
-): Pick<Profile, 'history'> => ({
-  history: historyForEvidencePolicy(profile.history, policy),
+  scenario: TeacherIntentScenario,
+): Profile => ({
+  ...profile,
+  history: historyForEvidencePolicy(profile, policy, scenario),
 });
 
 
@@ -351,7 +391,7 @@ export function runTeacherIntentLearner(
   let targetKnowledgeAtCompletion: number | null = null;
 
   for (let questionIndex = 1; questionIndex <= horizonQuestions; questionIndex++) {
-    const visibleProfile = evidenceProfile(profile, evidencePolicy);
+    const visibleProfile = evidenceProfile(profile, evidencePolicy, learner.scenario);
     const targetProgress = australianCanonicalProgress(
       visibleProfile,
       learner.scenario.target.canonicalNodeId,
@@ -398,13 +438,28 @@ export function runTeacherIntentLearner(
     const correct = rng() < p;
     if (!correct) wrongAnswers++;
 
-    profile = {
-      ...profile,
-      history: [
-        ...profile.history,
-        evidence(activeNodeId, activeSkillId, correct, questionIndex),
-      ],
+    const question: Question = {
+      id: `teacher-intent:${learner.id}:${questionIndex}`,
+      skillId: activeSkillId,
+      level: 3,
+      prompt: 'Synthetic teacher-intent benchmark question',
+      answer: '1',
+      explanation: 'Synthetic teacher-intent benchmark explanation.',
     };
+    profile = recordAnswer(
+      profile,
+      question,
+      correct,
+      3500,
+      questionIndex * 60_000,
+      {
+        curriculumEvidence: [{
+          curriculumId: 'au-ac-v9',
+          canonicalNodeId: activeNodeId,
+          strength: 'direct',
+        }],
+      },
+    ).profile;
 
     const learned = learn(
       activeNodeId,
@@ -415,7 +470,7 @@ export function runTeacherIntentLearner(
     prerequisiteKnowledge = learned.prerequisiteKnowledge;
     targetKnowledge = learned.targetKnowledge;
 
-    const repairedVisible = evidenceProfile(profile, evidencePolicy);
+    const repairedVisible = evidenceProfile(profile, evidencePolicy, learner.scenario);
     const repaired = australianCanonicalProgress(repairedVisible, learner.scenario.prerequisiteNodeId);
     if (canonicalProgressIsReady(repaired) && prerequisiteEvidenceReadyAt === null) {
       prerequisiteEvidenceReadyAt = questionIndex;
@@ -424,7 +479,7 @@ export function runTeacherIntentLearner(
   }
 
   if (questionsToCompletion === null) {
-    const finalVisible = evidenceProfile(profile, evidencePolicy);
+    const finalVisible = evidenceProfile(profile, evidencePolicy, learner.scenario);
     const finalTarget = australianCanonicalProgress(finalVisible, learner.scenario.target.canonicalNodeId);
     if (canonicalProgressIsReady(finalTarget)) {
       questionsToCompletion = horizonQuestions;
@@ -658,6 +713,42 @@ export function teacherRecoveryEvidenceChallengers(
     'recovery-7-of-8',
     'recovery-8-of-8',
     'recovery-9-of-10',
+  ];
+
+  return policies.map((evidencePolicy) => {
+    const benchmark = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions,
+      seed,
+      evidencePolicy,
+    });
+    return {
+      evidencePolicy,
+      benchmark,
+      deltaVsLifetime: {
+        completionRate: benchmark.completionRate - lifetime.completionRate,
+        wrongAnswerRate: lifetime.wrongAnswerRate - benchmark.wrongAnswerRate,
+        prerequisiteRepairRate:
+          benchmark.prerequisiteRepairRate - lifetime.prerequisiteRepairRate,
+        meanTargetKnowledge:
+          benchmark.meanFinalTargetKnowledge - lifetime.meanFinalTargetKnowledge,
+      },
+    };
+  });
+}
+
+
+export function teacherDualEvidenceChallengers(
+  population: HiddenTeacherIntentLearner[],
+  lifetime: TeacherIntentBenchmark,
+  options: { horizonQuestions?: number; seed?: number } = {},
+): TeacherEvidenceChallenger[] {
+  const horizonQuestions = options.horizonQuestions ?? 48;
+  const seed = options.seed ?? 20260925;
+  const policies: TeacherEvidencePolicy[] = [
+    'recent-8-skill-ready',
+    'recovery-7-of-8-skill-ready',
+    'recent-8-skill-mastered',
   ];
 
   return policies.map((evidencePolicy) => {
