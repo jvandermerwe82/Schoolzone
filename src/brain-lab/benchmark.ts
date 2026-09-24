@@ -1,4 +1,5 @@
 import { getSkill } from '../content/skills';
+import { kFactor } from '../brain/model';
 import { chooseLevel, planNext, recordAnswer, skillState, TARGET_SUCCESS } from '../brain/tutor';
 import type { Profile, Question } from '../brain/types';
 import { newProfile } from '../storage';
@@ -27,6 +28,34 @@ const median = (values: readonly number[]): number | null => {
 
 const strategyHinted = (decision: LabDecision) =>
   decision.hinted || decision.strategy === 'hint' || decision.strategy === 'worked-example';
+
+export interface LabAbilityAdjustment {
+  beforeAbility: number;
+  beforeAttempts: number;
+  predicted: number;
+  correct: boolean;
+  hinted: boolean;
+  rapid: boolean;
+}
+
+export type LabAbilityAdjuster = (input: LabAbilityAdjustment) => number;
+
+/**
+ * Challenger: only clean unaided attempts move the core ability estimate.
+ * Hinted answers and rapid guesses still update BKT/help/support state through
+ * recordAnswer(), but their ability update is neutralised after the fact.
+ */
+export const unaidedOnlyAbilityAdjuster: LabAbilityAdjuster = ({
+  beforeAbility,
+  beforeAttempts,
+  predicted,
+  correct,
+  hinted,
+  rapid,
+}) => {
+  if (hinted || rapid) return beforeAbility;
+  return beforeAbility + kFactor(beforeAttempts) * ((correct ? 1 : 0) - predicted);
+};
 
 export const currentBrainPolicy: LabPolicy = (profile, learner, step, now, rng) => {
   const skill = getSkill(learner.skillId);
@@ -85,6 +114,7 @@ export function runSyntheticLearner(
   policy: LabPolicy,
   answers = 30,
   seed = 1,
+  abilityAdjuster?: LabAbilityAdjuster,
 ): LearnerRun {
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber));
@@ -94,6 +124,8 @@ export function runSyntheticLearner(
   for (let index = 0; index < answers; index++) {
     const now = index * 60_000;
     const decision = policy(profile, learner, index, now, rng);
+    const before = skillState(profile, learner.skillId);
+    const hinted = strategyHinted(decision);
     const trueProbability = hiddenSuccessProbability(learner, decision);
     const rapid = rng() < learner.rapidRate;
     const correct = rapid ? false : rng() < trueProbability;
@@ -105,11 +137,31 @@ export function runSyntheticLearner(
       rapid ? 250 : 3500,
       now,
       {
-        hinted: strategyHinted(decision),
+        hinted,
         strategy: decision.strategy,
       },
     );
     profile = result.profile;
+    if (abilityAdjuster) {
+      const ability = abilityAdjuster({
+        beforeAbility: before.ability,
+        beforeAttempts: before.attempts,
+        predicted: result.predicted,
+        correct,
+        hinted,
+        rapid,
+      });
+      profile = {
+        ...profile,
+        skills: {
+          ...profile.skills,
+          [learner.skillId]: {
+            ...profile.skills[learner.skillId],
+            ability,
+          },
+        },
+      };
+    }
     const abilityEstimate = skillState(profile, learner.skillId).ability;
     steps.push({
       index: index + 1,
@@ -165,13 +217,20 @@ export function runBenchmark(
     answersPerLearner?: number;
     seed?: number;
     curveAt?: number[];
+    abilityAdjuster?: LabAbilityAdjuster;
   } = {},
 ): BrainBenchmark {
   const population = options.population ?? syntheticPopulation();
   const answersPerLearner = options.answersPerLearner ?? 30;
   const seed = options.seed ?? 20260925;
   const runs = population.map((learner, index) =>
-    runSyntheticLearner(learner, policy, answersPerLearner, mixSeed(seed, index + 1)));
+    runSyntheticLearner(
+      learner,
+      policy,
+      answersPerLearner,
+      mixSeed(seed, index + 1),
+      options.abilityAdjuster,
+    ));
   const stable = runs
     .map((run) => run.answersToStableEstimate)
     .filter((value): value is number => value !== null);
