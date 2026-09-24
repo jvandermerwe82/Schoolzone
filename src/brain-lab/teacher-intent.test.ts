@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareTeacherIntentPolicies,
   runTeacherIntentBenchmark,
+  teacherDualEvidenceChallengers,
   teacherEvidenceChallengers,
   teacherHybridEvidenceChallengers,
   teacherRecoveryEvidenceChallengers,
@@ -133,6 +134,26 @@ describe('Brain Lab teacher-intent efficiency', () => {
       'recovery-7-of-8',
       'recovery-8-of-8',
       'recovery-9-of-10',
+    ]);
+    expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
+  });
+
+  it('cross-checks recovery evidence against the core Brain skill state', () => {
+    const population = teacherIntentPopulation(60);
+    const lifetime = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions: 48,
+      seed: 109,
+    });
+    const challengers = teacherDualEvidenceChallengers(population, lifetime, {
+      horizonQuestions: 48,
+      seed: 109,
+    });
+
+    expect(challengers.map((item) => item.evidencePolicy)).toEqual([
+      'recent-8-skill-ready',
+      'recovery-7-of-8-skill-ready',
+      'recent-8-skill-mastered',
     ]);
     expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
   });
