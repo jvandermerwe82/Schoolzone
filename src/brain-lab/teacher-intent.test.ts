@@ -4,6 +4,7 @@ import {
   runTeacherIntentBenchmark,
   teacherEvidenceChallengers,
   teacherHybridEvidenceChallengers,
+  teacherRecoveryEvidenceChallengers,
   runTeacherIntentLearner,
   teacherIntentPopulation,
   teacherIntentScenarios,
@@ -112,6 +113,26 @@ describe('Brain Lab teacher-intent efficiency', () => {
       'recent-8-after-8',
       'recent-8-after-10',
       'recent-10-after-10',
+    ]);
+    expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
+  });
+
+  it('tests strict recovery streaks as an alternative to blanket recency', () => {
+    const population = teacherIntentPopulation(60);
+    const lifetime = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions: 48,
+      seed: 108,
+    });
+    const challengers = teacherRecoveryEvidenceChallengers(population, lifetime, {
+      horizonQuestions: 48,
+      seed: 108,
+    });
+
+    expect(challengers.map((item) => item.evidencePolicy)).toEqual([
+      'recovery-7-of-8',
+      'recovery-8-of-8',
+      'recovery-9-of-10',
     ]);
     expect(challengers.every((item) => item.benchmark.prerequisiteReadinessPrecision >= 0.95)).toBe(true);
   });
