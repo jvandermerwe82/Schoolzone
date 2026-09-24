@@ -11,6 +11,7 @@ import { skillReport, type SkillStatus } from '../src/brain/insights';
 import { misconceptionReport } from '../src/brain/misconceptions';
 import type { Profile } from '../src/brain/types';
 import { getSkill, SKILLS } from '../src/content/skills';
+import { australianTeacherObjective, structuredHomework } from '../src/curriculum/australia-teacher-objectives';
 import { normalizeProfile } from '../src/storage';
 import type { DB } from './db';
 import { screen } from './safety';
@@ -92,22 +93,52 @@ export function registerClassRoutes(app: FastifyInstance, ctx: Ctx): void {
     };
   });
 
-  app.put<{ Params: { id: string }; Body: { skillId: string; note?: string } }>('/api/schools/:id/homework', {
+  app.put<{
+    Params: { id: string };
+    Body: { skillId?: string; objectiveId?: string; note?: string; priority?: 1 | 2 | 3; dueAt?: number | null };
+  }>('/api/schools/:id/homework', {
     preHandler: ctx.requireParent,
     schema: {
       body: {
-        type: 'object', required: ['skillId'], additionalProperties: false,
-        properties: { skillId: { type: 'string', maxLength: 64 }, note: { type: 'string', maxLength: MAX_NOTE } },
+        type: 'object', additionalProperties: false,
+        properties: {
+          skillId: { type: 'string', maxLength: 64 },
+          objectiveId: { type: 'string', maxLength: 80 },
+          note: { type: 'string', maxLength: MAX_NOTE },
+          priority: { enum: [1, 2, 3] },
+          dueAt: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+        },
       },
     },
   }, async (req, reply) => {
     const school = ownSchool(req.params.id, req.parent!.id);
     if (!school) return reply.code(404).send({ error: 'Not found.' });
-    if (!SKILLS.some((s) => s.id === req.body.skillId)) return reply.code(400).send({ error: 'Unknown topic.' });
+
     const note = (req.body.note ?? '').trim().replace(/\s+/g, ' ');
     // Children read this note: no contact details, links or worrying content.
     if (scrub(note) !== note || screen(note)) {
       return reply.code(400).send({ error: 'Please keep the note to the topic: no links, contact details or personal messages.' });
+    }
+
+    if (req.body.objectiveId) {
+      const definition = australianTeacherObjective(req.body.objectiveId);
+      if (!definition) return reply.code(400).send({ error: 'Unknown curriculum objective.' });
+      const dueAt = req.body.dueAt ?? null;
+      if (dueAt !== null && (!Number.isFinite(dueAt) || dueAt < now() - 60_000 || dueAt > now() + 366 * 86_400_000)) {
+        return reply.code(400).send({ error: 'Please choose a valid due date.' });
+      }
+      const homework = structuredHomework(definition, now(), {
+        note,
+        priority: req.body.priority ?? 2,
+        dueAt,
+      });
+      db.prepare('UPDATE schools SET focus_json = ? WHERE id = ?').run(JSON.stringify(homework), school.id);
+      return { homework };
+    }
+
+    // Legacy path kept for existing deployments and old clients.
+    if (!req.body.skillId || !SKILLS.some((skill) => skill.id === req.body.skillId)) {
+      return reply.code(400).send({ error: 'Unknown topic.' });
     }
     const homework = { skillId: req.body.skillId, note, setAt: now() };
     db.prepare('UPDATE schools SET focus_json = ? WHERE id = ?').run(JSON.stringify(homework), school.id);
