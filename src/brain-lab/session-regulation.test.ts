@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareSessionRegulation,
+  evaluateSessionRegulationGate,
   runSessionLearner,
   runSessionRegulationBenchmark,
   sessionRegulationPopulation,
@@ -54,6 +55,18 @@ describe('Brain Lab adaptive session regulation', () => {
     expect(comparison.adaptive.learnerCount).toBe(comparison.fixed10.learnerCount);
     expect(Number.isFinite(comparison.delta.usefulLearningRate)).toBe(true);
     expect(Number.isFinite(comparison.delta.rapidGuessRate)).toBe(true);
+  });
+
+  it('passes the locked adaptive session-regulation gate', () => {
+    const comparison = compareSessionRegulation({
+      population: sessionRegulationPopulation(120),
+      missionsPerLearner: 12,
+      seed: 20260925,
+    });
+    expect(evaluateSessionRegulationGate(comparison)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('reports learning quality and workload separately', () => {
