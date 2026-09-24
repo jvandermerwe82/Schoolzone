@@ -292,3 +292,69 @@ export function runMisconceptionBenchmark(
         : mean(hidden.map((run) => run.activeAtEnd ? 1 : 0)),
   };
 }
+
+
+export const MISCONCEPTION_LAB_THRESHOLDS = {
+  minDetectionRecall: 0.85,
+  minDetectionPrecision: 0.95,
+  maxFalsePositiveRate: 0.05,
+  maxMedianDetectionExposure: 3,
+  minRecoveryResolutionRate: 0.95,
+  maxMedianRecoveryExposuresToClear: 3,
+  maxLingeringActiveRate: 0.10,
+} as const;
+
+export interface MisconceptionLabGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateMisconceptionLabGate(
+  benchmark: MisconceptionBenchmark,
+): MisconceptionLabGate {
+  const failures: string[] = [];
+
+  if (benchmark.detectionRecall < MISCONCEPTION_LAB_THRESHOLDS.minDetectionRecall) {
+    failures.push(
+      `detection recall ${benchmark.detectionRecall.toFixed(3)} is below ${MISCONCEPTION_LAB_THRESHOLDS.minDetectionRecall}`,
+    );
+  }
+  if (benchmark.detectionPrecision < MISCONCEPTION_LAB_THRESHOLDS.minDetectionPrecision) {
+    failures.push(
+      `detection precision ${benchmark.detectionPrecision.toFixed(3)} is below ${MISCONCEPTION_LAB_THRESHOLDS.minDetectionPrecision}`,
+    );
+  }
+  if (benchmark.falsePositiveRate > MISCONCEPTION_LAB_THRESHOLDS.maxFalsePositiveRate) {
+    failures.push(
+      `false-positive rate ${benchmark.falsePositiveRate.toFixed(3)} exceeds ${MISCONCEPTION_LAB_THRESHOLDS.maxFalsePositiveRate}`,
+    );
+  }
+  if (
+    benchmark.medianDetectionExposure === null
+    || benchmark.medianDetectionExposure > MISCONCEPTION_LAB_THRESHOLDS.maxMedianDetectionExposure
+  ) {
+    failures.push(
+      `median detection exposure ${benchmark.medianDetectionExposure ?? 'none'} exceeds ${MISCONCEPTION_LAB_THRESHOLDS.maxMedianDetectionExposure}`,
+    );
+  }
+  if (benchmark.recoveryResolutionRate < MISCONCEPTION_LAB_THRESHOLDS.minRecoveryResolutionRate) {
+    failures.push(
+      `recovery resolution rate ${benchmark.recoveryResolutionRate.toFixed(3)} is below ${MISCONCEPTION_LAB_THRESHOLDS.minRecoveryResolutionRate}`,
+    );
+  }
+  if (
+    benchmark.medianRecoveryExposuresToClear === null
+    || benchmark.medianRecoveryExposuresToClear > MISCONCEPTION_LAB_THRESHOLDS.maxMedianRecoveryExposuresToClear
+  ) {
+    failures.push(
+      `median recovery exposures ${benchmark.medianRecoveryExposuresToClear ?? 'none'} exceeds ${MISCONCEPTION_LAB_THRESHOLDS.maxMedianRecoveryExposuresToClear}`,
+    );
+  }
+  if (benchmark.lingeringActiveRate > MISCONCEPTION_LAB_THRESHOLDS.maxLingeringActiveRate) {
+    failures.push(
+      `lingering-active rate ${benchmark.lingeringActiveRate.toFixed(3)} exceeds ${MISCONCEPTION_LAB_THRESHOLDS.maxLingeringActiveRate}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
