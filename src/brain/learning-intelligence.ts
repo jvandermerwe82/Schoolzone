@@ -77,8 +77,6 @@ export interface SupportOutcome {
   source: SupportOutcomeSource;
   subject?: string;
   skillId?: string;
-  /** 1-based position within the current mission, when known. */
-  sessionPosition?: number;
 }
 
 export interface SupportStrategySummary {
@@ -317,6 +315,8 @@ export interface AnswerLearningEvidence {
   event?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
   subject?: string;
   skillId?: string;
+  /** 1-based position within the current mission, when known. */
+  sessionPosition?: number;
 }
 
 const SUPPORT_FOR_HELP: Record<string, SupportStrategyId> = {
