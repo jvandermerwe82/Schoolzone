@@ -7,6 +7,8 @@ import { isMastered } from '../brain/model';
 import type { AnswerEvent, TutorTurn } from '../api';
 import { itemKey } from '../brain/items';
 import { planNext, recordAnswer, skillState, type Plan } from '../brain/tutor';
+import { emptyLearningIntelligence, recordEngagementSignal } from '../brain/learning-intelligence';
+import { sessionPolicy } from '../brain/session-policy';
 import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
 import { curriculumEvidenceForQuestion } from '../curriculum/evidence';
@@ -16,7 +18,6 @@ import { useSpeech } from '../speech';
 import { questionSpeech, SpeakButton } from './SpeakButton';
 import { PassageCard } from './PassageCard';
 
-const SESSION_LENGTH = 10;
 
 /**
  * On-screen keyboard per skill. Chosen by skill, not by the answer, so the
@@ -104,6 +105,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
   const [showWords, setShowWords] = useState(false);
   const [solverExample, setSolverExample] = useState<Question | null>(null);
   const [answered, setAnswered] = useState(0);
+  const [missionLength, setMissionLength] = useState(() => sessionPolicy(profile, subject).missionLength);
   const [score, setScore] = useState(0);
   const [cracked, setCracked] = useState(0);
   const [input, setInput] = useState('');
@@ -170,6 +172,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
     const curriculumEvidence = curriculumEvidenceForQuestion(profile, question);
     const result = recordAnswer(profile, question, correct, Date.now() - turn.shownAt, Date.now(), {
       given, hinted: usedSolver, items, strategy: plan.strategy, curriculumEvidence,
+      sessionPosition: answered + 1,
     });
     onUpdate(result.profile);
     onItems(result.items);
@@ -190,7 +193,34 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
     start(nextTurn(profile, subject, question.skillId, answered, items));
   }
 
-  if (answered >= SESSION_LENGTH && !feedback) {
+  function withSessionSignal(kind: 'stopped-session' | 'continued-voluntarily', value: number): Profile {
+    const learningIntelligence = recordEngagementSignal(
+      profile.learningIntelligence ?? emptyLearningIntelligence(),
+      { kind, at: Date.now(), subject, value },
+    );
+    const nextProfile = { ...profile, learningIntelligence };
+    onUpdate(nextProfile);
+    return nextProfile;
+  }
+
+  function exitSession() {
+    if (answered > 0 && answered < missionLength) withSessionSignal('stopped-session', answered);
+    onExit();
+  }
+
+  function continueMission() {
+    const nextProfile = withSessionSignal('continued-voluntarily', missionLength);
+    const nextLength = sessionPolicy(nextProfile, subject).missionLength;
+    setMissionLength(nextLength);
+    setAnswered(0);
+    setScore(0);
+    setCracked(0);
+    setSessionXp(0);
+    setStreak(0);
+    start(nextTurn(nextProfile, subject, focusSkill ?? null, 0, items));
+  }
+
+  if (answered >= missionLength && !feedback) {
     const newlyMastered = skillsFor(subject).filter(
       (s) => isMastered(skillState(profile, s.id)) && !masteredAtStart.current.has(s.id),
     );
@@ -199,7 +229,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
       <main className="page">
         <div className="card center results">
           <p className="eyebrow">Mission complete</p>
-          <p className="big">{score}/{SESSION_LENGTH}</p>
+          <p className="big">{score}/{missionLength}</p>
           <p className="xp-total">+{sessionXp} XP</p>
           {cracked > 0 && <p>💪 You worked through {cracked} tricky {cracked === 1 ? 'problem' : 'problems'}.</p>}
           {newlyMastered.length > 0 && (
@@ -208,10 +238,10 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
           {open && <p>We'll keep working on <strong>{getSkill(open.skillId).name}</strong> together next time, until you've got it.</p>}
           <p className="muted">Schoolzone has updated what it knows about you, so next time starts at the right level.</p>
           <div className="row center">
-            <button className="primary" onClick={() => { setAnswered(0); setScore(0); setCracked(0); start(nextTurn(profile, subject, focusSkill ?? null, 0, items)); }}>
+            <button className="primary" onClick={continueMission}>
               Next mission
             </button>
-            <button onClick={onExit}>Back to base</button>
+            <button onClick={exitSession}>Back to base</button>
           </div>
         </div>
       </main>
@@ -221,9 +251,9 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
   const header = (
     <>
       <header className="topbar hud">
-        <button className="link" onClick={onExit} aria-label="Leave mission">✕</button>
-        <div className="segments" aria-label={`Question ${Math.min(answered + (feedback ? 0 : 1), SESSION_LENGTH)} of ${SESSION_LENGTH}`}>
-          {Array.from({ length: SESSION_LENGTH }, (_, i) => <span key={i} className={i < answered ? 'done' : i === answered ? 'now' : ''} />)}
+        <button className="link" onClick={exitSession} aria-label="Leave mission">✕</button>
+        <div className="segments" aria-label={`Question ${Math.min(answered + (feedback ? 0 : 1), missionLength)} of ${missionLength}`}>
+          {Array.from({ length: missionLength }, (_, i) => <span key={i} className={i < answered ? 'done' : i === answered ? 'now' : ''} />)}
         </div>
         <span className="hud-stats"><span title="Correct in a row">🔥{streak}</span> <span className="xp-chip">{sessionXp} XP</span></span>
       </header>
@@ -407,7 +437,7 @@ export function Practice({ profile, subject, focusSkill, onUpdate, items, onItem
               );
             })}
             <button className="primary" onClick={next} autoFocus>
-              {answered >= SESSION_LENGTH ? 'See results' : 'Next →'}
+              {answered >= missionLength ? 'See results' : 'Next →'}
             </button>
           </div>
         )}
