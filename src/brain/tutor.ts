@@ -19,8 +19,15 @@ import {
   LEVELS, type CurriculumEvidenceRecord, type Level, type Profile, type Question, type Skill, type SkillState, type StrategyId, type SubjectId,
 } from './types';
 
-/** Aim for questions the child gets right about 80% of the time. */
+/** Aim for normal learning questions the child gets right about 80% of the time. */
 export const TARGET_SUCCESS = 0.8;
+/** Early clean attempts use a more informative but still child-safe probe zone. */
+export const DIAGNOSTIC_TARGET_SUCCESS = 0.68;
+export const DIAGNOSTIC_MIN_SUCCESS = 0.55;
+export const DIAGNOSTIC_MAX_SUCCESS = 0.85;
+export const DIAGNOSTIC_MAX_ATTEMPTS = 2;
+/** Only probe more aggressively when the prior already says this learner is strong. */
+export const DIAGNOSTIC_MIN_PRIOR_ABILITY = 1.0;
 /** Unaided correct answers in a row before trying a harder level. */
 export const STRETCH_RUN = 4;
 /** Early clean success can accelerate placement before the long-run stretch rule. */
@@ -49,6 +56,8 @@ export interface Plan {
   workedExample?: boolean;
   /** How the tutor is helping, when the child is stuck. */
   strategy?: StrategyId | 'climb';
+  /** Early information-efficient placement probe. */
+  diagnostic?: boolean;
 }
 
 export function skillState(profile: Profile, skillId: string): SkillState {
@@ -85,6 +94,36 @@ export function chooseLevel(
     if (gap < bestGap) { best = level; bestGap = gap; }
   }
   return best;
+}
+
+/**
+ * Choose an information-efficient early probe without making the learner face
+ * a question the model thinks is too likely to fail.
+ *
+ * Within the safe band, probability near 0.5 carries more information. We use
+ * 0.68 as a child-friendly compromise and fall back to the normal 0.8 target
+ * when no level falls in the safe diagnostic band.
+ */
+export function chooseDiagnosticLevel(
+  state: SkillState,
+  choiceCount?: number,
+  offsetFor: (level: Level) => number = () => 0,
+  maxLevel: Level = 5,
+  allowedLevels?: readonly Level[],
+): Level {
+  const candidates = LEVELS
+    .filter((level) => level <= maxLevel && (!allowedLevels?.length || allowedLevels.includes(level)))
+    .map((level) => ({
+      level,
+      p: predictCorrect(state.ability, level, guessRate(level, choiceCount), offsetFor(level)),
+    }));
+  const safe = candidates.filter(({ p }) => p >= DIAGNOSTIC_MIN_SUCCESS && p <= DIAGNOSTIC_MAX_SUCCESS);
+  if (safe.length === 0) {
+    return chooseLevel(state, TARGET_SUCCESS, choiceCount, offsetFor, maxLevel, allowedLevels);
+  }
+  return [...safe].sort(
+    (a, b) => Math.abs(a.p - DIAGNOSTIC_TARGET_SUCCESS) - Math.abs(b.p - DIAGNOSTIC_TARGET_SUCCESS),
+  )[0].level;
 }
 
 export interface SessionContext {
@@ -129,13 +168,26 @@ export function planNext(
     );
   const plan = (skillId: string, reason: Reason, message: string, target = TARGET_SUCCESS): Plan => {
     const allowedLevels = session.focus === skillId ? session.allowedLevels : undefined;
-    let level = levelFor(skillId, target, 5, allowedLevels);
-    // Stretch: after a run of unaided correct answers, try one level up if the
-    // child has a fair chance at it. Easy questions tell the rating little, so
-    // without this a child can stay on easy questions long after they're ready.
     const history = profile.history.filter((h) => h.skillId === skillId);
     const clean = (h: (typeof history)[number]) => h.correct && !h.hinted && !h.rapid;
     const st = skillState(profile, skillId);
+    const routeLocked = !!allowedLevels?.length;
+    const diagnostic = !routeLocked
+      && (reason === 'new' || reason === 'continue')
+      && st.attempts < DIAGNOSTIC_MAX_ATTEMPTS
+      && st.ability >= DIAGNOSTIC_MIN_PRIOR_ABILITY
+      && history.every(clean);
+    let level = diagnostic
+      ? chooseDiagnosticLevel(
+          st,
+          getSkill(skillId).choices,
+          (l) => itemOffset(items, itemKey({ id: '', skillId, level: l })),
+        )
+      : levelFor(skillId, target, 5, allowedLevels);
+    if (diagnostic && !message) message = 'Let\'s find the best starting point for you.';
+    // Stretch: after a run of unaided correct answers, try one level up if the
+    // child has a fair chance at it. Easy questions tell the rating little, so
+    // without this a child can stay on easy questions long after they're ready.
     const normalRun = history.slice(-STRETCH_RUN);
     const fastRun = history.slice(-FAST_PLACEMENT_RUN);
     const normalStretch = normalRun.length === STRETCH_RUN && normalRun.every(clean);
@@ -145,7 +197,6 @@ export function planNext(
       && fastRun.length === FAST_PLACEMENT_RUN
       && fastRun.every(clean);
     const run = fastPlacement ? fastRun : normalRun;
-    const routeLocked = !!allowedLevels?.length;
     const onARoll = !routeLocked && (fastPlacement || normalStretch);
     if (onARoll) {
       const top = Math.max(...run.map((h) => h.level));
@@ -160,7 +211,14 @@ export function planNext(
           : 'You\'re on a roll! Let\'s try a harder one.');
       }
     }
-    return { skillId, reason, message, level, target: activeMisconceptionFor(profile, skillId) };
+    return {
+      skillId,
+      reason,
+      message,
+      level,
+      target: activeMisconceptionFor(profile, skillId),
+      ...(diagnostic ? { diagnostic: true } : {}),
+    };
   };
 
   // 1. Stuck? Stay with it and help, in whatever way the help episode says.
