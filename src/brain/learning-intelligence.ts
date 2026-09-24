@@ -184,3 +184,88 @@ export function activeLearningIntents(intents: readonly LearningIntent[]): Learn
     .filter((intent) => intent.status === 'active')
     .sort((a, b) => a.priority - b.priority || due(a) - due(b) || a.assignedAt - b.assignedAt);
 }
+
+
+export const MAX_SUPPORT_PREFERENCES = 100;
+export const MAX_SUPPORT_OUTCOMES = 500;
+export const MAX_ENGAGEMENT_SIGNALS = 500;
+export const MAX_LEARNING_INTENTS = 100;
+
+const tail = <T>(items: readonly T[], max: number): T[] => items.slice(Math.max(0, items.length - max));
+
+/** Set or replace one source's current preference for a support strategy. */
+export function setSupportPreference(
+  state: LearningIntelligenceState,
+  preference: SupportPreference,
+): LearningIntelligenceState {
+  const note = preference.note?.trim().slice(0, 200);
+  const next: SupportPreference = { ...preference, ...(note ? { note } : { note: undefined }) };
+  const kept = state.supportPreferences.filter(
+    (item) => !(item.strategy === next.strategy && item.source === next.source),
+  );
+  return {
+    ...state,
+    supportPreferences: tail([...kept, next], MAX_SUPPORT_PREFERENCES),
+  };
+}
+
+/** Record measured or human-reported evidence about one support strategy. */
+export function recordSupportOutcome(
+  state: LearningIntelligenceState,
+  outcome: SupportOutcome,
+): LearningIntelligenceState {
+  const next: SupportOutcome = {
+    ...outcome,
+    delta: clamp(Number.isFinite(outcome.delta) ? outcome.delta : 0, -1, 1),
+    weight: clamp(Number.isFinite(outcome.weight) ? outcome.weight : 0, 0, 1),
+  };
+  return {
+    ...state,
+    supportOutcomes: tail([...state.supportOutcomes, next], MAX_SUPPORT_OUTCOMES),
+  };
+}
+
+/** Record a behavioural observation without interpreting it as a diagnosis. */
+export function recordEngagementSignal(
+  state: LearningIntelligenceState,
+  signal: EngagementSignal,
+): LearningIntelligenceState {
+  const value = signal.value;
+  const next: EngagementSignal = {
+    ...signal,
+    ...(value === undefined
+      ? {}
+      : { value: clamp(Number.isFinite(value) ? value : 0, -10_000, 10_000) }),
+  };
+  return {
+    ...state,
+    engagement: tail([...state.engagement, next], MAX_ENGAGEMENT_SIGNALS),
+  };
+}
+
+/** Add or replace a learning intent by stable id. */
+export function upsertLearningIntent(
+  state: LearningIntelligenceState,
+  intent: LearningIntent,
+): LearningIntelligenceState {
+  const objective = intent.objective.trim().slice(0, 240);
+  const next: LearningIntent = {
+    ...intent,
+    objective,
+    skillIds: [...new Set(intent.skillIds)].slice(0, 50),
+    curriculumRefs: [...new Set(intent.curriculumRefs)].slice(0, 50),
+  };
+  const kept = state.intents.filter((item) => item.id !== next.id);
+  return {
+    ...state,
+    intents: tail([...kept, next], MAX_LEARNING_INTENTS),
+  };
+}
+
+/** Explicitly attach a curriculum context. Never inferred from learner behaviour. */
+export function setCurriculumContext(
+  state: LearningIntelligenceState,
+  curriculum: CurriculumContext | null,
+): LearningIntelligenceState {
+  return { ...state, curriculum };
+}
