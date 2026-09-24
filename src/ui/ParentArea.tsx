@@ -4,6 +4,7 @@ import { BADGES, formatMoney, moneyTotals, parseMoney, rewardsOwed } from '../br
 import type { BadgeReward, Profile } from '../brain/types';
 import { checkpointsFor, score } from '../content/checkpoint';
 import { SUBJECTS } from '../content/skills';
+import { SupportPreferenceEditor } from './SupportPreferenceEditor';
 
 /** What the parent area can do. Server mode adds account and privacy controls. */
 export interface ParentTools {
@@ -382,6 +383,7 @@ export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime
           </form>
 
           {!firstTime && <CheckpointResults profile={profile} />}
+          {!firstTime && <SupportPreferenceEditor profile={profile} source="parent" onSave={onSave} showObservedEvidence />}
           {!firstTime && tools.cloud && <SchoolSection school={tools.cloud.school} profile={profile} />}
           {!firstTime && <Privacy tools={tools} profile={profile} />}
         </>
