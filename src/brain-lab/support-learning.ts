@@ -2,6 +2,8 @@ import { nextStrategy, strategyScore, STRATEGIES, weakPrerequisite } from '../br
 import {
   emptyLearningIntelligence,
   recordSupportOutcome,
+  setSupportPreference,
+  supportPreference,
   type LearningIntelligenceState,
   type SupportStrategyId,
 } from '../brain/learning-intelligence';
@@ -28,6 +30,14 @@ export interface SupportLabStep {
   successProbability: number;
   oracleProbability: number;
   regret: number;
+}
+
+export interface SupportPreferencePriorConfig {
+  name: string;
+  learnerProvideRate: number;
+  learnerAccuracy: number;
+  parentProvideRate: number;
+  parentAccuracy: number;
 }
 
 export interface SupportLearnerRun {
@@ -69,6 +79,51 @@ const median = (values: readonly number[]): number | null => {
   return sorted.length % 2 === 1
     ? sorted[middle]
     : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+const statedStrategy = (
+  learner: HiddenLearner,
+  accuracy: number,
+  rng: () => number,
+): StrategyId => {
+  if (rng() < clamp01(accuracy)) return learner.preferredStrategy;
+  const alternatives = STRATEGIES.filter((strategy) => strategy !== learner.preferredStrategy);
+  return alternatives[Math.floor(rng() * alternatives.length)];
+};
+
+const seedSupportPreferences = (
+  profile: Profile,
+  learner: HiddenLearner,
+  prior: SupportPreferencePriorConfig | undefined,
+  rng: () => number,
+): Profile => {
+  if (!prior) return profile;
+  let state = profile.learningIntelligence ?? emptyLearningIntelligence();
+
+  if (rng() < clamp01(prior.learnerProvideRate)) {
+    const strategy = statedStrategy(learner, prior.learnerAccuracy, rng);
+    state = setSupportPreference(state, {
+      strategy: SUPPORT_FOR_HELP[strategy],
+      source: 'learner',
+      value: 'prefer',
+      at: 0,
+    });
+  }
+
+  if (rng() < clamp01(prior.parentProvideRate)) {
+    const strategy = statedStrategy(learner, prior.parentAccuracy, rng);
+    state = setSupportPreference(state, {
+      strategy: SUPPORT_FOR_HELP[strategy],
+      source: 'parent',
+      value: 'prefer',
+      at: 0,
+    });
+  }
+
+  return { ...profile, learningIntelligence: state };
 };
 
 const successProbability = (learner: HiddenLearner, strategy: StrategyId): number => {
@@ -167,10 +222,13 @@ export function runSupportLearner(
   seed = 1,
   recordIntelligence = true,
   outcomeWeightScale = 1,
+  preferencePrior?: SupportPreferencePriorConfig,
 ): SupportLearnerRun {
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber, 0x51f15e));
   let profile = newProfile(learner.id, '🧪', learner.year);
+  const preferenceRng = seededRng(mixSeed(seed, idNumber, 0x70726566));
+  profile = seedSupportPreferences(profile, learner, preferencePrior, preferenceRng);
   const steps: SupportLabStep[] = [];
 
   for (let trial = 0; trial < trials; trial++) {
@@ -227,6 +285,7 @@ export function runSupportBenchmark(
     seed?: number;
     recordIntelligence?: boolean;
     outcomeWeightScale?: number;
+    preferencePrior?: SupportPreferencePriorConfig;
   } = {},
 ): SupportBenchmark {
   const population = options.population ?? syntheticPopulation(100);
@@ -240,6 +299,7 @@ export function runSupportBenchmark(
       mixSeed(seed, index + 1),
       options.recordIntelligence ?? true,
       options.outcomeWeightScale ?? 1,
+      options.preferencePrior,
     ));
   const stable = runs
     .map((run) => run.trialsToStablePreference)
@@ -357,6 +417,8 @@ export interface SupportRoutingLabConfig {
   matureMinEvidence: number;
   matureMinConfidence: number;
   matureCap: number;
+  learnerPreferenceWeight: number;
+  parentPreferenceWeight: number;
 }
 
 export const CURRENT_SUPPORT_ROUTING_LAB_CONFIG: SupportRoutingLabConfig = {
@@ -368,6 +430,8 @@ export const CURRENT_SUPPORT_ROUTING_LAB_CONFIG: SupportRoutingLabConfig = {
   matureMinEvidence: 3,
   matureMinConfidence: 0.3,
   matureCap: 0.08,
+  learnerPreferenceWeight: 0.04,
+  parentPreferenceWeight: 0.02,
 };
 
 const observedLabAdjustment = (
@@ -407,10 +471,29 @@ export function parameterizedSupportPolicy(
     const usable = STRATEGIES.filter(
       (strategy) => strategy !== 'prerequisite' || !!prereq,
     );
+    const intelligence = profile.learningIntelligence ?? emptyLearningIntelligence();
+    const preferenceAdjustment = (strategy: StrategyId) => {
+      const support = SUPPORT_FOR_HELP[strategy];
+      const learnerPref = supportPreference(intelligence, support, 'learner')?.value;
+      const parentPref = supportPreference(intelligence, support, 'parent')?.value;
+      const learner = learnerPref === 'prefer'
+        ? config.learnerPreferenceWeight
+        : learnerPref === 'avoid'
+          ? -config.learnerPreferenceWeight
+          : 0;
+      const parent = parentPref === 'prefer'
+        ? config.parentPreferenceWeight
+        : parentPref === 'avoid'
+          ? -config.parentPreferenceWeight
+          : 0;
+      return learner + parent;
+    };
     return [...usable].sort((a, b) => {
       const aScore = strategyScore(profile.help, a)
+        + preferenceAdjustment(a)
         + observedLabAdjustment(profile, a, now, config);
       const bScore = strategyScore(profile.help, b)
+        + preferenceAdjustment(b)
         + observedLabAdjustment(profile, b, now, config);
       return bScore - aScore || STRATEGIES.indexOf(a) - STRATEGIES.indexOf(b);
     })[0];
@@ -492,6 +575,73 @@ export function supportRoutingChallengers(
             : current.medianTrialsToStablePreference
               - benchmark.medianTrialsToStablePreference,
         stablePreferenceRate: benchmark.stablePreferenceRate - current.stablePreferenceRate,
+      },
+    };
+  });
+}
+
+
+export const SUPPORT_PREFERENCE_PRIORS: readonly SupportPreferencePriorConfig[] = [
+  {
+    name: 'conservative-prior',
+    learnerProvideRate: 0.8,
+    learnerAccuracy: 0.65,
+    parentProvideRate: 0.8,
+    parentAccuracy: 0.60,
+  },
+  {
+    name: 'typical-prior',
+    learnerProvideRate: 0.8,
+    learnerAccuracy: 0.75,
+    parentProvideRate: 0.8,
+    parentAccuracy: 0.65,
+  },
+  {
+    name: 'strong-prior',
+    learnerProvideRate: 0.8,
+    learnerAccuracy: 0.85,
+    parentProvideRate: 0.8,
+    parentAccuracy: 0.75,
+  },
+] as const;
+
+export interface SupportPreferenceBenchmarkResult {
+  prior: SupportPreferencePriorConfig;
+  benchmark: SupportBenchmark;
+  deltaVsNoPrior: {
+    final5PreferredRate: number;
+    meanRegret: number;
+    medianTrialsToStablePreference: number | null;
+    stablePreferenceRate: number;
+  };
+}
+
+export function supportPreferenceBenchmarks(
+  population: HiddenLearner[],
+  noPrior: SupportBenchmark,
+  options: { trialsPerLearner?: number; seed?: number } = {},
+): SupportPreferenceBenchmarkResult[] {
+  const trialsPerLearner = options.trialsPerLearner ?? 20;
+  const seed = options.seed ?? 20260925;
+  return SUPPORT_PREFERENCE_PRIORS.map((prior) => {
+    const benchmark = runSupportBenchmark(
+      `current+${prior.name}`,
+      currentSupportPolicy,
+      { population, trialsPerLearner, seed, preferencePrior: prior },
+    );
+    return {
+      prior,
+      benchmark,
+      deltaVsNoPrior: {
+        final5PreferredRate: benchmark.final5PreferredRate - noPrior.final5PreferredRate,
+        meanRegret: noPrior.meanRegret - benchmark.meanRegret,
+        medianTrialsToStablePreference:
+          benchmark.medianTrialsToStablePreference === null
+          || noPrior.medianTrialsToStablePreference === null
+            ? null
+            : noPrior.medianTrialsToStablePreference
+              - benchmark.medianTrialsToStablePreference,
+        stablePreferenceRate: benchmark.stablePreferenceRate - noPrior.stablePreferenceRate,
       },
     };
   });
