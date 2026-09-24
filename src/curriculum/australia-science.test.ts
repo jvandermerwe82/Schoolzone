@@ -54,9 +54,17 @@ describe('Australian Years 4-6 Science graph', () => {
       .toContain('science.matter.particle-states');
   });
 
-  it('requires investigation/practical evidence for inquiry-heavy learning', () => {
-    for (const node of AUSTRALIA_YEARS4_6_SCIENCE_NODES.filter((item) => item.strand === 'science-inquiry')) {
+  it('uses evidence modes appropriate to each science inquiry capability', () => {
+    const operationalInquiry = AUSTRALIA_YEARS4_6_SCIENCE_NODES.filter((item) =>
+      item.strand === 'science-inquiry' && !item.id.includes('communicate'));
+    for (const node of operationalInquiry) {
       expect(node.evidenceModes.some((mode) => mode === 'investigation' || mode === 'practical')).toBe(true);
+    }
+
+    const communication = AUSTRALIA_YEARS4_6_SCIENCE_NODES.filter((item) => item.id.includes('science.inquiry.communicate'));
+    for (const node of communication) {
+      expect(node.evidenceModes).toContain('constructed-response');
+      expect(node.evidenceModes).toContain('teacher-observation');
     }
   });
 });
