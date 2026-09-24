@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import type { ItemStats } from './brain/items';
 import type { Profile, SubjectId } from './brain/types';
-import { loadProfiles, saveProfiles } from './storage';
+import { loadItems, loadProfiles, saveItems, saveProfiles } from './storage';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
 import { Practice } from './ui/Practice';
@@ -17,7 +18,10 @@ export function App() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'profiles' });
 
+  const [items, setItems] = useState<ItemStats>(loadItems);
+
   useEffect(() => saveProfiles(profiles), [profiles]);
+  useEffect(() => saveItems(items), [items]);
 
   const current = profiles.find((p) => p.id === currentId) ?? null;
   const updateProfile = (p: Profile) => setProfiles((all) => all.map((x) => (x.id === p.id ? p : x)));
@@ -50,10 +54,12 @@ export function App() {
           profile={current}
           subject={screen.subject}
           onUpdate={updateProfile}
+          items={items}
+          onItems={setItems}
           onExit={() => setScreen({ name: 'home' })}
         />
       );
     case 'dashboard':
-      return <Dashboard profile={current} onBack={() => setScreen({ name: 'home' })} />;
+      return <Dashboard profile={current} items={items} onBack={() => setScreen({ name: 'home' })} />;
   }
 }

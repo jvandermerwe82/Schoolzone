@@ -16,17 +16,41 @@ export function shuffle<T>(xs: T[], rng: () => number): T[] {
   return a;
 }
 
-export function rowsToQuestions(skillId: string, rows: Row[]): Question[] {
-  return rows.map(([level, prompt, answer, wrong, explanation], i) => ({
-    skillId, level, id: `${skillId}#${i}`, prompt, answer, explanation, choices: [answer, ...wrong],
-  }));
+/**
+ * `tags` maps a wrong choice to the misconception it reveals, or a function
+ * that works it out from the correct answer and the wrong choice.
+ */
+export type Tags = Record<string, string> | ((answer: string, wrong: string) => string | null);
+
+export function rowsToQuestions(skillId: string, rows: Row[], tags?: Tags): Question[] {
+  return rows.map(([level, prompt, answer, wrong, explanation], i) => {
+    const bugs = wrong
+      .map((w): [string, string] | null => {
+        const id = typeof tags === 'function' ? tags(answer, w) : tags?.[w];
+        return id ? [id, w] : null;
+      })
+      .filter((b): b is [string, string] => b !== null);
+    return {
+      skillId, level, id: `${skillId}#${i}`, prompt, answer, explanation, choices: [answer, ...wrong],
+      ...(bugs.length ? { bugs } : {}),
+    };
+  });
 }
 
 /**
  * Pick a bank question as close as possible to the wanted level, preferring
  * ones the child has not seen recently.
  */
-export function pickFromBank(all: Question[], level: Level, recentIds: string[], rng: () => number): Question {
+export function pickFromBank(
+  all: Question[],
+  level: Level,
+  recentIds: string[],
+  rng: () => number,
+  prefer?: (q: Question) => boolean,
+): Question {
+  // Prefer questions that test a misconception the child is working on, if any exist.
+  const preferred = prefer ? all.filter(prefer) : [];
+  if (preferred.length > 0) all = preferred;
   const fresh = all.filter((x) => !recentIds.includes(x.id));
   const pool = fresh.length > 0 ? fresh : all;
   const best = Math.min(...pool.map((x) => Math.abs(x.level - level)));

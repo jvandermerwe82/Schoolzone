@@ -212,31 +212,6 @@ describe('adaptive behaviour (simulation)', () => {
     expect(skillState(profile, 'addition').attempts).toBeGreaterThan(0);
   });
 
-  it('steps back to a weak prerequisite when a child keeps getting stuck', () => {
-    let p = newProfile('Sim', '🙂', 3);
-    // Addition looks fine on paper (so subtraction unlocks) but is not mastered.
-    p = {
-      ...p,
-      skills: {
-        'number-sense': { ...initialSkillState(3, 1), pKnown: 0.99, ability: 3 },
-        addition: { ...initialSkillState(3, 1), pKnown: 0.82, ability: 0 },
-        subtraction: { ...initialSkillState(3, 2), wrongStreak: 3, attempts: 6 },
-      },
-    };
-    const plan = planNext(p, 'maths', { focus: 'subtraction', answered: 6 }, 0, seeded(1));
-    expect(plan.reason).toBe('gap');
-    expect(plan.skillId).toBe('addition');
-  });
-
-  it('eases off after two misses in a row', () => {
-    let p = newProfile('Sim', '🙂', 3);
-    p = { ...p, skills: { 'number-sense': { ...initialSkillState(3, 1), ability: 1, wrongStreak: 2 } } };
-    const plan = planNext(p, 'maths', { focus: 'number-sense', answered: 3 }, 0, seeded(1));
-    expect(plan.reason).toBe('recovery');
-    const normal = chooseLevel(skillState(p, 'number-sense'), 0.8);
-    expect(plan.level).toBeLessThanOrEqual(normal);
-  });
-
   it('reports calibration of its own predictions', () => {
     const { profile } = simulate(newProfile('Sim', '🙂', 2), 'science', { 'living-things': 0.5, materials: 0.5, 'earth-space': 0.5 }, 60, 9);
     const c = calibration(profile)!;

@@ -4,6 +4,7 @@
  * Negative answers are stored with an ASCII "-" and shown with "−".
  */
 import type { Level, Question } from '../brain/types';
+import { ignoreBrackets, leftToRight, withBugs } from './bugs';
 import { gcd, int, pick, q, simplify, type Rng } from './maths';
 
 const neg = (n: number) => String(n).replace('-', '−');
@@ -41,38 +42,38 @@ function negativeNumbers(level: Level, rng: Rng): Question {
   switch (level) {
     case 1: {
       const a = int(rng, 0, 5), b = int(rng, a + 1, a + 6);
-      return q(id, level, `What is ${a} − ${b}?`, a - b,
-        `Start at ${a} and count back ${b}. You pass 0 and land on ${neg(a - b)}.`);
+      return withBugs(q(id, level, `What is ${a} − ${b}?`, a - b,
+        `Start at ${a} and count back ${b}. You pass 0 and land on ${neg(a - b)}.`), [['neg-sign', b - a]]);
     }
     case 2: {
       const t = -int(rng, 1, 9), r = int(rng, 1, 15);
-      return q(id, level, `The temperature is ${neg(t)} °C. It rises by ${r} °C. What is the temperature now?`, t + r,
-        `Count up ${r} from ${neg(t)}: ${neg(t)} + ${r} = ${neg(t + r)} °C.`);
+      return withBugs(q(id, level, `The temperature is ${neg(t)} °C. It rises by ${r} °C. What is the temperature now?`, t + r,
+        `Count up ${r} from ${neg(t)}: ${neg(t)} + ${r} = ${neg(t + r)} °C.`), [['neg-ignore-sign', -t + r], ['neg-sign', -(t + r)]]);
     }
     case 3: {
       const a = -int(rng, 1, 12), b = int(rng, 1, 15);
-      return q(id, level, `What is the difference between ${neg(a)} °C and ${b} °C?`, b - a,
-        `From ${neg(a)} up to 0 is ${-a}, then 0 up to ${b} is ${b}. Together: ${-a} + ${b} = ${b - a}.`);
+      return withBugs(q(id, level, `What is the difference between ${neg(a)} °C and ${b} °C?`, b - a,
+        `From ${neg(a)} up to 0 is ${-a}, then 0 up to ${b} is ${b}. Together: ${-a} + ${b} = ${b - a}.`), [['neg-ignore-sign', Math.abs(b + a)]]);
     }
     case 4: {
       if (rng() < 0.5) {
         const a = -int(rng, 5, 20), b = int(rng, 1, 19);
-        return q(id, level, `What is ${neg(a)} + ${b}?`, a + b,
-          `Start at ${neg(a)} and count up ${b}: ${neg(a + b)}.`);
+        return withBugs(q(id, level, `What is ${neg(a)} + ${b}?`, a + b,
+          `Start at ${neg(a)} and count up ${b}: ${neg(a + b)}.`), [['neg-ignore-sign', -a + b], ['neg-sign', -(a + b)]]);
       }
       const a = int(rng, 1, 15), b = int(rng, a + 1, 30);
-      return q(id, level, `What is ${a} − ${b}?`, a - b,
-        `${b} is ${b - a} more than ${a}, so ${a} − ${b} = ${neg(a - b)}.`);
+      return withBugs(q(id, level, `What is ${a} − ${b}?`, a - b,
+        `${b} is ${b - a} more than ${a}, so ${a} − ${b} = ${neg(a - b)}.`), [['neg-sign', b - a]]);
     }
     case 5: {
       if (rng() < 0.5) {
         const d = -int(rng, 20, 150), r = int(rng, 10, 200);
-        return q(id, level, `A submarine is at ${neg(d)} m (below sea level). It rises ${r} m. What is its new position in metres?`, d + r,
-          `${neg(d)} + ${r} = ${neg(d + r)} m.`);
+        return withBugs(q(id, level, `A submarine is at ${neg(d)} m (below sea level). It rises ${r} m. What is its new position in metres?`, d + r,
+          `${neg(d)} + ${r} = ${neg(d + r)} m.`), [['neg-sign', -(d + r)], ['neg-ignore-sign', -d + r]]);
       }
       const f = -int(rng, 5, 25), k = int(rng, 12, 30);
-      return q(id, level, `A freezer is at ${neg(f)} °C and the kitchen is ${k} °C. How many degrees warmer is the kitchen?`, k - f,
-        `From ${neg(f)} to 0 is ${-f}, and from 0 to ${k} is ${k}: ${-f} + ${k} = ${k - f} degrees.`);
+      return withBugs(q(id, level, `A freezer is at ${neg(f)} °C and the kitchen is ${k} °C. How many degrees warmer is the kitchen?`, k - f,
+        `From ${neg(f)} to 0 is ${-f}, and from 0 to ${k} is ${k}: ${-f} + ${k} = ${k - f} degrees.`), [['neg-ignore-sign', k + f]]);
     }
   }
 }
@@ -83,13 +84,15 @@ function factorsPrimes(level: Level, rng: Rng): Question {
     const p = nextPrime(n);
     const skipped = Array.from({ length: p - n - 1 }, (_, i) => n + 1 + i);
     const why = skipped.length ? ` (${skipped.join(', ')} ${skipped.length === 1 ? 'is not prime' : 'are not prime'})` : '';
-    return q(id, level, `What is the next prime number after ${n}?`, p,
-      `A prime number has exactly two factors: 1 and itself. The next one after ${n} is ${p}${why}.`);
+    const oddNonPrime = skipped.find((x) => x % 2 === 1 && x > 1);
+    return withBugs(q(id, level, `What is the next prime number after ${n}?`, p,
+      `A prime number has exactly two factors: 1 and itself. The next one after ${n} is ${p}${why}.`), [['prime-odd', oddNonPrime]]);
   };
   const hcfQ = (a: number, b: number) => {
     const h = gcd(a, b);
-    return q(id, level, `What is the highest common factor (HCF) of ${a} and ${b}?`, h,
-      `Factors of ${a}: ${factorsOf(a).join(', ')}. Factors of ${b}: ${factorsOf(b).join(', ')}. The highest one in both lists is ${h}.`);
+    return withBugs(q(id, level, `What is the highest common factor (HCF) of ${a} and ${b}?`, h,
+      `Factors of ${a}: ${factorsOf(a).join(', ')}. Factors of ${b}: ${factorsOf(b).join(', ')}. The highest one in both lists is ${h}.`),
+    [['hcf-lcm-mixup', (a * b) / h]]);
   };
   switch (level) {
     case 1: return nextPrimeQ(int(rng, 2, 20));
@@ -111,8 +114,9 @@ function factorsPrimes(level: Level, rng: Rng): Question {
       while (b === a) b = int(rng, 2, 12);
       const l = (a * b) / gcd(a, b);
       const multiples = (n: number) => Array.from({ length: l / n }, (_, i) => n * (i + 1)).join(', ');
-      return q(id, level, `What is the lowest common multiple (LCM) of ${a} and ${b}?`, l,
-        `Multiples of ${a}: ${multiples(a)}. Multiples of ${b}: ${multiples(b)}. The first one in both lists is ${l}.`);
+      return withBugs(q(id, level, `What is the lowest common multiple (LCM) of ${a} and ${b}?`, l,
+        `Multiples of ${a}: ${multiples(a)}. Multiples of ${b}: ${multiples(b)}. The first one in both lists is ${l}.`),
+      [['lcm-product', a * b], ['hcf-lcm-mixup', gcd(a, b)]]);
     }
     case 5: {
       if (rng() < 0.5) return nextPrimeQ(int(rng, 30, 100));
@@ -422,7 +426,72 @@ function geometryStatistics(level: Level, rng: Rng): Question {
   }
 }
 
-export const MATHS_Y6_GENERATORS: Record<string, (level: Level, rng: Rng) => Question> = {
+const n = (x: string) => Number(x);
+
+/**
+ * Attach the answers that common mistakes would give, worked out from the
+ * question itself. (Negative numbers and factors attach theirs directly.)
+ */
+function addBugs(q: Question): Question {
+  const p = q.prompt;
+  let m: RegExpMatchArray | null;
+  switch (q.skillId) {
+    case 'order-of-operations': {
+      const tokens = (p.replace(' = ?', '').match(/\d+|[()+−×÷]/g) ?? []).map((t) => (/\d/.test(t) ? Number(t) : t));
+      const bugs: [string, number][] = [['order-left-to-right', leftToRight(tokens)], ['order-ignore-brackets', ignoreBrackets(tokens)]];
+      return withBugs(q, p.includes('(') ? bugs.reverse() : bugs);
+    }
+    case 'long-multiplication-division':
+      if ((m = p.match(/^(\d+) × (\d+) = \?$/)) && n(m[2]) >= 10) {
+        const [a, b] = [n(m[1]), n(m[2])];
+        return withBugs(q, [['long-mult-place-value', a * Math.floor(b / 10) + a * (b % 10)], ['mult-added', a + b]]);
+      }
+      return q;
+    case 'fractions-y6':
+      if ((m = p.match(/^(\d+)\/(\d+) \+ (\d+)\/(\d+) = \?$/))) return withBugs(q, [['frac-add-across', `${n(m[1]) + n(m[3])}/${n(m[2]) + n(m[4])}`]]);
+      if ((m = p.match(/^(\d+) (\d+)\/(\d+) \+ (\d+) (\d+)\/(\d+) = \?$/))) {
+        return withBugs(q, [['frac-add-across', n(m[1]) + n(m[4]) + (n(m[2]) + n(m[5])) / (n(m[3]) + n(m[6]))]]);
+      }
+      if ((m = p.match(/^(\d+)\/(\d+) ÷ (\d+) = \?$/))) return withBugs(q, [['frac-div-multiplied', simplify(n(m[1]) * n(m[3]), n(m[2]))]]);
+      return q;
+    case 'decimals-percentages':
+      if ((m = p.match(/^Write (\d+)\/(\d+) as a decimal\.$/))) return withBugs(q, [['dec-fraction-digits', `${m[1]}.${m[2]}`]]);
+      if ((m = p.match(/^([\d.]+) × (\d+) = \?$/)) && n(m[2]) % 10 === 0) {
+        return withBugs(q, [['dec-add-zero', n(m[1])], ['dec-wrong-direction', n(m[1]) / n(m[2])]]);
+      }
+      if ((m = p.match(/^([\d.]+) ÷ (\d+) = \?$/))) return withBugs(q, [['dec-wrong-direction', n(m[1]) * n(m[2])]]);
+      if ((m = p.match(/^What is (\d+)% of (\d+)\?$/))) return withBugs(q, [['pct-divide', n(m[2]) / n(m[1])]]);
+      return q;
+    case 'algebra':
+      if ((m = p.match(/^n \+ (\d+) = (\d+)\./))) return withBugs(q, [['algebra-wrong-inverse', n(m[2]) + n(m[1])]]);
+      if ((m = p.match(/^n − (\d+) = (\d+)\./))) return withBugs(q, [['algebra-wrong-inverse', n(m[2]) - n(m[1])]]);
+      if ((m = p.match(/^(\d+)n = (\d+)\./))) return withBugs(q, [['algebra-an-as-sum', n(m[2]) - n(m[1])]]);
+      if ((m = p.match(/^(\d+)n \+ (\d+) = (\d+)\./))) {
+        return withBugs(q, [['algebra-wrong-inverse', (n(m[3]) + n(m[2])) / n(m[1])], ['algebra-order', n(m[3]) / n(m[1]) - n(m[2])]]);
+      }
+      if ((m = p.match(/^(\d+)n − (\d+) = (\d+)\./))) {
+        return withBugs(q, [['algebra-wrong-inverse', (n(m[3]) - n(m[2])) / n(m[1])], ['algebra-order', n(m[3]) / n(m[1]) + n(m[2])]]);
+      }
+      if ((m = p.match(/P = 4s\. What is P when s = (\d+)/))) return withBugs(q, [['algebra-an-as-sum', 4 + n(m[1])]]);
+      if ((m = p.match(/C = (\d+)n \+ (\d+) pounds .* n = (\d+)/))) return withBugs(q, [['algebra-an-as-sum', n(m[1]) + n(m[3]) + n(m[2])]]);
+      if ((m = p.match(/starts at (\d+) and goes up by (\d+) each time/))) return withBugs(q, [['sequence-off-by-one', n(m[1]) + 10 * n(m[2])]]);
+      if ((m = p.match(/sequence goes (\d+), (\d+),/))) return withBugs(q, [['sequence-off-by-one', n(m[1]) + 20 * (n(m[2]) - n(m[1]))]]);
+      return q;
+    case 'geometry-statistics':
+      if ((m = p.match(/straight line\. One is (\d+)°/))) return withBugs(q, [['angle-wrong-total', 360 - n(m[1])]]);
+      if ((m = p.match(/triangle has angles of (\d+)° and (\d+)°/))) return withBugs(q, [['angle-wrong-total', 360 - n(m[1]) - n(m[2])]]);
+      if ((m = p.match(/triangle has a base of (\d+) cm and a perpendicular height of (\d+) cm/))) return withBugs(q, [['area-no-half', n(m[1]) * n(m[2])]]);
+      if ((m = p.match(/parallelogram has a base of (\d+) cm and a perpendicular height of (\d+) cm/))) return withBugs(q, [['area-halved', (n(m[1]) * n(m[2])) / 2]]);
+      if ((m = p.match(/radius of (\d+) cm/))) return withBugs(q, [['radius-diameter', n(m[1]) / 2]]);
+      if ((m = p.match(/^What is the mean of ([\d, ]+)\?$/))) return withBugs(q, [['mean-no-divide', m[1].split(', ').map(Number).reduce((a, b) => a + b, 0)]]);
+      if ((m = p.match(/regular \w+ \((\d+) sides\)/))) return withBugs(q, [['polygon-exterior', 360 / n(m[1])]]);
+      return q;
+    default:
+      return q;
+  }
+}
+
+const GENERATORS: Record<string, (level: Level, rng: Rng) => Question> = {
   'negative-numbers': negativeNumbers,
   'factors-primes': factorsPrimes,
   'order-of-operations': orderOfOperations,
@@ -432,3 +501,7 @@ export const MATHS_Y6_GENERATORS: Record<string, (level: Level, rng: Rng) => Que
   algebra,
   'geometry-statistics': geometryStatistics,
 };
+
+export const MATHS_Y6_GENERATORS: Record<string, (level: Level, rng: Rng) => Question> = Object.fromEntries(
+  Object.entries(GENERATORS).map(([id, gen]) => [id, (level: Level, rng: Rng) => addBugs(gen(level, rng))]),
+);

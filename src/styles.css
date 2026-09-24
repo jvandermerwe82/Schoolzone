@@ -144,3 +144,14 @@ input, select {
 .skill-row.mastered .meter div { background: var(--good); }
 .skill-stats { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; color: var(--muted); font-size: 0.85rem; }
 details summary { cursor: pointer; font-weight: 600; }
+
+.banner.help, .banner.climb { background: var(--warn-bg); }
+.hint { background: var(--warn-bg); border-radius: 12px; padding: 0.6rem 0.9rem; margin: 0 0 1rem; }
+.hint-button { margin-top: 0.75rem; }
+.diagnosis { border-left: 4px solid var(--primary); padding-left: 0.75rem; margin: 0.5rem 0; }
+.diagnosis p { margin: 0.25rem 0; }
+.event { font-weight: 600; }
+.worked .steps { background: var(--bg); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.insight-list { padding-left: 1.2rem; }
+.insight-list li { margin: 0.3rem 0; }
+.strategy-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }

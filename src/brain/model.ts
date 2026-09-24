@@ -35,9 +35,12 @@ export function slipRate(level: Level): number {
   return clamp(0.1 + 0.05 * (level - 3), 0.05, 0.2);
 }
 
-/** Predicted probability that the child answers a question at `level` correctly. */
-export function predictCorrect(ability: number, level: Level, guess: number): number {
-  return guess + (1 - guess) * sigmoid(ability - levelDifficulty(level));
+/**
+ * Predicted probability that the child answers a question at `level` correctly.
+ * `offset` is the question's learned extra difficulty (see items.ts).
+ */
+export function predictCorrect(ability: number, level: Level, guess: number, offset = 0): number {
+  return guess + (1 - guess) * sigmoid(ability - levelDifficulty(level) - offset);
 }
 
 // Elo step size shrinks as the brain sees more answers: big moves early
@@ -56,6 +59,24 @@ export const MASTERY_P_KNOWN = 0.95;
 export const MASTERY_LEVEL3_SUCCESS = 0.75;
 /** Prerequisites at this knowledge level are "good enough" to start the next skill. */
 export const READY_P_KNOWN = 0.8;
+
+export interface AnswerDetail {
+  /** The child opened a hint before answering. */
+  hinted?: boolean;
+  /** Wrong answer given too fast to be a real attempt. */
+  rapid?: boolean;
+  /** Learned difficulty offset of the question. */
+  offset?: number;
+}
+
+/**
+ * How much an answer counts as success for the ability rating.
+ * A correct answer after a hint gets half credit. These weights are this
+ * app's design choice.
+ */
+export function answerScore(correct: boolean, hinted = false): number {
+  return correct ? (hinted ? 0.5 : 1) : 0;
+}
 
 export function bktUpdate(pKnown: number, correct: boolean, guess: number, slip: number): number {
   const posterior = correct
@@ -103,10 +124,23 @@ export function updateSkill(
   guess: number,
   timeMs: number,
   now: number,
+  detail: AnswerDetail = {},
 ): SkillState {
-  const expected = predictCorrect(s.ability, level, guess);
-  const ability = s.ability + kFactor(s.attempts) * ((correct ? 1 : 0) - expected);
-  const pKnown = bktUpdate(s.pKnown, correct, guess, slipRate(level));
+  const { hinted = false, rapid = false, offset = 0 } = detail;
+  const expected = predictCorrect(s.ability, level, guess, offset);
+  // A rapid guess tells us little about what the child knows, so it moves the
+  // rating half as much.
+  const k = kFactor(s.attempts) * (rapid ? 0.5 : 1);
+  const ability = s.ability + k * (answerScore(correct, hinted) - expected);
+  // Knowledge tracing: a hinted answer is not clean evidence either way, and
+  // conflating it with a wrong answer hurts accuracy, so only the chance of
+  // having learned from the practice is applied. A rapid guess is not treated
+  // as evidence at all.
+  const pKnown = rapid
+    ? s.pKnown
+    : hinted
+      ? s.pKnown + (1 - s.pKnown) * P_LEARN
+      : bktUpdate(s.pKnown, correct, guess, slipRate(level));
 
   const next: SkillState = {
     ...s,
@@ -114,7 +148,7 @@ export function updateSkill(
     pKnown,
     attempts: s.attempts + 1,
     correct: s.correct + (correct ? 1 : 0),
-    recent: [...s.recent, correct ? 1 : 0].slice(-10),
+    recent: [...s.recent, answerScore(correct, hinted)].slice(-10),
     wrongStreak: correct ? 0 : s.wrongStreak + 1,
     lastPracticed: now,
     totalTimeMs: s.totalTimeMs + timeMs,

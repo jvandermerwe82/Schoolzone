@@ -4,7 +4,7 @@
  * follow the national curriculum in England (2014) programme of study.
  */
 import type { Level, Question } from '../brain/types';
-import { pickFromBank, rowsToQuestions, type Row } from './bank';
+import { pickFromBank, rowsToQuestions, type Row, type Tags } from './bank';
 
 const BANK: Record<string, Row[]> = {
   'living-things': [
@@ -168,16 +168,44 @@ const BANK: Record<string, Row[]> = {
   ],
 };
 
+/** Wrong choices that reveal a well-known misconception. */
+const TAGS: Record<string, Tags> = {
+  'living-things': { 'A shark': 'sci-whale-is-fish', Oxygen: 'sci-plants-breathe-in-oxygen' },
+  'earth-space': {
+    'The Sun going around Earth': 'sci-sun-orbits-earth',
+    'Earth getting closer to and further from the Sun': 'sci-seasons-distance',
+    'It makes its own light': 'sci-moon-own-light',
+  },
+  'forces-energy': { 'The Moon': 'sci-moon-own-light' },
+  classification: { 'They give birth to live young': 'sci-mammal-live-young', Fish: 'sci-whale-is-fish' },
+  'evolution-inheritance': {
+    'It stores water': 'sci-camel-water',
+    'Giraffes stretched their necks and passed the stretch on to their babies': 'sci-lamarck',
+  },
+  'light-y6': {
+    'The Moon': 'sci-moon-own-light',
+    'Light shines out of our eyes onto the book': 'sci-eyes-send-light',
+    'It gets smaller': 'sci-shadow-size',
+  },
+  'electricity-y6': { 'Both bulbs are brighter': 'sci-more-bulbs-brighter', 'They stay the same': 'sci-series-break' },
+};
+
 export function scienceQuestions(skillId: string): Question[] {
   const rows = BANK[skillId];
   if (!rows) throw new Error(`No science questions for ${skillId}`);
-  return rowsToQuestions(skillId, rows);
+  return rowsToQuestions(skillId, rows, TAGS[skillId]);
 }
 
 export function scienceSkillIds(): string[] {
   return Object.keys(BANK);
 }
 
-export function pickScienceQuestion(skillId: string, level: Level, recentIds: string[], rng: () => number): Question {
-  return pickFromBank(scienceQuestions(skillId), level, recentIds, rng);
+export function pickScienceQuestion(
+  skillId: string,
+  level: Level,
+  recentIds: string[],
+  rng: () => number,
+  prefer?: (q: Question) => boolean,
+): Question {
+  return pickFromBank(scienceQuestions(skillId), level, recentIds, rng, prefer);
 }

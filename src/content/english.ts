@@ -11,6 +11,7 @@
  */
 import type { Level, Question } from '../brain/types';
 import { pickFromBank, rowsToQuestions, type Row } from './bank';
+import { classifySpelling } from './bugs';
 
 /** [level, correct spelling, two misspellings, optional memory tip]. */
 type SpellingRow = [Level, string, [string, string], string?];
@@ -128,6 +129,7 @@ function spellingQuestions(): Question[] {
     prompt: 'Which spelling is correct?',
     answer: word,
     choices: [word, ...wrong],
+    bugs: wrong.map((w): [string, string] => [classifySpelling(word, w), w]),
     explanation: tip ? `${word}: ${tip}` : `The correct spelling is ${word}.`,
   }));
 }
@@ -280,10 +282,23 @@ const PUNCTUATION: Row[] = [
 
 const BANKS: Record<string, () => Question[]> = {
   'spelling-words': spellingQuestions,
-  'spelling-patterns': () => rowsToQuestions('spelling-patterns', PATTERNS),
-  homophones: () => rowsToQuestions('homophones', HOMOPHONES),
-  'grammar-y6': () => rowsToQuestions('grammar-y6', GRAMMAR),
-  'punctuation-y6': () => rowsToQuestions('punctuation-y6', PUNCTUATION),
+  'spelling-patterns': () => rowsToQuestions('spelling-patterns', PATTERNS, classifySpelling),
+  homophones: () => rowsToQuestions('homophones', HOMOPHONES, (a, w) => `homophone:${[a.toLowerCase(), w.toLowerCase()].sort().join('/')}`),
+  'grammar-y6': () => rowsToQuestions('grammar-y6', GRAMMAR, {
+    'He received a warning.': 'gr-past-is-passive',
+    'We had an accident.': 'gr-past-is-passive',
+    'If I was you, I would apologise.': 'gr-subjunctive-was',
+    'the fence': 'gr-object-preposition',
+    'the animals': 'gr-subject-object-mixup',
+    'My brother': 'gr-subject-object-mixup',
+    'Year 2': 'gr-subject-object-mixup',
+  }),
+  'punctuation-y6': () => rowsToQuestions('punctuation-y6', PUNCTUATION, {
+    'Because it\'s raining; I\'m fed up.': 'pu-semicolon-subordinate',
+    'A comma': 'pu-comma-splice',
+    'I love summer, the days are long and warm.': 'pu-comma-splice',
+    'Let\'s eat Grandma!': 'pu-comma-meaning',
+  }),
 };
 
 export function englishQuestions(skillId: string): Question[] {
@@ -296,6 +311,12 @@ export function englishSkillIds(): string[] {
   return Object.keys(BANKS);
 }
 
-export function pickEnglishQuestion(skillId: string, level: Level, recentIds: string[], rng: () => number): Question {
-  return pickFromBank(englishQuestions(skillId), level, recentIds, rng);
+export function pickEnglishQuestion(
+  skillId: string,
+  level: Level,
+  recentIds: string[],
+  rng: () => number,
+  prefer?: (q: Question) => boolean,
+): Question {
+  return pickFromBank(englishQuestions(skillId), level, recentIds, rng, prefer);
 }

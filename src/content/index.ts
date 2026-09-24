@@ -11,16 +11,38 @@ export function hasGenerator(skillId: string): boolean {
   return skillId in GENERATORS;
 }
 
-export function makeQuestion(skillId: string, level: Level, recentIds: string[], rng: Rng): Question {
+/**
+ * Make a question for a skill at a level. If `target` names a misconception,
+ * prefer a question where that mistake would give a wrong answer, so the
+ * child gets a fair chance to show they no longer make it.
+ */
+export function makeQuestion(skillId: string, level: Level, recentIds: string[], rng: Rng, target?: string | null): Question {
+  const tests = (q: Question) => !target || (q.bugs ?? []).some(([id]) => id === target) || (target === 'not-simplest' && !!q.exact);
   const gen = GENERATORS[skillId];
   if (gen) {
-    // Regenerate a few times to avoid showing the exact same question twice in a row.
+    // Regenerate to avoid repeats and, when targeting, to find a question that tests the misconception.
     let question = gen(level, rng);
-    for (let i = 0; i < 5 && recentIds.includes(question.id); i++) question = gen(level, rng);
+    for (let i = 0; i < 40 && (recentIds.includes(question.id) || !tests(question)); i++) question = gen(level, rng);
+    // If this level can't test the misconception (e.g. level-3 addition never
+    // needs carrying), keep the level the tutor chose: the difficulty matters more.
     return question;
   }
-  if (getSkill(skillId).subject === 'english') return pickEnglishQuestion(skillId, level, recentIds, rng);
-  return pickScienceQuestion(skillId, level, recentIds, rng);
+  const pick = getSkill(skillId).subject === 'english' ? pickEnglishQuestion : pickScienceQuestion;
+  return pick(skillId, level, recentIds, rng, target ? tests : undefined);
+}
+
+/**
+ * Can a question at this level show whether the child still makes this
+ * mistake? (Level-3 addition never needs carrying, for example.)
+ */
+export function canTest(skillId: string, level: Level, target: string, rng: Rng = Math.random): boolean {
+  const gen = GENERATORS[skillId];
+  if (!gen) return true; // bank questions are chosen by misconception first
+  for (let i = 0; i < 40; i++) {
+    const q = gen(level, rng);
+    if ((q.bugs ?? []).some(([id]) => id === target) || (target === 'not-simplest' && q.exact)) return true;
+  }
+  return false;
 }
 
 /** Lower-case, unify minus signs, tidy spaces (including around "/"). */

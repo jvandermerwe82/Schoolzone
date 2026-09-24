@@ -2,16 +2,19 @@
  * Profiles are saved in the browser (localStorage) for now, so the app works
  * offline with no account. A backend can replace this module later.
  */
+import type { ItemStats } from './brain/items';
+import { emptyHelp } from './brain/help';
 import type { Profile } from './brain/types';
 
 const KEY = 'schoolzone:v1';
+const ITEMS_KEY = 'schoolzone:items:v1';
 
 export function loadProfiles(): Profile[] {
   try {
     const raw = localStorage.getItem(KEY);
     const profiles = raw ? (JSON.parse(raw) as (Profile & { grade?: number })[]) : [];
     // Early profiles stored `grade`; it is now `year`.
-    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6 }));
+    return profiles.map(({ grade, ...p }) => ({ ...p, year: p.year ?? grade ?? 6, misconceptions: p.misconceptions ?? {}, help: p.help ?? emptyHelp() }));
   } catch {
     return [];
   }
@@ -35,5 +38,25 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     skills: {},
     history: [],
     recentQuestionIds: [],
+    misconceptions: {},
+    help: emptyHelp(),
   };
+}
+
+/** Learned question difficulties, shared by every learner on this device. */
+export function loadItems(): ItemStats {
+  try {
+    const raw = localStorage.getItem(ITEMS_KEY);
+    return raw ? (JSON.parse(raw) as ItemStats) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveItems(items: ItemStats): void {
+  try {
+    localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+  } catch {
+    // Keep working in memory.
+  }
 }

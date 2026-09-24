@@ -32,6 +32,11 @@ export interface Question {
   explanation: string;
   /** Answer must match exactly (e.g. "simplest form"), not just be equal in value. */
   exact?: boolean;
+  /**
+   * Known mistakes for this question: [misconception id, the answer that
+   * mistake produces]. Lets the brain work out *why* an answer was wrong.
+   */
+  bugs?: [string, string][];
 }
 
 /** What the brain knows about one child on one skill. */
@@ -63,6 +68,65 @@ export interface AnswerRecord {
   timeMs: number;
   /** Probability of success the brain predicted before the answer. */
   predicted: number;
+  /** Misconception the wrong answer matched, if any. */
+  misconception?: string;
+  /** The child used a hint. */
+  hinted?: boolean;
+  /** Wrong answer given too quickly to have been a real attempt. */
+  rapid?: boolean;
+  /** How the tutor was helping at the time, if the child was stuck. */
+  strategy?: StrategyId | 'climb';
+}
+
+/** Different ways the tutor can help when a child is stuck. */
+export type StrategyId = 'similar' | 'worked-example' | 'hint' | 'smaller-steps' | 'prerequisite';
+
+/**
+ * A "stuck episode": starts when a child gets a question wrong and lasts
+ * until they can answer at that difficulty on their own. The tutor never
+ * just moves on; it tries different ways of helping until one works.
+ */
+export interface HelpEpisode {
+  skillId: string;
+  /** Level of the question the child got stuck on. */
+  stuckLevel: Level;
+  misconception: string | null;
+  /** Current way of helping, or 'climb': helped, now working back up unaided. */
+  phase: StrategyId | 'climb';
+  /** Strategies already tried in this episode without success. */
+  tried: StrategyId[];
+  /** The strategy that got the child answering again (credited only once they solve it on their own). */
+  helpedBy: StrategyId | null;
+  /** Level of the last question answered correctly in this episode. */
+  lastLevel: Level;
+  /** For the 'prerequisite' strategy: which earlier skill, and progress on it. */
+  prereqSkill: string | null;
+  prereqCorrect: number;
+  prereqWrong: number;
+  startedAt: number;
+  attempts: number;
+}
+
+export interface HelpState {
+  episode: HelpEpisode | null;
+  /** How often each way of helping has been tried with this child, and how often it worked. */
+  strategies: Partial<Record<StrategyId, { tried: number; helped: number }>>;
+  /** Times the child got stuck, and times they worked through it. */
+  stuck: number;
+  resolved: number;
+}
+
+/** What the brain believes about one misconception for one child. */
+export interface MisconceptionState {
+  /** 0-1: how strongly the child seems to hold it. At or above 0.5 counts as active. */
+  strength: number;
+  /** Times the child's answer matched this mistake. */
+  seen: number;
+  lastSeen: number;
+  /** When it stopped showing up after being active, if it has. */
+  fixedAt: number | null;
+  /** Skills where it has shown up. */
+  skills: string[];
 }
 
 export interface Profile {
@@ -76,4 +140,8 @@ export interface Profile {
   history: AnswerRecord[];
   /** Recently seen bank question ids, to avoid repeating questions. */
   recentQuestionIds: string[];
+  /** Mistake patterns the brain has noticed, by misconception id. */
+  misconceptions: Record<string, MisconceptionState>;
+  /** Help when stuck, and what kind of help works for this child. */
+  help: HelpState;
 }

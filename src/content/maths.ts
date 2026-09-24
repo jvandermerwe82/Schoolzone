@@ -3,6 +3,7 @@
  * practice and every answer is computed (never typed in by hand).
  */
 import type { Level, Question } from '../brain/types';
+import { addNoCarry, subBorrowNoDecrement, subSmallerFromLarger, withBugs } from './bugs';
 
 export type Rng = () => number;
 
@@ -20,6 +21,9 @@ export function q(
   return { skillId, level, id: `${skillId}:${prompt}`, prompt, answer: String(answer), explanation, choices };
 }
 
+/** "1 ten", "3 tens". */
+const count = (k: number, unit: string) => `${k} ${unit}${k === 1 ? '' : 's'}`;
+
 export function gcd(a: number, b: number): number {
   return b === 0 ? Math.abs(a) : gcd(b, a % b);
 }
@@ -35,13 +39,13 @@ function numberSense(level: Level, rng: Rng): Question {
   switch (level) {
     case 1: {
       const n = int(rng, 1, 9);
-      return q(id, level, `What number comes after ${n}?`, n + 1, `Counting up: ${n}, ${n + 1}.`);
+      return withBugs(q(id, level, `What number comes after ${n}?`, n + 1, `Counting up: ${n}, ${n + 1}.`), [['count-direction', n - 1]]);
     }
     case 2: {
       const n = int(rng, 11, 20);
       return rng() < 0.5
-        ? q(id, level, `What number comes after ${n}?`, n + 1, `Counting up: ${n}, ${n + 1}.`)
-        : q(id, level, `What number comes before ${n}?`, n - 1, `Counting down: ${n}, ${n - 1}.`);
+        ? withBugs(q(id, level, `What number comes after ${n}?`, n + 1, `Counting up: ${n}, ${n + 1}.`), [['count-direction', n - 1]])
+        : withBugs(q(id, level, `What number comes before ${n}?`, n - 1, `Counting down: ${n}, ${n - 1}.`), [['count-direction', n + 1]]);
     }
     case 3: {
       const a = int(rng, 10, 99);
@@ -86,7 +90,7 @@ function addition(level: Level, rng: Rng): Question {
     }
     case 5: a = int(rng, 100, 899); b = int(rng, 100, 999 - a); break;
   }
-  return q(id, level, `${a} + ${b} = ?`, a + b, additionExplanation(a, b));
+  return withBugs(q(id, level, `${a} + ${b} = ?`, a + b, additionExplanation(a, b)), [['add-no-carry', addNoCarry(a, b)]]);
 }
 
 function additionExplanation(a: number, b: number): string {
@@ -119,7 +123,10 @@ function subtraction(level: Level, rng: Rng): Question {
   const expl = a <= 20
     ? `Start at ${a} and count back ${b}: ${a - b}. Check: ${a - b} + ${b} = ${a}.`
     : `${a} − ${b} = ${a - b}. Check by adding back: ${a - b} + ${b} = ${a}.`;
-  return q(id, level, `${a} − ${b} = ?`, a - b, expl);
+  return withBugs(q(id, level, `${a} − ${b} = ?`, a - b, expl), [
+    ['sub-smaller-from-larger', subSmallerFromLarger(a, b)],
+    ['sub-borrow-no-decrement', subBorrowNoDecrement(a, b)],
+  ]);
 }
 
 function placeValue(level: Level, rng: Rng): Question {
@@ -128,24 +135,26 @@ function placeValue(level: Level, rng: Rng): Question {
     case 1: {
       const n = int(rng, 11, 99);
       return q(id, level, `What digit is in the tens place of ${n}?`, Math.floor(n / 10),
-        `${n} is ${Math.floor(n / 10)} tens and ${n % 10} ones.`);
+        `${n} is ${count(Math.floor(n / 10), 'ten')} and ${count(n % 10, 'one')}.`);
     }
     case 2: {
       const n = int(rng, 101, 999);
       return q(id, level, `What digit is in the hundreds place of ${n}?`, Math.floor(n / 100),
-        `${n} is ${Math.floor(n / 100)} hundreds, ${Math.floor(n / 10) % 10} tens and ${n % 10} ones.`);
+        `${n} is ${count(Math.floor(n / 100), 'hundred')}, ${count(Math.floor(n / 10) % 10, 'ten')} and ${count(n % 10, 'one')}.`);
     }
     case 3: {
       const n = int(rng, 11, 99);
       const r = Math.round(n / 10) * 10; // halves round up for positive numbers
-      return q(id, level, `Round ${n} to the nearest 10.`, r,
-        `Look at the ones digit (${n % 10}). 5 or more rounds up, 4 or less rounds down, so ${n} → ${r}.`);
+      return withBugs(q(id, level, `Round ${n} to the nearest 10.`, r,
+        `Look at the ones digit (${n % 10}). 5 or more rounds up, 4 or less rounds down, so ${n} → ${r}.`),
+      [['round-direction', r > n ? r - 10 : r + 10]]);
     }
     case 4: {
       const n = int(rng, 101, 949);
       const r = Math.round(n / 100) * 100;
-      return q(id, level, `Round ${n} to the nearest 100.`, r,
-        `Look at the tens digit (${Math.floor(n / 10) % 10}). 5 or more rounds up, 4 or less rounds down, so ${n} → ${r}.`);
+      return withBugs(q(id, level, `Round ${n} to the nearest 100.`, r,
+        `Look at the tens digit (${Math.floor(n / 10) % 10}). 5 or more rounds up, 4 or less rounds down, so ${n} → ${r}.`),
+      [['round-direction', r > n ? r - 100 : r + 100]]);
     }
     case 5: {
       // Four distinct digits so "the digit X" is unambiguous.
@@ -161,8 +170,8 @@ function placeValue(level: Level, rng: Rng): Question {
       const idx = digits.indexOf(digit);
       const value = digit * 10 ** (3 - idx);
       const place = ['thousands', 'hundreds', 'tens', 'ones'][idx];
-      return q(id, level, `What is the value of the digit ${digit} in ${n.toLocaleString('en')}?`, value,
-        `The ${digit} is in the ${place} place, so it is worth ${value.toLocaleString('en')}.`);
+      return withBugs(q(id, level, `What is the value of the digit ${digit} in ${n.toLocaleString('en')}?`, value,
+        `The ${digit} is in the ${place} place, so it is worth ${value.toLocaleString('en')}.`), [['digit-not-value', digit]]);
     }
   }
 }
@@ -180,7 +189,7 @@ function multiplication(level: Level, rng: Rng): Question {
   const expl = a > 12
     ? `Split it up: ${Math.floor(a / 10) * 10} × ${b} = ${Math.floor(a / 10) * 10 * b}, and ${a % 10} × ${b} = ${(a % 10) * b}. Together: ${a * b}.`
     : `${a} × ${b} means ${b} groups of ${a}, which is ${a * b}.`;
-  return q(id, level, `${a} × ${b} = ?`, a * b, expl);
+  return withBugs(q(id, level, `${a} × ${b} = ?`, a * b, expl), [['mult-added', a + b]]);
 }
 
 function division(level: Level, rng: Rng): Question {
@@ -214,8 +223,9 @@ function fractions(level: Level, rng: Rng): Question {
       const d = pick(rng, [3, 4, 5, 6, 8]);
       const num = int(rng, 2, d - 1);
       const n = d * int(rng, 2, 6);
-      return q(id, level, `What is ${num}/${d} of ${n}?`, (n / d) * num,
-        `First find 1/${d}: ${n} ÷ ${d} = ${n / d}. Then take ${num} of those parts: ${n / d} × ${num} = ${(n / d) * num}.`);
+      return withBugs(q(id, level, `What is ${num}/${d} of ${n}?`, (n / d) * num,
+        `First find 1/${d}: ${n} ÷ ${d} = ${n / d}. Then take ${num} of those parts: ${n / d} × ${num} = ${(n / d) * num}.`),
+      [['fraction-unit-only', n / d]]);
     }
     case 4: {
       if (rng() < 0.5) {
@@ -240,8 +250,9 @@ function fractions(level: Level, rng: Rng): Question {
       const b = int(rng, 1, d - 1 - a);
       const sum = simplify(a + b, d);
       const tail = sum === `${a + b}/${d}` ? '' : ` That simplifies to ${sum}.`;
-      return q(id, level, `${a}/${d} + ${b}/${d} = ?  (write it like 3/4)`, sum,
-        `The bottoms match, so add the tops: ${a} + ${b} = ${a + b}, giving ${a + b}/${d}.${tail}`);
+      return withBugs(q(id, level, `${a}/${d} + ${b}/${d} = ?  (write it like 3/4)`, sum,
+        `The bottoms match, so add the tops: ${a} + ${b} = ${a + b}, giving ${a + b}/${d}.${tail}`),
+      [['frac-add-across', `${a + b}/${2 * d}`]]);
     }
   }
 }
