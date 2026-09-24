@@ -3,6 +3,8 @@ import type { CheckpointResult, Profile, SubjectId } from '../brain/types';
 import { checkAnswer } from '../content';
 import { checkpointQuestions, score, type Form } from '../content/checkpoint';
 import { getSkill, SUBJECTS } from '../content/skills';
+import { questionSpeech, SpeakButton } from './SpeakButton';
+import { PassageCard } from './PassageCard';
 
 export const CHECKPOINT_XP = 50;
 
@@ -96,9 +98,10 @@ export function Checkpoint({ profile, subject, form, which, onFinish, onLater }:
         </div>
         <span className="hud-stats">{i + 1}/{questions.length}</span>
       </header>
+      {q.passageId && <PassageCard key={q.passageId} passageId={q.passageId} />}
       <div className="card question-card">
         <div className="question-meta"><span>{getSkill(q.skillId).name}</span></div>
-        <p className="prompt">{q.prompt}</p>
+        <div className="prompt-row"><p className="prompt">{q.prompt}</p><SpeakButton text={questionSpeech(q.prompt, q.choices)} /></div>
         {q.choices ? (
           <div className="choices">
             {q.choices.map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}

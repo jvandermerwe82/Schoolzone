@@ -4,7 +4,7 @@
  */
 import type { ItemStats } from './brain/items';
 import { emptyHelp } from './brain/help';
-import type { Profile } from './brain/types';
+import { DEFAULT_SETTINGS, type Profile } from './brain/types';
 
 const KEY = 'schoolzone:v1';
 const ITEMS_KEY = 'schoolzone:items:v1';
@@ -39,6 +39,8 @@ export function normalizeProfile(raw: Partial<Profile> & { grade?: number }): Pr
     currency: p.currency ?? '£',
     xp: p.xp ?? 0,
     checkpoints: p.checkpoints ?? [],
+    settings: { ...DEFAULT_SETTINGS, ...p.settings },
+    sats: p.sats ?? [],
   };
 }
 
@@ -68,6 +70,8 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     currency: '£',
     xp: 0,
     checkpoints: [],
+    settings: { ...DEFAULT_SETTINGS },
+    sats: [],
   };
 }
 

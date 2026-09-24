@@ -16,6 +16,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Question } from '../src/brain/types';
 import { revealsAnswer, stepHint } from '../src/content/solver';
 import { skillTip } from '../src/content/hints';
+import { getPassage } from '../src/content/reading';
 import { SAFE_REPLY, screen, type SafetyCategory } from './safety';
 
 export interface TutorTurn { role: 'user' | 'assistant'; content: string }
@@ -83,8 +84,11 @@ Staying safe:
 /** The question details the tutor sees (the pupil never sees this). */
 export function contextFor(req: TutorRequest): string {
   const q = req.question;
+  // Reading questions: the passage comes from our own content, never from the request.
+  const passage = q.passageId ? getPassage(q.passageId) : undefined;
   return [
     'Question details (for you only; do not reveal the answer):',
+    passage ? `The text the question is about ("${passage.title}", ${passage.kind.toLowerCase()}):\n${passage.text}` : null,
     `Question: ${q.prompt}`,
     q.choices ? `Options: ${q.choices.join(' | ')}` : null,
     `Correct answer: ${q.answer}`,

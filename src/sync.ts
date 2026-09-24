@@ -65,48 +65,84 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => void flushEvents());
 }
 
-/** Debounced, version-checked profile saving. */
+/**
+ * Version-checked profile saving that never makes the child wait:
+ * - a save after a quiet spell goes to the server straight away;
+ * - saves in quick succession are combined, and the latest is sent once the
+ *   quiet period ends;
+ * - anything still waiting is sent when the page is hidden or closed.
+ */
 export class ProfileSaver {
   private versions = new Map<string, number>();
   private pending = new Map<string, Profile>();
-  private timers = new Map<string, number>();
+  private timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private inFlight = new Set<string>();
 
-  constructor(private onConflict: (serverProfile: Profile, version: number) => void, private delayMs = 1500) {}
+  constructor(
+    private onConflict: (serverProfile: Profile, version: number) => void,
+    private delayMs = 1500,
+    private send: (id: string, profile: Profile, version: number) => Promise<{ version: number }> = (id, p, v) => api.saveChild(id, p, v),
+  ) {
+    if (typeof window !== 'undefined') {
+      const flushAll = () => { for (const id of [...this.pending.keys()]) void this.flush(id); };
+      window.addEventListener('pagehide', flushAll);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAll(); });
+    }
+  }
 
   setVersion(id: string, version: number): void {
     this.versions.set(id, version);
   }
 
+  /** True while there are changes not yet confirmed by the server. */
+  hasPending(): boolean {
+    return this.pending.size > 0 || this.inFlight.size > 0;
+  }
+
   save(profile: Profile): void {
-    this.pending.set(profile.id, profile);
-    window.clearTimeout(this.timers.get(profile.id));
-    this.timers.set(profile.id, window.setTimeout(() => void this.flush(profile.id), this.delayMs));
+    const id = profile.id;
+    this.pending.set(id, profile);
+    if (this.timers.has(id)) return; // a save is already scheduled; it will send the latest copy
+    void this.flush(id);
+    this.schedule(id, this.delayMs);
+  }
+
+  private schedule(id: string, ms: number): void {
+    clearTimeout(this.timers.get(id));
+    this.timers.set(id, setTimeout(() => { this.timers.delete(id); void this.flush(id); }, ms));
   }
 
   async flush(id: string): Promise<void> {
+    if (this.inFlight.has(id)) return; // the running save sends anything newer when it finishes
     const profile = this.pending.get(id);
     if (!profile) return;
     this.pending.delete(id);
+    this.inFlight.add(id);
+    let retryLater = false;
+    let resendNow = false;
     try {
-      const { version } = await api.saveChild(id, profile, this.versions.get(id) ?? 1);
+      const { version } = await this.send(id, profile, this.versions.get(id) ?? 1);
       this.versions.set(id, version);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const body = err.body as { profile: Profile; version: number };
+        this.versions.set(id, body.version);
         // Keep whichever copy has more practice in it, so no progress is lost.
-        if ((body.profile.history?.length ?? 0) > profile.history.length) {
-          this.versions.set(id, body.version);
-          this.onConflict(body.profile, body.version);
-        } else {
-          this.versions.set(id, body.version);
-          this.pending.set(id, profile);
-          await this.flush(id);
+        if ((body.profile.history?.length ?? 0) > profile.history.length) this.onConflict(body.profile, body.version);
+        else {
+          // Resend ours (or anything newer) on top of the server's version, straight away.
+          if (!this.pending.has(id)) this.pending.set(id, profile);
+          resendNow = true;
         }
       } else {
-        // Offline: keep it and try again shortly.
-        this.pending.set(id, profile);
-        this.timers.set(id, window.setTimeout(() => void this.flush(id), 10_000));
+        // Offline or a server problem: keep it and try again shortly.
+        if (!this.pending.has(id)) this.pending.set(id, profile);
+        retryLater = true;
       }
+    } finally {
+      this.inFlight.delete(id);
     }
+    if (retryLater) this.schedule(id, 10_000);
+    else if (this.pending.has(id) && (resendNow || !this.timers.has(id))) await this.flush(id);
   }
 }

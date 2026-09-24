@@ -99,7 +99,7 @@ In place and tested: everything above (server API tests cover auth, consent, pri
 | Subject | Year 6 skills | Source |
 | --- | --- | --- |
 | **Maths** | Negative numbers · Factors, multiples & primes · Order of operations · Long multiplication & division · Fractions (simplify, add/subtract with different denominators, multiply, divide) · Decimals & percentages · Algebra · Angles, area & the mean | Year 6 programme of study |
-| **English** | Tricky spellings (the full Years 5–6 statutory word list) · Spelling patterns · Homophones · Grammar (active/passive, subject/object, formal language, subjunctive, synonyms/antonyms) · Punctuation (semi-colons, colons, dashes, hyphens) | [Appendix 1: Spelling](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/239784/English_Appendix_1_-_Spelling.pdf), [Appendix 2: Vocabulary, grammar and punctuation](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/335190/English_Appendix_2_-_Vocabulary_grammar_and_punctuation.pdf), and the English glossary |
+| **English** | Tricky spellings (the full Years 5–6 statutory word list) · Spelling patterns · Homophones · Grammar (active/passive, subject/object, formal language, subjunctive, synonyms/antonyms) · Punctuation (semi-colons, colons, dashes, hyphens) · **Reading comprehension** (5 texts written for Schoolzone: a story, two information texts, a poem and a persuasive letter; 46 questions tagged with the KS2 reading content domains 2a–2h) | [Appendix 1: Spelling](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/239784/English_Appendix_1_-_Spelling.pdf), [Appendix 2: Vocabulary, grammar and punctuation](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/335190/English_Appendix_2_-_Vocabulary_grammar_and_punctuation.pdf), and the English glossary |
 | **Science** | Classifying living things · Heart, blood & health · Evolution & inheritance · Light · Electricity (series circuits) | Year 6 programme of study |
 
 Maths questions are generated, so they never run out, and every answer is computed. Maths also keeps 7 foundation skills from Years 1–4, and science keeps 5 earlier topics.
@@ -200,10 +200,10 @@ The PIN is stored on the device and only keeps children out casually. It isn't s
 
 ```
 src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
-src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, Problem Solver (hints, notes, word meanings)
-src/ui/        React screens: sign-in, consent, player select, home, missions, checkpoints, leaderboard, teachers, skills, parent area, "Your information"
+src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, reading texts (reading.ts), SATs papers and the spelling-test sentences (sats.ts), Problem Solver (hints, notes, word meanings)
+src/ui/        React screens: sign-in, consent, player select, home, missions, checkpoints, SATs practice, leaderboard, teachers and class view, settings, skills, parent area, "Your information"
 src/api.ts     server client; src/sync.ts: offline-safe syncing
-server/        API (app.ts), database (db.ts), schools and leaderboards (leaderboard.ts), backups (backup.ts), AI tutor (tutor.ts), safety screening (safety.ts), tests
+server/        API (app.ts), database (db.ts), schools and leaderboards (leaderboard.ts), teacher class view (classview.ts), backups (backup.ts), AI tutor (tutor.ts), safety screening (safety.ts), tests
 scripts/       content export for teacher review, email and AI tutor checks
 docs/          deployment guide and drafts: privacy notice, DPIA, safeguarding procedure, evaluation plan
 ```
@@ -213,12 +213,41 @@ docs/          deployment guide and drafts: privacy notice, DPIA, safeguarding p
 - **A new skill:** add it to `src/content/skills.ts` with its prerequisites, then add a generator (maths-style) or a question bank (science-style).
 - **A new subject** (such as history): add it to `SubjectId` and `SUBJECTS`, then add skills and questions. The brain needs no changes.
 
+## SATs practice
+
+A **🎯 SATs practice** area on the home screen, modelled on the Year 6 tests (practice papers written for Schoolzone, not real past papers; scores are not SATs scaled scores):
+
+- **Spelling test:** like paper 2 of the grammar, punctuation and spelling test. Each word is read aloud in a sentence and the child writes the missing word. It uses all 100 words of the statutory Years 5–6 list (English Appendix 1, © Crown copyright, [Open Government Licence](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)), with a sentence written for each. Words the child got wrong come back first, and parents see a "words to learn" list. If the device has no built-in voice, a grown-up can read the words: they tap to reveal each word, and it hides again after 6 seconds.
+- **Arithmetic:** 12 typed questions from the maths generators, easier first, timed. The real paper is 36 questions in 30 minutes, so the review compares the child's pace with about 50 seconds a question.
+- **Reading paper:** one full text and all its questions, marked at the end, with a score for each reading skill (finding information, inference, word meanings and so on).
+
+SATs results are kept apart from the adaptive brain, like the checkpoints.
+
+## Reading comprehension
+
+Reading is also a normal practice skill: the brain picks a question at the right level, and the text is shown above it (with a "hide text" option). The AI tutor gets the text from Schoolzone's own content, never from the device. Four new mistake patterns are diagnosed from wrong choices: picking answers the text doesn't support, picking choices that just share words with the text, taking a word literally, and summarising only part of a text.
+
+## Accessibility
+
+Each child has **⚙️ Settings**:
+
+- **Read-aloud:** a 🔊 button on every question, reading passage and worked example, and an option to read each question automatically. Maths symbols are read as words (−7 is "minus 7", × is "times"). Only voices built into the device are used (the browser's `localService` voices), so nothing is sent to an online speech service. Devices without one don't show the button.
+- **Easier-to-read text:** wider letter, word and line spacing, left-aligned, no italics or all-capitals labels, following the [British Dyslexia Association style guide](https://www.bdadyslexia.org.uk/advice/employers/creating-a-dyslexia-friendly-workplace/dyslexia-friendly-style-guide).
+- **Bigger text** and **calm mode** (no animations).
+
+## Teachers
+
+Teachers who register their school (see "Schools and leaderboards") also get a **class view** and can set **homework**:
+
+- **Class view:** only pupils whose parent switched on "share progress with the teacher" (off by default, per child). The teacher sees the child's name, which Year 6 skills are mastered, being learned or causing trouble, the class's most common mistake patterns, and who is stuck right now. Never answers, AI tutor chats or rewards.
+- **Homework:** the teacher picks a topic and an optional short note. Every pupil in the school sees it on their home screen and can start it in one tap. The brain still teaches any earlier skill the topic needs first. Notes can't contain links, contact details or worrying phrases (including secrecy phrases such as "don't tell your parents", which the safety screen now also catches in AI tutor chats).
+
 ## Next steps worth considering
 
 - Fitting the constants to real data, per skill.
 - An LLM tutor that talks through mistakes in the child's own words, using the learner model (and the diagnosed misconception) as context.
 - More mistake patterns, especially for English grammar and science, where only some wrong options are tagged so far.
 - A child-friendly light theme option.
-- Reading comprehension (needs passages written or licensed for the app).
+- More reading texts (5 so far), and grammar/punctuation SATs-style papers.
 - Remaining Year 6 maths topics: ratio, converting units, coordinates and pie charts.
 - Calibrating each question's difficulty from real answers, instead of fixed levels.

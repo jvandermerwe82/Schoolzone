@@ -109,6 +109,10 @@ CREATE TABLE IF NOT EXISTS flag_notices (
 /** Columns added after the first version; added to existing databases on start-up. */
 const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ['parents', 'email_verified_at', 'INTEGER'],
+  // Parent's choice to share a child's progress (with their name) with the school's teacher.
+  ['memberships', 'share_progress', 'INTEGER NOT NULL DEFAULT 0'],
+  // Homework topic set by the teacher: {"skillId", "note", "setAt"}.
+  ['schools', 'focus_json', 'TEXT'],
 ];
 
 export function openDb(path: string): DB {

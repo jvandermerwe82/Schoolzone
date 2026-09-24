@@ -14,6 +14,7 @@ import type { Level, Question } from '../src/brain/types';
 import type { DB } from './db';
 import { hashSecret, hashToken, newId, newToken, RateLimiter, verifySecret } from './security';
 import { ConsoleMailer, emails, type Mailer } from './mailer';
+import { registerClassRoutes } from './classview';
 import { awardPoints, registerSchoolRoutes } from './leaderboard';
 import { askTutor, type TutorModel, type TutorTurn } from './tutor';
 
@@ -474,6 +475,7 @@ export function buildApp(opts: AppOptions) {
                 skillId: { type: 'string', maxLength: 64 }, level: { type: 'integer' }, id: { type: 'string', maxLength: 300 },
                 prompt: { type: 'string', maxLength: 500 }, answer: { type: 'string', maxLength: 200 },
                 explanation: { type: 'string', maxLength: 1000 }, choices: { type: 'array', maxItems: 6, items: { type: 'string', maxLength: 200 } },
+                passageId: { type: 'string', maxLength: 64 },
               },
             },
             given: { type: 'string', maxLength: 200 },
@@ -524,6 +526,7 @@ export function buildApp(opts: AppOptions) {
     db, now, requireParent, requireChild, isVerified, sendMail, appUrl,
     adminToken: opts.adminToken, adminEmail: opts.adminEmail,
   });
+  registerClassRoutes(app, { db, now, requireParent });
 
   // ---------- account deletion ----------
   app.delete('/api/account', { preHandler: requireParent }, async (req, reply) => {

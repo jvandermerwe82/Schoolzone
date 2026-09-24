@@ -3,7 +3,7 @@ import type { Question } from '../src/brain/types';
 import { buildApp, CONSENT_VERSION } from './app';
 import { openDb, pruneOldData, type DB } from './db';
 import { MemoryMailer } from './mailer';
-import { findWrongSum, scrub, type TutorModel } from './tutor';
+import { contextFor, findWrongSum, scrub, type TutorModel } from './tutor';
 
 const PASSWORD = 'correct horse battery';
 
@@ -312,6 +312,13 @@ describe('AI tutor', () => {
     const ok = (await ask('I added 7 and 8 and got 15 so I wrote 15')).json();
     expect(ok.flagged).toBeNull();
     expect(fake.calls).toHaveLength(1);
+  });
+
+  it('gives the tutor the reading passage from our own content, not from the request', () => {
+    const q = { ...question, skillId: 'reading-y6', passageId: 'great-fire', prompt: 'Where did the fire start?', answer: 'In a bakery on Pudding Lane' };
+    expect(contextFor({ question: q, history: [], message: 'help' })).toContain('The Great Fire of London');
+    expect(contextFor({ question: q, history: [], message: 'help' })).toContain('Thomas Farriner');
+    expect(contextFor({ question: { ...q, passageId: 'nope' }, history: [], message: 'help' })).not.toContain('The text the question is about');
   });
 
   it('tells the model to say it is an AI', async () => {

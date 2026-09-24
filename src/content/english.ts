@@ -12,6 +12,7 @@
 import type { Level, Question } from '../brain/types';
 import { pickFromBank, rowsToQuestions, type Row } from './bank';
 import { classifySpelling } from './bugs';
+import { readingQuestions } from './reading';
 
 /** [level, correct spelling, two misspellings, optional memory tip]. */
 type SpellingRow = [Level, string, [string, string], string?];
@@ -293,6 +294,7 @@ const BANKS: Record<string, () => Question[]> = {
     'My brother': 'gr-subject-object-mixup',
     'Year 2': 'gr-subject-object-mixup',
   }),
+  'reading-y6': readingQuestions,
   'punctuation-y6': () => rowsToQuestions('punctuation-y6', PUNCTUATION, {
     'Because it\'s raining; I\'m fed up.': 'pu-semicolon-subordinate',
     'A comma': 'pu-comma-splice',

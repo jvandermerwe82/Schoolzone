@@ -18,9 +18,10 @@ Contact us about your data at **[TO COMPLETE: email]**.
 | Your consent choices, and when you made them | To show what you agreed to. |
 | Your parent PIN (stored in scrambled form) | To keep rewards and settings for grown-ups. |
 | **Your child's** first name or nickname, school year and chosen avatar | To show their player and start them at a sensible level. |
-| Your child's practice: answers, how long they took, hints used, skills, badges, XP and checkpoint results | So the app can adapt to your child: choose the right difficulty, spot mistakes, and help when they're stuck. |
+| Your child's practice: answers, how long they took, hints used, skills, badges, XP, checkpoint results, SATs practice papers and display settings (e.g. bigger text) | So the app can adapt to your child: choose the right difficulty, spot mistakes, and help when they're stuck. |
 | Rewards you set for badges | To show your child what each badge is worth. |
 | **Only if you join a school** with its join code: which school, a generated code name (e.g. "Swift Falcon"), your choice about the pupil leaderboard, and this week's points | To count your child's points towards the school's score, and (only if you switch it on) to show them on the school's pupil leaderboard under the code name. |
+| **Only if you switch on "share progress with the teacher"**: nothing extra is collected, but your child's teacher can see some of it (below) | So the teacher can see who needs help with what. |
 | **Teachers who register a school:** the school's name and your email | To check you work at the school before it goes live, and to show the school on the leaderboard. |
 | **Only if you switch on the AI tutor:** what your child types to the tutor, and its replies | To answer your child's questions, keep them safe, and let you read the chats. |
 
@@ -39,6 +40,9 @@ We **don't** ask for surnames, dates of birth, schools, photos, locations or con
 - **Anthropic** (the company that makes the Claude AI), **only if you switch on the AI tutor**. When your child uses the tutor, their message and the practice question are sent to Anthropic to write a reply. Email addresses, phone numbers and web links are removed first. Messages that look worrying are never sent. **[TO CONFIRM: Anthropic's data processing terms and where the data is processed; see Anthropic's commercial terms.]**
 - **Our hosting and email providers**, which store and send data for us: **[TO COMPLETE: provider names and locations]**.
 - **Leaderboards**: if you join a school, the school's score (an average across its pupils, shown only once at least 5 have joined) is visible to all Schoolzone users. If you also switch on the pupil leaderboard, other pupils **in the same school** can see your child's code name, avatar and points or XP. Your child's real name is never shown. The school's teacher sees how many pupils have joined, but not who they are or their answers.
+- **Your child's teacher**, only if you switch on "share progress with the teacher" (off unless you turn it on, for each child). The teacher sees your child's name as you entered it, their avatar, which Year 6 skills are mastered, being learned or causing trouble, mistake patterns, whether they're stuck right now, when they last practised and how many questions they answered this week. **Never** their answers, AI tutor chats, rewards or your details. Switching it off hides your child from the teacher straight away.
+- **Teachers' homework notes** are shown to every pupil in the school. They're limited to 140 characters and can't contain links or contact details.
+- **Read-aloud** uses a voice built into your child's device. The words are not sent to any online speech service; if a device has no built-in voice, read-aloud isn't offered.
 - **Research**: if you opt in, your child's answers are kept **without their name**, under a code, so we can check Schoolzone really helps. We don't sell data and don't share it for advertising.
 
 We don't show adverts, and we don't use your child's data for marketing.
@@ -54,7 +58,7 @@ We don't show adverts, and we don't use your child's data for marketing.
 
 In the parent area you can at any time:
 - switch the AI tutor and research use on or off (switching research off deletes the kept answers);
-- join or leave a school, switch the pupil leaderboard on or off, or pick a new code name;
+- join or leave a school, switch the pupil leaderboard on or off, pick a new code name, or switch sharing with the teacher on or off;
 - read your child's AI tutor chats;
 - delete your child's data, or your whole account.
 

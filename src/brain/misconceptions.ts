@@ -81,6 +81,11 @@ const CATALOGUE: Misconception[] = [
   { id: 'pu-semicolon-subordinate', name: 'Uses a semi-colon after a clause that can\'t stand alone', noticed: 'One side of the semi-colon can\'t stand on its own as a sentence.', fix: 'Both sides of a semi-colon must make sense as sentences on their own.' },
   { id: 'pu-comma-meaning', name: 'Misses commas that change the meaning', noticed: 'Without the comma, the sentence means something else!', fix: 'Use a comma before the name of the person you are talking to: "Let\'s eat, Grandma!"' },
 
+  { id: 'rd-not-in-text', name: 'Picks answers the text doesn\'t say', noticed: 'That sounds possible, but the text doesn\'t say it or hint at it.', fix: 'Find the words in the text that prove your answer. If you can\'t point to them, think again.' },
+  { id: 'rd-word-match', name: 'Picks answers that just share words with the text', noticed: 'That choice uses words from the text, but it doesn\'t answer this question.', fix: 'Read the question again. Find the part of the text it\'s about, then check your answer really fits.' },
+  { id: 'rd-everyday-meaning', name: 'Takes words literally or in their everyday meaning', noticed: 'That\'s what the word usually means, but not here.', fix: 'Read the whole sentence around the word. What does it mean in this text?' },
+  { id: 'rd-part-not-whole', name: 'Summarises only part of the text', noticed: 'That\'s true, but it\'s only one part.', fix: 'A summary covers everything important. Check it fits the whole paragraph or text.' },
+
   // ---- Science ----
   { id: 'sci-sun-orbits-earth', name: 'Thinks the Sun goes around the Earth', noticed: 'It looks like the Sun moves around us, but it\'s the Earth that spins.', fix: 'Earth spins once a day (day and night) and orbits the Sun once a year.' },
   { id: 'sci-seasons-distance', name: 'Thinks seasons come from distance to the Sun', noticed: 'Distance to the Sun isn\'t what causes seasons.', fix: 'Seasons come from Earth\'s tilt: your half of the Earth leans towards the Sun in summer.' },

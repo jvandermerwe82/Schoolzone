@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { BADGES, describeReward, type Rarity } from '../brain/badges';
 import { subjectReport } from '../brain/insights';
+import type { Homework } from '../api';
+import { skillState } from '../brain/tutor';
+import { isMastered } from '../brain/model';
 import type { Profile, SubjectId } from '../brain/types';
 import { dayStreak, playerLevel } from '../brain/xp';
 import { checkpointDue } from '../content/checkpoint';
-import { SUBJECTS } from '../content/skills';
+import { getSkill, SUBJECTS } from '../content/skills';
 
 interface Props {
   profile: Profile;
   offline: boolean;
-  onPractice: (subject: SubjectId) => void;
+  onPractice: (subject: SubjectId, focus?: string) => void;
+  /** Topic set by the child's teacher, if any. */
+  homework?: Homework | null;
   onDashboard: () => void;
   onParents: () => void;
   onInfo: () => void;
+  onSettings: () => void;
+  onSats: () => void;
   /** Server mode only. */
   onLeaderboard?: () => void;
   onSwitch: () => void;
@@ -81,7 +88,7 @@ function Achievements({ profile }: { profile: Profile }) {
   );
 }
 
-export function Home({ profile, offline, onPractice, onDashboard, onParents, onInfo, onLeaderboard, onSwitch }: Props) {
+export function Home({ profile, offline, homework, onPractice, onDashboard, onParents, onInfo, onSettings, onSats, onLeaderboard, onSwitch }: Props) {
   return (
     <main className="page">
       <header className="topbar">
@@ -93,6 +100,21 @@ export function Home({ profile, offline, onPractice, onDashboard, onParents, onI
       <PlayerCard profile={profile} />
 
       <h2 className="section-title">Choose a zone</h2>
+      {homework && (() => {
+        const skill = getSkill(homework.skillId);
+        const done = isMastered(skillState(profile, skill.id));
+        return (
+          <button className="homework-banner" onClick={() => onPractice(skill.subject, skill.id)}>
+            <span aria-hidden>📌</span>
+            <span>
+              <strong>From your teacher: {skill.emoji} {skill.name}</strong>
+              <small>{homework.note || 'Practise this topic.'}{done ? ' You\'ve already mastered it!' : ''}</small>
+            </span>
+            <span className="zone-play">Go ▶</span>
+          </button>
+        );
+      })()}
+
       <div className="zone-grid">
         {SUBJECTS.map((s) => {
           const reports = subjectReport(profile, s.id);
@@ -111,11 +133,18 @@ export function Home({ profile, offline, onPractice, onDashboard, onParents, onI
         })}
       </div>
 
+      <button className="sats-banner" onClick={onSats}>
+        <span aria-hidden>🎯</span>
+        <span><strong>SATs practice</strong><small>Spelling test, arithmetic and reading papers</small></span>
+        <span className="zone-play">Go ▶</span>
+      </button>
+
       <Achievements profile={profile} />
 
       <div className="row footer-links">
         <button className="secondary" onClick={onDashboard}>📊 My skills</button>
         {onLeaderboard && <button className="secondary" onClick={onLeaderboard}>🏆 Leaderboard</button>}
+        <button className="link" onClick={onSettings}>⚙️ Settings</button>
         <button className="link" onClick={onInfo}>🔒 Your information</button>
         <button className="link" onClick={onParents}>Parents</button>
       </div>

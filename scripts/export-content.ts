@@ -17,6 +17,8 @@ import { MATHS_Y6_GENERATORS } from '../src/content/maths-y6';
 import { scienceQuestions } from '../src/content/science';
 import { SKILLS, getSkill } from '../src/content/skills';
 import { topicNotes } from '../src/content/solver';
+import { PASSAGES } from '../src/content/reading';
+import { DICTATION } from '../src/content/sats';
 
 const header = ['Type', 'Subject', 'Skill', 'Taught in year', 'Level (1-5)', 'Item', 'Question or text', 'Choices', 'Correct answer', 'Explanation', 'Reviewer: OK? (Y/N)', 'Reviewer: notes'];
 const rows: string[][] = [];
@@ -62,6 +64,16 @@ for (const skill of SKILLS) {
 }
 
 // Mistake explanations shown to children
+// Reading texts (the questions on them are exported above, under Reading Comprehension).
+for (const p of PASSAGES) {
+  rows.push(['Reading text', 'english', 'Reading Comprehension', '6', '', `passage:${p.id}`, `${p.title} (${p.kind})\n\n${p.text}`, '', '', '', '', '']);
+}
+
+// SATs spelling test sentences (read aloud; the pupil writes the missing word).
+for (const [word, sentence] of DICTATION) {
+  rows.push(['Spelling test sentence', 'english', 'SATs spelling', '6', '', `dictation:${word}`, sentence, '', word, '', '', '']);
+}
+
 for (const id of allMisconceptionIds()) {
   const m = getMisconception(id);
   rows.push(['Mistake explanation', '', '', '', '', id, `${m.noticed} ${m.fix}`, '', '', `Shown to parents as: ${m.name}`, '', '']);

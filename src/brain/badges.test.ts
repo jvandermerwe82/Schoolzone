@@ -3,6 +3,7 @@ import { newProfile } from '../storage';
 import { awardBadges, BADGES, bestDayRun, bestStreak, describeReward, formatMoney, moneyTotals, parseMoney, rewardsOwed } from './badges';
 import { initialSkillState } from './model';
 import type { AnswerRecord, Profile } from './types';
+import { SKILLS } from '../content/skills';
 
 const DAY = 86_400_000;
 const T0 = Date.parse('2026-09-01T10:00:00');
@@ -50,7 +51,9 @@ describe('badges', () => {
 
   it('level badges: mastering every Year 6 English skill', () => {
     let p: Profile = newProfile('Ava', '🦊', 6);
-    const skills = Object.fromEntries(['spelling-words', 'spelling-patterns', 'homophones', 'grammar-y6', 'punctuation-y6'].map((id) => [id, mastered]));
+    const english = SKILLS.filter((s) => s.subject === 'english' && s.typicalYear === 6).map((s) => s.id);
+    expect(english).toContain('reading-y6');
+    const skills = Object.fromEntries(english.map((id) => [id, mastered]));
     p = { ...p, skills };
     const { earned } = awardBadges(p, T0);
     expect(earned).toContain('english-champion');

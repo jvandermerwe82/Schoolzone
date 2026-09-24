@@ -39,6 +39,7 @@ export function YourInfo({ profile, offline, tutorOn, onBack }: Props) {
             ? 'On this device, your progress is saved only in this web browser.'
             : 'It is saved safely on Schoolzone\'s computer so it\'s there next time. The people who run Schoolzone can only look at it to keep the app working.'}</li>
           {!offline && <li>If your grown-up joins you to your school, your points count towards your school's score. You're only on the pupil leaderboard if your grown-up says yes, and then with a <strong>code name</strong>, never your real name.</li>}
+          {!offline && <li>Your grown-up can choose to let your <strong>teacher</strong> see which skills you've mastered and what you're working on, so they can help. Never your answers or chats.</li>}
           <li>We don't show adverts, and we don't sell your information.</li>
         </ul>
 
@@ -52,6 +53,9 @@ export function YourInfo({ profile, offline, tutorOn, onBack }: Props) {
 
         <h2>🗑️ Deleting</h2>
         <p>Your grown-up can delete your information at any time in the Parents area.{offline ? '' : ' Some things, like old tutor chats, are also deleted automatically after a while.'}</p>
+
+        <h2>🔊 Read-aloud</h2>
+        <p>Read-aloud uses a voice built into your device, so the words aren't sent anywhere.</p>
 
         <p className="muted">Questions? Ask your grown-up. They can read the full privacy notice.</p>
       </section>

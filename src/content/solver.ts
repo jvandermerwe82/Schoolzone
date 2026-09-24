@@ -115,6 +115,13 @@ const NOTES: Record<string, string[]> = {
     'A dash can also mark the boundary between two clauses.',
     'Hyphens join words to avoid confusion: a man-eating shark.',
   ],
+  'reading-y6': [
+    'Finding information: look for key words from the question in the text, then read the whole sentence around them.',
+    'Inference means working something out from clues. Ask: what does the text show, even if it doesn\'t say it?',
+    'Word meanings: read the whole sentence. A word can mean something different in a story from its everyday meaning.',
+    'A summary covers the main idea of the whole part, not just one detail.',
+    'Similes compare using "like" or "as"; personification gives human actions to things. Ask what picture they create.',
+  ],
   'living-things': [
     'Living things grow, need food and water, and produce young.',
     'Plants make their own food using sunlight, water and carbon dioxide (photosynthesis).',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, serverAvailable, type AnswerEvent, type Me } from './api';
+import { api, serverAvailable, type AnswerEvent, type Homework, type Me } from './api';
 import type { ItemStats } from './brain/items';
 import type { Profile, SubjectId } from './brain/types';
 import { loadItems, loadParentPin, loadProfiles, normalizeProfile, saveItems, saveParentPin, saveProfiles } from './storage';
@@ -10,6 +10,8 @@ import { Checkpoint } from './ui/Checkpoint';
 import { Consent } from './ui/Consent';
 import { YourInfo } from './ui/YourInfo';
 import { Leaderboard } from './ui/Leaderboard';
+import { Settings } from './ui/Settings';
+import { Sats } from './ui/Sats';
 import { Teacher, type TeacherTools } from './ui/Teacher';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
@@ -20,12 +22,14 @@ import { ProfilePicker } from './ui/ProfilePicker';
 type Screen =
   | { name: 'profiles' }
   | { name: 'home' }
-  | { name: 'practice'; subject: SubjectId }
-  | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second' }
+  | { name: 'practice'; subject: SubjectId; focus?: string }
+  | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second'; focus?: string }
   | { name: 'dashboard' }
   | { name: 'info' }
   | { name: 'leaderboard' }
   | { name: 'teacher' }
+  | { name: 'settings' }
+  | { name: 'sats' }
   | { name: 'parents' };
 
 /** 'cloud' when a Schoolzone server is reachable; otherwise everything stays on this device. */
@@ -35,11 +39,14 @@ type Mode = 'checking' | 'local' | 'cloud';
 const SCHOOL_TOOLS = {
   get: (childId: string) => api.school(childId),
   join: (childId: string, code: string) => api.joinSchool(childId, code),
-  update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean }) => api.updateSchool(childId, patch),
+  update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean; shareProgress?: boolean }) => api.updateSchool(childId, patch),
   leave: async (childId: string) => { await api.leaveSchool(childId); },
 };
 const TEACHER_TOOLS: TeacherTools = {
   list: () => api.mySchools(),
+  classView: (schoolId) => api.classView(schoolId),
+  setHomework: (schoolId, skillId, note) => api.setHomework(schoolId, skillId, note),
+  clearHomework: (schoolId) => api.clearHomework(schoolId),
   register: (name) => api.registerSchool(name),
   newCode: (schoolId) => api.newJoinCode(schoolId),
 };
@@ -149,7 +156,36 @@ export function App() {
     if (mode === 'cloud') queueEvent(childId, e);
   }, [mode]);
 
+  // The current child's display settings apply to the whole page.
+  const look = current?.settings;
+  useEffect(() => {
+    const root = document.documentElement.classList;
+    root.toggle('easy-read', !!look?.easyRead);
+    root.toggle('big-text', !!look?.bigText);
+    root.toggle('calm', !!look?.calm);
+  }, [look?.easyRead, look?.bigText, look?.calm]);
+
   const currentKey = current?.id;
+
+  // Homework set by the child's teacher (server mode, if they've joined a school).
+  const [homework, setHomework] = useState<Homework | null>(null);
+  const onHome = screen.name === 'home';
+  useEffect(() => {
+    setHomework(null);
+    if (mode !== 'cloud' || !currentKey || !onHome) return;
+    let live = true;
+    api.school(currentKey).then((m) => live && setHomework(m.homework ?? null)).catch(() => {});
+    return () => { live = false; };
+  }, [mode, currentKey, onHome]);
+
+  /** Start practising a subject (optionally a particular skill), with the checkpoint first if it's due. */
+  const startPractice = (subject: SubjectId, focus?: string) => {
+    if (!current) return;
+    const due = checkpointDue(current, subject, Date.now());
+    setScreen(due && !deferred.has(`${current.id}:${subject}`)
+      ? { name: 'checkpoint', subject, form: due.form, which: due.which, focus }
+      : { name: 'practice', subject, focus });
+  };
   const loadBoard = useCallback((period: 'week' | 'all') => api.leaderboard(currentKey!, period), [currentKey]);
 
   const tutor: TutorFn | undefined = useMemo(() => {
@@ -242,15 +278,13 @@ export function App() {
         <Home
           profile={current}
           offline={mode === 'local'}
-          onPractice={(subject) => {
-            const due = checkpointDue(current, subject, Date.now());
-            setScreen(due && !deferred.has(`${current.id}:${subject}`)
-              ? { name: 'checkpoint', subject, form: due.form, which: due.which }
-              : { name: 'practice', subject });
-          }}
+          onPractice={startPractice}
+          homework={homework}
           onDashboard={() => setScreen({ name: 'dashboard' })}
           onParents={() => setScreen({ name: 'parents' })}
           onInfo={() => setScreen({ name: 'info' })}
+          onSettings={() => setScreen({ name: 'settings' })}
+          onSats={() => setScreen({ name: 'sats' })}
           onLeaderboard={mode === 'cloud' ? () => setScreen({ name: 'leaderboard' }) : undefined}
           onSwitch={() => setScreen({ name: 'profiles' })}
         />
@@ -261,6 +295,7 @@ export function App() {
           key={`${current.id}-${screen.subject}`}
           profile={current}
           subject={screen.subject}
+          focusSkill={screen.focus}
           onUpdate={updateProfile}
           items={items}
           onItems={setItems}
@@ -277,15 +312,19 @@ export function App() {
           subject={screen.subject}
           form={screen.form}
           which={screen.which}
-          onFinish={(p) => { updateProfile(p); setScreen({ name: 'practice', subject: screen.subject }); }}
+          onFinish={(p) => { updateProfile(p); setScreen({ name: 'practice', subject: screen.subject, focus: screen.focus }); }}
           onLater={() => {
             setDeferred((d) => new Set(d).add(`${current.id}:${screen.subject}`));
-            setScreen({ name: 'practice', subject: screen.subject });
+            setScreen({ name: 'practice', subject: screen.subject, focus: screen.focus });
           }}
         />
       );
     case 'dashboard':
       return <Dashboard profile={current} items={items} onBack={() => setScreen({ name: 'home' })} />;
+    case 'sats':
+      return <Sats key={current.id} profile={current} onSave={updateProfile} onBack={() => setScreen({ name: 'home' })} />;
+    case 'settings':
+      return <Settings profile={current} onSave={updateProfile} onBack={() => setScreen({ name: 'home' })} />;
     case 'leaderboard':
       return <Leaderboard profile={current} load={loadBoard} onBack={() => setScreen({ name: 'home' })} />;
     case 'info':

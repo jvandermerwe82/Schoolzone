@@ -241,3 +241,16 @@ describe('Year 6 focus', () => {
     expect(plan.reason).toBe('new');
   });
 });
+
+describe('homework focus', () => {
+  it('starts on the teacher\'s topic when the child is ready for it', () => {
+    const p = newProfile('Sim', '🙂', 6);
+    expect(planNext(p, 'english', { focus: 'reading-y6', answered: 0 }, 0, () => 0.5).skillId).toBe('reading-y6');
+  });
+
+  it('teaches what is needed first when the topic isn\'t ready yet', () => {
+    // Punctuation needs grammar first.
+    const p = newProfile('Sim', '🙂', 6);
+    expect(planNext(p, 'english', { focus: 'punctuation-y6', answered: 0 }, 0, () => 0.5).skillId).not.toBe('punctuation-y6');
+  });
+});

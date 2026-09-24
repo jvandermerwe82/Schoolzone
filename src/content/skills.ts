@@ -82,6 +82,8 @@ export const SKILLS: Skill[] = [
     description: 'Active and passive voice, subject and object, formal language, synonyms and antonyms.', prerequisites: [] },
   { id: 'punctuation-y6', subject: 'english', name: 'Punctuation', emoji: '❗', typicalYear: 6, choices: 4,
     description: 'Semi-colons, colons, dashes, hyphens and bullet points.', prerequisites: ['grammar-y6'] },
+  { id: 'reading-y6', subject: 'english', name: 'Reading Comprehension', emoji: '📚', typicalYear: 6, choices: 4,
+    description: 'Stories, information texts, poems and letters: finding information, word meanings, inference and more.', prerequisites: [] },
 ];
 
 export const SUBJECTS: { id: SubjectId; name: string; emoji: string }[] = [

@@ -37,6 +37,10 @@ export interface Question {
    * mistake produces]. Lets the brain work out *why* an answer was wrong.
    */
   bugs?: [string, string][];
+  /** Reading questions: the passage to show with the question (content/reading.ts). */
+  passageId?: string;
+  /** Reading questions: the KS2 reading content domain tested, e.g. "2d" (inference). */
+  domain?: string;
 }
 
 /** What the brain knows about one child on one skill. */
@@ -156,7 +160,35 @@ export interface Profile {
   xp: number;
   /** Before/after checkpoint results (see content/checkpoint.ts). */
   checkpoints: CheckpointResult[];
+  /** How the app looks and sounds for this child. */
+  settings: AccessSettings;
+  /** SATs practice papers taken (content/sats.ts). Kept apart from the adaptive brain. */
+  sats: SatsResult[];
 }
+
+export interface SatsResult {
+  kind: 'spelling' | 'arithmetic' | 'reading';
+  at: number;
+  /** Time taken for the whole paper. */
+  timeMs: number;
+  /** Reading papers: which text. */
+  passageId?: string;
+  /** One per question: the word or question id, whether it was right, and what was written. */
+  items: { id: string; correct: boolean; given: string; skillId?: string; domain?: string; prompt?: string; answer?: string }[];
+}
+
+export interface AccessSettings {
+  /** Read each question aloud automatically (the 🔊 button always works). */
+  autoRead: boolean;
+  /** Easier-to-read text: wider letter and line spacing, left-aligned, no capitals-only labels. */
+  easyRead: boolean;
+  /** Bigger text everywhere. */
+  bigText: boolean;
+  /** Calm mode: no animations or flashing effects. */
+  calm: boolean;
+}
+
+export const DEFAULT_SETTINGS: AccessSettings = { autoRead: false, easyRead: false, bigText: false, calm: false };
 
 export interface CheckpointResult {
   subject: SubjectId;

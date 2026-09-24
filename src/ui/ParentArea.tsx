@@ -24,7 +24,7 @@ export interface ParentTools {
     school: {
       get: (childId: string) => Promise<SchoolMembership>;
       join: (childId: string, code: string) => Promise<SchoolMembership>;
-      update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean }) => Promise<SchoolMembership>;
+      update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean; shareProgress?: boolean }) => Promise<SchoolMembership>;
       leave: (childId: string) => Promise<void>;
     };
     deleteAccount: () => Promise<void>;
@@ -145,6 +145,14 @@ function SchoolSection({ school, profile }: { school: NonNullable<ParentTools['c
             <span>
               <strong>Show {profile.name} on the school's pupil leaderboard</strong> as <strong>{m.codeName}</strong>.
               Only pupils in {m.school.name} can see it. {profile.name}'s real name is never shown.
+            </span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={!!m.shareProgress} onChange={(e) => void run(() => school.update(profile.id, { shareProgress: e.target.checked }))} />
+            <span>
+              <strong>Share {profile.name}'s progress with the teacher at {m.school.name}</strong>. The teacher will see the name
+              "{profile.name}", which skills are going well or need work, mistake patterns, and if {profile.name} is stuck. Never
+              answers, AI tutor chats or rewards. You can switch this off at any time.
             </span>
           </label>
           <div className="row">

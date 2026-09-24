@@ -593,6 +593,52 @@ Question,english,Punctuation,6,4,punctuation-y6#11,What is a colon used for?,To 
 Question,english,Punctuation,6,5,punctuation-y6#12,Which sentence uses semi-colons correctly in a list?,"We visited Paris, France; Rome, Italy; and Madrid, Spain. | We visited Paris; France, Rome; Italy, and Madrid; Spain. | We visited; Paris, France, Rome, Italy, and Madrid, Spain. | We visited Paris France; Rome Italy and; Madrid Spain.","We visited Paris, France; Rome, Italy; and Madrid, Spain.","When list items already contain commas, semi-colons separate the items clearly.",,
 Question,english,Punctuation,6,5,punctuation-y6#13,Which punctuation mark introduces a list?,A colon | A semi-colon | A hyphen | An apostrophe,A colon,A colon introduces a list. Semi-colons can separate items within a list.,,
 Question,english,Punctuation,6,5,punctuation-y6#14,Which sentence is punctuated correctly?,"I love summer; the days are long and warm. | I love summer, the days are long and warm. | I love summer the days are long and warm. | I love; summer the days are long and warm.",I love summer; the days are long and warm.,"Two independent clauses need a semi-colon (or a full stop), not just a comma.",,
+Question,english,Reading Comprehension,6,1,reading-y6#keeper:0,How many steps did Isla climb to reach the lamp room?,"112 | 100 | 23 | 1,000",112,"The first paragraph says she climbed ""the last of the hundred and twelve steps"".",,
+Question,english,Reading Comprehension,6,1,reading-y6#keeper:1,Why had Isla's father gone to the mainland?,To fetch a new part for the lamp | To buy food for dinner | To get away from the storm | To visit Isla's school,To fetch a new part for the lamp,"Paragraph 2: ""to fetch a new part for the lamp"".",,
+Question,english,Reading Comprehension,6,2,reading-y6#keeper:2,"""The sea hurled itself at the rocks."" Which word is closest in meaning to ""hurled""?",threw | rolled | whispered | floated,threw,To hurl something is to throw it hard. The writer makes the sea sound violent.,,
+Question,english,Reading Comprehension,6,3,reading-y6#keeper:3,Why did Isla's fingers tremble as she wound the mechanism?,She was nervous because she had never done it herself before. | She was angry with her father. | The brass handle was hot. | She was excited about going to the mainland.,She was nervous because she had never done it herself before.,"The text says she ""had never been allowed to touch the brass handle herself"", and her father was late in a storm: she is nervous.",,
+Question,english,Reading Comprehension,6,3,reading-y6#keeper:4,"The windows were rattling ""like loose teeth"". What does this comparison suggest?",The windows were shaking so much they seemed ready to fall out. | The windows were white and shiny. | Isla had toothache. | The windows were small.,The windows were shaking so much they seemed ready to fall out.,Loose teeth wobble and might fall out. The simile shows how hard the storm was shaking the windows.,,
+Question,english,Reading Comprehension,6,4,reading-y6#keeper:5,What does the horn sounding three short blasts most likely mean?,A boat out at sea has seen the light and is signalling back. | The storm is over. | Isla's father is cross with her. | The lamp has broken again.,A boat out at sea has seen the light and is signalling back.,"The horn answers the three sweeps of light, and Isla smiles for the first time: a boat, probably the ferry, has seen it.",,
+Question,english,Reading Comprehension,6,4,reading-y6#keeper:6,Which sentence best sums up the whole passage?,"When her father is late, Isla bravely lights the lamp on her own to guide a boat through the storm. | Isla climbs a lighthouse to watch a storm. | Isla's father teaches her how to light the lamp. | A ferry sinks in a storm.","When her father is late, Isla bravely lights the lamp on her own to guide a boat through the storm.","A summary covers the whole passage, not just one part. The first choice only describes the first paragraph.",,
+Question,english,Reading Comprehension,6,5,reading-y6#keeper:7,"Why does the writer include her father's promise, ""Back by six"", in paragraph 2?","To show he is late, which builds worry and explains why Isla must act. | To tell us what time the story starts. | To show that her father is always on time. | To describe the weather.","To show he is late, which builds worry and explains why Isla must act.","Straight after the promise we learn it is half past seven. The promise makes his lateness, and the danger, clear.",,
+Question,english,Reading Comprehension,6,5,reading-y6#keeper:8,What is most likely to happen next?,Isla's father arrives safely on the ferry. | Isla switches off the lamp and goes to bed. | Isla swims to the mainland. | The lighthouse falls into the sea.,Isla's father arrives safely on the ferry.,"The horn answering the light, and Isla smiling, suggest the ferry has seen the light and will reach safety.",,
+Question,english,Reading Comprehension,6,1,reading-y6#great-fire:0,Where did the fire start?,In a bakery on Pudding Lane | In St Paul's Cathedral | In Samuel Pepys's house | In a brick factory,In a bakery on Pudding Lane,"The first sentence says it ""broke out in a bakery on Pudding Lane"".",,
+Question,english,Reading Comprehension,6,1,reading-y6#great-fire:1,How long did the fire last?,Four days | One night | Four weeks | Two days,Four days,"Paragraph 4: ""four days later"".",,
+Question,english,Reading Comprehension,6,2,reading-y6#great-fire:2,"""Their upper floors jutted out over the street."" What does ""jutted out"" mean here?",stuck out | fell down | were painted | were hidden,stuck out,Jutted out means stuck out. The top floors stuck out so far that houses almost touched.,,
+Question,english,Reading Comprehension,6,2,reading-y6#great-fire:3,Which of these helped the fire to spread quickly?,The houses were made of timber and built close together. | The houses were made of brick and stone. | It was raining heavily. | There were no streets.,The houses were made of timber and built close together.,"Paragraph 2: timber houses, narrow streets, a dry summer and a strong wind. Brick and stone came later, when London was rebuilt.",,
+Question,english,Reading Comprehension,6,3,reading-y6#great-fire:4,"In this text, what is a ""firebreak""?",A gap that the fire cannot cross | A short rest for the people fighting the fire | A bucket of water | A type of gunpowder,A gap that the fire cannot cross,"The text explains it: ""gaps, called firebreaks, that the fire could not cross"". It isn't a break as in a rest.",,
+Question,english,Reading Comprehension,6,3,reading-y6#great-fire:5,Which paragraph explains how people fought the fire?,Paragraph 3 | Paragraph 1 | Paragraph 4 | Paragraph 5,Paragraph 3,"Paragraph 3 describes buckets, squirts and firebreaks.",,
+Question,english,Reading Comprehension,6,4,reading-y6#great-fire:6,Why does the writer mention that the summer had been long and dry?,"Dry wood burns easily, so it helps explain why the fire spread so fast. | To show it was a good summer holiday. | Because the fire happened in winter. | To show there was plenty of water.","Dry wood burns easily, so it helps explain why the fire spread so fast.",The sentence is in the paragraph about why the fire spread. Dry timber catches fire more easily.,,
+Question,english,Reading Comprehension,6,4,reading-y6#great-fire:7,Why does the text mention Samuel Pepys?,To explain how we know so much about the fire | Because he started the fire | Because he designed the new St Paul's | Because he was the baker,To explain how we know so much about the fire,"""We know a great deal about these days because of people like Samuel Pepys, who described them in his diary.""",,
+Question,english,Reading Comprehension,6,5,reading-y6#great-fire:8,How was London different after it was rebuilt?,More buildings were made of brick and stone instead of timber. | The streets were made even narrower. | St Paul's Cathedral was never rebuilt. | All the houses were made of wood again.,More buildings were made of brick and stone instead of timber.,"Compare paragraph 2 (timber houses) with paragraph 5 (""more buildings of brick and stone"").",,
+Question,english,Reading Comprehension,6,5,reading-y6#great-fire:9,Which heading would best sum up the last paragraph?,A new London | How the fire started | Pepys's diary | Fighting the flames,A new London,The last paragraph is about rebuilding London and the new St Paul's.,,
+Question,english,Reading Comprehension,6,1,reading-y6#leaves:0,What is the green substance in leaves called?,chlorophyll | photosynthesis | carbon dioxide | maple,chlorophyll,"Paragraph 2: ""a green substance called chlorophyll"". Photosynthesis is the process, not the substance.",,
+Question,english,Reading Comprehension,6,1,reading-y6#leaves:1,When does the tree stop making chlorophyll?,When the days grow shorter and colder | In the middle of summer | When it rains | When new leaves grow in spring,When the days grow shorter and colder,"Paragraph 3: ""As the days grow shorter and colder, the tree stops making chlorophyll"".",,
+Question,english,Reading Comprehension,6,2,reading-y6#leaves:2,"""Many trees put on a spectacular show."" Which word means the same as ""spectacular""?",amazing | boring | noisy | tiny,amazing,Spectacular means amazing and impressive to look at.,,
+Question,english,Reading Comprehension,6,2,reading-y6#leaves:3,Which colours were in the leaf all along?,Yellow and orange | Red and purple | Only green | Blue and brown,Yellow and orange,"Paragraph 3: ""Yellow and orange colours, which were in the leaf all along"". The red is made new in autumn.",,
+Question,english,Reading Comprehension,6,3,reading-y6#leaves:4,Why can't we see the yellow colours in summer?,The green chlorophyll hides them. | They haven't been made yet. | The sun bleaches them. | Leaves are yellow in summer.,The green chlorophyll hides them.,"Paragraph 2: the green ""hides everything else"". The yellow is already there.",,
+Question,english,Reading Comprehension,6,3,reading-y6#leaves:5,The first paragraph ends with a question. Why?,To make the reader curious to find out the answer | Because the writer doesn't know the answer | To tell the reader to stop reading | To list the colours,To make the reader curious to find out the answer,A question at the start of an information text hooks the reader; the rest of the text answers it.,,
+Question,english,Reading Comprehension,6,4,reading-y6#leaves:6,Which sentence best sums up paragraph 4?,"A sealing layer forms, the leaf falls, and the tree saves water and energy for winter. | Trees grow new leaves in spring. | Leaves turn yellow and orange. | Chlorophyll helps the tree make food.","A sealing layer forms, the leaf falls, and the tree saves water and energy for winter.","The first choice covers the whole paragraph. ""Trees grow new leaves in spring"" is only its last few words.",,
+Question,english,Reading Comprehension,6,5,reading-y6#leaves:7,What is the difference between the yellow and the red colours in autumn leaves?,The yellow was there all along; the red is newly made in autumn by some trees. | Both are newly made in autumn. | The red was there all along; the yellow is new. | There is no difference.,The yellow was there all along; the red is newly made in autumn by some trees.,"Paragraph 3 says yellow and orange ""were in the leaf all along"", but some trees ""make new red colours in autumn"".",,
+Question,english,Reading Comprehension,6,1,reading-y6#last-train:0,What time does the station clock say?,Ten past nine | Nine o'clock | Ten to nine | Half past nine,Ten past nine,"Line 1: ""ten past nine"".",,
+Question,english,Reading Comprehension,6,2,reading-y6#last-train:1,"""A paper cup goes cartwheeling."" What is the cup doing?",Tumbling over and over in the wind | Being carried by a passenger | Standing still on a bench | Being thrown into a bin,Tumbling over and over in the wind,"A cartwheel turns over and over. The cup is being blown along, turning as it goes.",,
+Question,english,Reading Comprehension,6,2,reading-y6#last-train:2,How does the speaker seem to feel on the platform at the start?,Cold and alone | Hot and tired | Excited and busy | Angry and loud,Cold and alone,"The platform is ""cold and bare"" and the air is ""empty"": there is no one else there.",,
+Question,english,Reading Comprehension,6,3,reading-y6#last-train:3,"The train's light is first ""a silver thread"". What does this suggest?","At first it is a thin, faint line of light far away. | The train is made of silver. | Someone is sewing. | The light is very close and bright.","At first it is a thin, faint line of light far away.","A thread is thin. Far away, the light looks like a thin line that ""begins to grow"" as the train gets closer.",,
+Question,english,Reading Comprehension,6,3,reading-y6#last-train:4,"""The doors sigh open."" Why does the poet use the word ""sigh""?","It makes the doors sound gentle and relieved, like a person breathing out. | Because the doors are broken. | To make the doors sound loud and scary. | Because the train is sad.","It makes the doors sound gentle and relieved, like a person breathing out.",Giving the doors a human action (personification) makes the moment feel calm and welcoming.,,
+Question,english,Reading Comprehension,6,4,reading-y6#last-train:5,Which word in verse 2 compares the train to something in space?,comet | thread | rails | silver,comet,A comet is a bright object moving through space: the train's light moving through the dark.,,
+Question,english,Reading Comprehension,6,4,reading-y6#last-train:6,"In the last verse, how have the speaker's feelings changed?",They now feel safe and warm instead of cold and lonely. | They feel more frightened than before. | They are angry that the train was late. | Their feelings have not changed.,They now feel safe and warm instead of cold and lonely.,"Verse 1 is ""cold and bare""; verse 3 is ""warm and bright"" and ""safe inside"".",,
+Question,english,Reading Comprehension,6,5,reading-y6#last-train:7,How is the poem organised?,"It follows the journey in order: waiting, the train arriving, then riding home. | It starts at home and goes back in time. | Each verse is about a different person. | It is a list of train times.","It follows the journey in order: waiting, the train arriving, then riding home.","Verse 1 waits on the platform, verse 2 sees the train coming, verse 3 is on board heading home.",,
+Question,english,Reading Comprehension,6,5,reading-y6#last-train:8,"""I'm swallowed, safe inside."" Why is ""swallowed"" a good choice of word?","It makes the train seem like a creature taking the speaker in, and ""safe"" shows this feels comforting. | It shows the speaker is eating on the train. | It shows the train is dangerous. | It means the speaker is very small.","It makes the train seem like a creature taking the speaker in, and ""safe"" shows this feels comforting.","Swallowed makes the train seem alive, but ""safe"" tells us the feeling is comfort, not fear.",,
+Question,english,Reading Comprehension,6,1,reading-y6#library:0,When does the Reading Club meet?,Every Saturday | Every Sunday | After school on Fridays | Once a year,Every Saturday,"Paragraph 2: ""Every Saturday, the Reading Club…"".",,
+Question,english,Reading Comprehension,6,1,reading-y6#library:1,Why might the council close the library?,To save money | Because it is too noisy | Because nobody uses it | Because it needs new books,To save money,"Paragraph 1: ""the council may close it next year to save money"".",,
+Question,english,Reading Comprehension,6,2,reading-y6#library:2,"""This would be a serious mistake."" Which word could replace ""serious"" without changing the meaning?",big | funny | small | quiet,big,"Here ""serious"" means important or big. It isn't about someone being solemn.",,
+Question,english,Reading Comprehension,6,2,reading-y6#library:3,What is the main purpose of this letter?,To persuade the councillor to keep the library open | To tell a story about a library | To complain about her brother | To explain how to use a computer,To persuade the councillor to keep the library open,"The first line says so: ""I am writing to ask you to keep Brookfield Library open.""",,
+Question,english,Reading Comprehension,6,3,reading-y6#library:4,"Why does Amara use the words ""Firstly"" and ""Secondly""?","To organise her reasons clearly, one after another | To show her first reason is less important | To show she is unsure | To count the books","To organise her reasons clearly, one after another","Words like ""firstly"" and ""secondly"" signpost each new reason in a persuasive text.",,
+Question,english,Reading Comprehension,6,3,reading-y6#library:5,Why does Amara mention her neighbour who is eighty-three?,As an example of someone who needs the librarians' help with technology | To show her neighbour works at the library | Because her neighbour wants the library to close | To show that only older people use the library,As an example of someone who needs the librarians' help with technology,"The neighbour is her example of someone who ""finds technology difficult"" and is helped by the librarians.",,
+Question,english,Reading Comprehension,6,4,reading-y6#library:6,"""Where else would we go?"" Why does Amara ask this question?",To make the reader realise the children would have nowhere else to meet | Because she wants the councillor to reply with a place | Because she is lost | To change the subject,To make the reader realise the children would have nowhere else to meet,It's a rhetorical question: she doesn't expect an answer. It makes the reader think about what would be lost.,,
+Question,english,Reading Comprehension,6,4,reading-y6#library:7,Which sentence best sums up Amara's argument?,"The library helps the whole community, so it should stay open. | Everything is online now, so libraries are not needed. | Her brother likes revising in quiet places. | Councillors should visit more buildings.","The library helps the whole community, so it should stay open.","Her reasons (friends, homework, computers, help) all support keeping it open. The ""everything is online"" view is the one she argues against.",,
+Question,english,Reading Comprehension,6,5,reading-y6#library:8,"How does Amara deal with the view that ""everything is online now""?","She mentions it, then gives reasons against it. | She agrees with it completely. | She ignores it. | She says computers should be banned.","She mentions it, then gives reasons against it.","""Some people say… However…"": she answers the other side's point, which makes her argument stronger.",,
+Question,english,Reading Comprehension,6,5,reading-y6#library:9,"Why does Amara end with ""I am sure you will agree""?","It politely assumes the councillor shares her view, which makes it harder to disagree. | It shows she is unsure. | It is a question the councillor must answer. | It lists her reasons.","It politely assumes the councillor shares her view, which makes it harder to disagree.",Sounding confident that the reader agrees is a persuasive technique.,,
 Checkpoint form A,maths,Negative Numbers,6,2,negative-numbers:The temperature is −7 °C. It rises by 14 °C. What is the temperature now?,The temperature is −7 °C. It rises by 14 °C. What is the temperature now?,,7,Count up 14 from −7: −7 + 14 = 7 °C.,,
 Checkpoint form A,maths,Negative Numbers,6,4,negative-numbers:What is −13 + 3?,What is −13 + 3?,,−10,Start at −13 and count up 3: −10.,,
 Checkpoint form A,maths,"Factors, Multiples & Primes",6,2,factors-primes:How many factors does 28 have?,How many factors does 28 have?,,6,"The factors of 28 are 1, 2, 4, 7, 14, 28. That is 6 factors.",,
@@ -635,6 +681,8 @@ Checkpoint form A,english,Grammar,6,2,grammar-y6#5,"Which is the most formal way
 Checkpoint form A,english,Grammar,6,4,grammar-y6#14,Which sentence is written in the passive voice?,I broke the window. | The window was broken by me. | I will break the window. | I am breaking the window.,The window was broken by me.,"In a passive sentence the object becomes the subject, with ""be"" + past participle (was broken).",,
 Checkpoint form A,english,Punctuation,6,2,punctuation-y6#3,Which sentence describes a shark that eats people?,A man-eating shark swam past. | A man eating shark swam past.,A man-eating shark swam past.,"The hyphen joins ""man-eating"" into one describing word. Without it, it sounds like a man is eating a shark!",,
 Checkpoint form A,english,Punctuation,6,4,punctuation-y6#10,Which sentence uses a colon correctly between two clauses?,I knew: what had happened the dog had eaten my homework. | I knew what had happened the dog: had eaten my homework. | I knew what had happened: the dog had eaten my homework. | I knew what: had happened the dog had eaten my homework.,I knew what had happened: the dog had eaten my homework.,The colon comes at the boundary between the clauses. The second clause explains the first.,,
+Checkpoint form A,english,Reading Comprehension,6,2,reading-y6#great-fire:2,"""Their upper floors jutted out over the street."" What does ""jutted out"" mean here?",stuck out | fell down | were painted | were hidden,stuck out,Jutted out means stuck out. The top floors stuck out so far that houses almost touched.,,
+Checkpoint form A,english,Reading Comprehension,6,4,reading-y6#great-fire:6,Why does the writer mention that the summer had been long and dry?,"Because the fire happened in winter. | To show it was a good summer holiday. | To show there was plenty of water. | Dry wood burns easily, so it helps explain why the fire spread so fast.","Dry wood burns easily, so it helps explain why the fire spread so fast.",The sentence is in the paragraph about why the fire spread. Dry timber catches fire more easily.,,
 Checkpoint form B,english,Tricky Spellings,6,2,spelling-words#amateur,Which spelling is correct?,amateur | amatuer | amature,amateur,"amateur: It ends in -eur, like ""chauffeur"".",,
 Checkpoint form B,english,Tricky Spellings,6,4,spelling-words#cemetery,Which spelling is correct?,cemetery | cemitery | cemetary,cemetery,"cemetery: Three ""e""s: c-e-m-e-t-e-ry.",,
 Checkpoint form B,english,Spelling Patterns,6,2,spelling-patterns#11,Which is the correct spelling?,delicious | delitious,delicious,Delicious ends in -cious.,,
@@ -645,6 +693,8 @@ Checkpoint form B,english,Grammar,6,2,grammar-y6#6,"Which is the most formal way
 Checkpoint form B,english,Grammar,6,4,grammar-y6#15,"Which is the passive version of ""Our dog ate it.""?",Our dog has eaten it. | It ate our dog. | Our dog was eating it. | It was eaten by our dog.,It was eaten by our dog.,"Passive: the object (it) becomes the subject, plus ""was"" + past participle (eaten).",,
 Checkpoint form B,english,Punctuation,6,2,punctuation-y6#4,"The sofa was worn out, so we had it ___.",re-covered | recovered,re-covered,Re-cover (with a hyphen) means cover again. Recover means get better or get back.,,
 Checkpoint form B,english,Punctuation,6,4,punctuation-y6#11,What is a colon used for?,To show possession | To end every sentence | To introduce a list or an explanation | To show a question,To introduce a list or an explanation,"A colon (:) can introduce a list, or a clause that explains the first one.",,
+Checkpoint form B,english,Reading Comprehension,6,2,reading-y6#great-fire:3,Which of these helped the fire to spread quickly?,There were no streets. | It was raining heavily. | The houses were made of brick and stone. | The houses were made of timber and built close together.,The houses were made of timber and built close together.,"Paragraph 2: timber houses, narrow streets, a dry summer and a strong wind. Brick and stone came later, when London was rebuilt.",,
+Checkpoint form B,english,Reading Comprehension,6,4,reading-y6#great-fire:7,Why does the text mention Samuel Pepys?,Because he was the baker | Because he started the fire | Because he designed the new St Paul's | To explain how we know so much about the fire,To explain how we know so much about the fire,"""We know a great deal about these days because of people like Samuel Pepys, who described them in his diary.""",,
 Checkpoint form A,science,Classifying Living Things,6,2,classification#2,Which group of vertebrates has feathers?,Birds | Mammals | Reptiles | Amphibians,Birds,Only birds have feathers.,,
 Checkpoint form A,science,Classifying Living Things,6,4,classification#10,A whale and a bat are both…,Fish | Reptiles | Birds | Mammals,Mammals,"Both breathe air, have hair and feed their babies milk, so both are mammals.",,
 Checkpoint form A,science,"Heart, Blood & Health",6,2,circulatory-system#2,Blood vessels that carry blood back to the heart are called…,Nerves | Veins | Tendons | Arteries,Veins,Veins carry blood back to the heart. Arteries carry it away from the heart.,,
@@ -789,6 +839,173 @@ Topic note,english,Punctuation,6,,note:punctuation-y6:1,A semi-colon joins two c
 Topic note,english,Punctuation,6,,note:punctuation-y6:2,A colon introduces a list or an explanation.,,,,,
 Topic note,english,Punctuation,6,,note:punctuation-y6:3,A dash can also mark the boundary between two clauses.,,,,,
 Topic note,english,Punctuation,6,,note:punctuation-y6:4,Hyphens join words to avoid confusion: a man-eating shark.,,,,,
+Strategy tip,english,Reading Comprehension,6,,tip:reading-y6,Go back to the text. Find the part the question is about and read it again before choosing.,,,,,
+Topic note,english,Reading Comprehension,6,,note:reading-y6:1,"Finding information: look for key words from the question in the text, then read the whole sentence around them.",,,,,
+Topic note,english,Reading Comprehension,6,,note:reading-y6:2,"Inference means working something out from clues. Ask: what does the text show, even if it doesn't say it?",,,,,
+Topic note,english,Reading Comprehension,6,,note:reading-y6:3,Word meanings: read the whole sentence. A word can mean something different in a story from its everyday meaning.,,,,,
+Topic note,english,Reading Comprehension,6,,note:reading-y6:4,"A summary covers the main idea of the whole part, not just one detail.",,,,,
+Topic note,english,Reading Comprehension,6,,note:reading-y6:5,"Similes compare using ""like"" or ""as""; personification gives human actions to things. Ask what picture they create.",,,,,
+Reading text,english,Reading Comprehension,6,,passage:keeper,"The Keeper's Daughter (Story)
+
+The storm had been building all afternoon. By the time Isla climbed the last of the hundred and twelve steps, the windows of the lamp room were rattling in their frames like loose teeth. Below her, the sea hurled itself at the rocks, then drew back, gathering strength for the next attack.
+
+Her father had gone to the mainland that morning to fetch a new part for the lamp. ""Back by six,"" he had promised, ruffling her hair. It was now half past seven, and the little ferry had not returned.
+
+Isla knew what she had to do. She had watched her father light the great lamp a thousand times, though she had never been allowed to touch the brass handle herself. Her fingers trembled as she wound the mechanism, counting each turn under her breath exactly as he did: ""Twenty-one, twenty-two, twenty-three.""
+
+With a low hum, the lamp began to turn. A beam of white light swept across the water, once, twice, three times. Somewhere out in the darkness, a horn sounded: three short blasts. Isla pressed her face to the cold glass and, for the first time that evening, she smiled.",,,,,
+Reading text,english,Reading Comprehension,6,,passage:great-fire,"The Great Fire of London (Information)
+
+In the early hours of Sunday 2 September 1666, a fire broke out in a bakery on Pudding Lane in the City of London. The baker, Thomas Farriner, had gone to bed believing his oven was safe. Within hours, the flames had spread to the houses around it.
+
+At the time, London's streets were narrow and crowded. Most houses were built from timber, and their upper floors jutted out over the street, so that buildings on opposite sides almost touched. The summer had been long and dry, and a strong wind from the east blew the fire from one street to the next.
+
+People tried to stop the fire with leather buckets of water and hand-held squirts, but these were no match for the blaze. Eventually, houses were pulled down or blown up with gunpowder to create gaps, called firebreaks, that the fire could not cross.
+
+By the time the fire was put out, four days later, much of the City lay in ruins, including the old St Paul's Cathedral. We know a great deal about these days because of people like Samuel Pepys, who described them in his diary.
+
+London was rebuilt, this time with more buildings of brick and stone. The architect Christopher Wren designed a new St Paul's Cathedral, which still stands today.",,,,,
+Reading text,english,Reading Comprehension,6,,passage:leaves,"Why Do Leaves Change Colour? (Information)
+
+Every autumn, many trees in Britain put on a spectacular show. Leaves that were green all summer turn yellow, orange, red and brown before falling to the ground. But where do these colours come from?
+
+During spring and summer, leaves are packed with a green substance called chlorophyll. Chlorophyll allows the tree to capture energy from sunlight and use it to make food from water and carbon dioxide. This process is called photosynthesis. There is so much chlorophyll in a leaf that its green colour hides everything else.
+
+As the days grow shorter and colder, the tree stops making chlorophyll, and the green slowly breaks down. Yellow and orange colours, which were in the leaf all along, can now be seen. Some trees, such as certain maples, also make new red colours in autumn.
+
+Finally, a layer of special cells forms where each leaf joins its twig. This seals the leaf off, and before long it drops. By losing their leaves, trees save water and energy through the winter, ready to grow new leaves in spring.",,,,,
+Reading text,english,Reading Comprehension,6,,passage:last-train,"The Last Train Home (Poem)
+
+The station clock says ten past nine,
+the platform's cold and bare;
+a paper cup goes cartwheeling
+through empty evening air.
+
+Then, far away, a silver thread
+of light begins to grow;
+it slides along the sleeping rails,
+a comet, low and slow.
+
+The doors sigh open, warm and bright;
+I'm swallowed, safe inside.
+The dark rolls past like velvet sea,
+and home is one more ride.",,,,,
+Reading text,english,Reading Comprehension,6,,passage:library,"Save Our Library! (Letter)
+
+Dear Councillor Patel,
+
+I am writing to ask you to keep Brookfield Library open. I have heard that the council may close it next year to save money, and I believe this would be a serious mistake.
+
+Firstly, the library is much more than a building full of books. Every Saturday, the Reading Club brings together children from different schools, and many of us have made friends there. Where else would we go?
+
+Secondly, not every family can afford to buy books or has a quiet place to do homework. The library gives everyone the same chance, whatever their background. My older brother did all his revision there because our flat is too noisy.
+
+Some people say that everything is online now, so libraries are no longer needed. However, the library's computers are free to use, and the librarians help people who find technology difficult, such as my neighbour, who is eighty-three.
+
+Please visit the library on a Saturday morning and see for yourself how important it is. I am sure you will agree that closing it would be a loss for the whole community.
+
+Yours sincerely,
+Amara Okafor (aged 11)",,,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:accommodate,The hotel can accommodate two hundred guests.,,accommodate,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:accompany,Will you accompany me to the shops?,,accompany,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:according,"According to the map, the castle is nearby.",,according,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:achieve,"If you practise every day, you can achieve your goal.",,achieve,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:aggressive,The dog became aggressive when a stranger came near.,,aggressive,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:amateur,My uncle is an amateur photographer.,,amateur,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:ancient,We visited an ancient Roman fort.,,ancient,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:apparent,It was apparent that nobody had tidied up.,,apparent,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:appreciate,I really appreciate your help.,,appreciate,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:attached,A note was attached to the present.,,attached,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:available,Tickets are available at the door.,,available,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:average,The average age of the team is eleven.,,average,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:awkward,There was an awkward silence after the joke.,,awkward,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:bargain,The bike was a bargain at only ten pounds.,,bargain,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:bruise,I got a bruise on my knee when I fell.,,bruise,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:category,Which category does a whale belong to?,,category,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:cemetery,The old cemetery is next to the church.,,cemetery,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:committee,The school council is a committee of pupils.,,committee,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:communicate,Dolphins communicate using clicks and whistles.,,communicate,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:community,The whole community helped to clean the park.,,community,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:competition,Our class won the poetry competition.,,competition,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:conscience,My conscience told me to own up.,,conscience,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:conscious,She was conscious of everyone looking at her.,,conscious,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:controversy,The new rule caused a lot of controversy.,,controversy,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:convenience,"For your convenience, the shop opens early.",,convenience,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:correspond,I correspond with a pen pal in France.,,correspond,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:criticise,It is easy to criticise but harder to help.,,criticise,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:curiosity,Curiosity made the cat look inside the box.,,curiosity,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:definite,We need a definite answer by Friday.,,definite,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:desperate,"After the long walk, we were desperate for a drink.",,desperate,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:determined,She was determined to finish the race.,,determined,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:develop,Tadpoles develop into frogs.,,develop,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:dictionary,Look the word up in the dictionary.,,dictionary,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:disastrous,Forgetting the tent was a disastrous mistake.,,disastrous,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:embarrass,Please don't embarrass me in front of my friends.,,embarrass,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:environment,We must look after the environment.,,environment,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:equipment,Put the PE equipment back in the cupboard.,,equipment,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:especially,"I love fruit, especially strawberries.",,especially,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:exaggerate,Don't exaggerate: it wasn't a million spiders!,,exaggerate,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:excellent,That was an excellent piece of writing.,,excellent,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:existence,Scientists argue about the existence of life on other planets.,,existence,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:explanation,The teacher gave a clear explanation.,,explanation,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:familiar,Her face looked familiar.,,familiar,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:foreign,Learning a foreign language is fun.,,foreign,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:forty,There are forty children in the choir.,,forty,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:frequently,Buses run frequently in the city.,,frequently,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:government,The government made a new law.,,government,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:guarantee,I can't guarantee it will be sunny.,,guarantee,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:harass,It is wrong to harass other people online.,,harass,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:hindrance,The heavy bag was a hindrance on the hike.,,hindrance,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:identity,The spy kept his identity secret.,,identity,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:immediately,Come inside immediately; it's pouring!,,immediately,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:individual,Each individual pupil gets a certificate.,,individual,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:interfere,Please don't interfere with the experiment.,,interfere,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:interrupt,It is rude to interrupt someone who is speaking.,,interrupt,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:language,Welsh is a language spoken in Wales.,,language,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:leisure,The leisure centre has a new pool.,,leisure,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:lightning,A flash of lightning lit up the sky.,,lightning,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:marvellous,We had a marvellous day at the seaside.,,marvellous,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:mischievous,The mischievous puppy chewed my slipper.,,mischievous,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:muscle,Your heart is a muscle.,,muscle,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:necessary,Is it necessary to bring a coat?,,necessary,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:neighbour,Our neighbour feeds our cat when we are away.,,neighbour,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:nuisance,The buzzing fly was a nuisance.,,nuisance,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:occupy,Puzzles occupy my little brother for hours.,,occupy,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:occur,Earthquakes rarely occur in Britain.,,occur,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:opportunity,This trip is a great opportunity to learn.,,opportunity,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:parliament,Laws are made in Parliament.,,parliament,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:persuade,Can I persuade you to join the team?,,persuade,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:physical,Swimming is good physical exercise.,,physical,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:prejudice,"We should treat everyone fairly, without prejudice.",,prejudice,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:privilege,It was a privilege to meet the author.,,privilege,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:profession,Teaching is a rewarding profession.,,profession,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:programme,My favourite programme is on tonight.,,programme,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:pronunciation,Check the pronunciation of the French words.,,pronunciation,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:queue,We waited in a long queue for the ride.,,queue,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:recognise,I didn't recognise you with your new haircut.,,recognise,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:recommend,I recommend this book to everyone.,,recommend,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:relevant,Only include facts that are relevant.,,relevant,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:restaurant,We went to a restaurant for Mum's birthday.,,restaurant,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:rhyme,"""Cat"" and ""hat"" rhyme.",,rhyme,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:rhythm,Clap your hands to the rhythm of the song.,,rhythm,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:sacrifice,Giving up his seat was a small sacrifice.,,sacrifice,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:secretary,The school secretary answered the phone.,,secretary,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:shoulder,She carried the bag on her shoulder.,,shoulder,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:signature,Please write your signature at the bottom.,,signature,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:sincerely,I sincerely hope you feel better soon.,,sincerely,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:soldier,The soldier stood guard at the gate.,,soldier,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:stomach,My stomach was rumbling before lunch.,,stomach,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:sufficient,Is there sufficient food for everyone?,,sufficient,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:suggest,I suggest we leave early to miss the traffic.,,suggest,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:symbol,The heart is a symbol of love.,,symbol,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:system,The solar system has eight planets.,,system,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:temperature,The temperature dropped below freezing.,,temperature,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:thorough,Give your room a thorough clean.,,thorough,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:twelfth,My birthday is on the twelfth of May.,,twelfth,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:variety,The shop sells a variety of sweets.,,variety,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:vegetable,A carrot is a vegetable.,,vegetable,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:vehicle,A tractor is a farm vehicle.,,vehicle,,,
+Spelling test sentence,english,SATs spelling,6,,dictation:yacht,The yacht sailed across the bay.,,yacht,,,
 Mistake explanation,,,,,count-direction,"It looks like you went the wrong way. ""After"" means one more (count up). ""Before"" means one less (count down).",,,"Shown to parents as: Mixes up ""before"" and ""after""",,
 Mistake explanation,,,,,add-no-carry,"It looks like the ones made 10 or more, but nothing was carried. When a column adds to 10 or more, write the ones digit and carry the 1 to the next column.",,,Shown to parents as: Forgets to carry when adding,,
 Mistake explanation,,,,,sub-smaller-from-larger,"It looks like you took the smaller digit away from the bigger one in a column, even though the bigger one was on the bottom. Always take the bottom digit away from the top. If the top digit is smaller, exchange 1 ten for 10 ones first.",,,Shown to parents as: Takes the smaller digit from the larger in each column,,
@@ -843,6 +1060,10 @@ Mistake explanation,,,,,gr-subject-object-mixup,Subject and object got swapped. 
 Mistake explanation,,,,,pu-comma-splice,"A comma on its own can't join two complete sentences. Use a full stop, a semi-colon, or a joining word like ""and"" or ""because"".",,,Shown to parents as: Joins two sentences with just a comma,,
 Mistake explanation,,,,,pu-semicolon-subordinate,One side of the semi-colon can't stand on its own as a sentence. Both sides of a semi-colon must make sense as sentences on their own.,,,Shown to parents as: Uses a semi-colon after a clause that can't stand alone,,
 Mistake explanation,,,,,pu-comma-meaning,"Without the comma, the sentence means something else! Use a comma before the name of the person you are talking to: ""Let's eat, Grandma!""",,,Shown to parents as: Misses commas that change the meaning,,
+Mistake explanation,,,,,rd-not-in-text,"That sounds possible, but the text doesn't say it or hint at it. Find the words in the text that prove your answer. If you can't point to them, think again.",,,Shown to parents as: Picks answers the text doesn't say,,
+Mistake explanation,,,,,rd-word-match,"That choice uses words from the text, but it doesn't answer this question. Read the question again. Find the part of the text it's about, then check your answer really fits.",,,Shown to parents as: Picks answers that just share words with the text,,
+Mistake explanation,,,,,rd-everyday-meaning,"That's what the word usually means, but not here. Read the whole sentence around the word. What does it mean in this text?",,,Shown to parents as: Takes words literally or in their everyday meaning,,
+Mistake explanation,,,,,rd-part-not-whole,"That's true, but it's only one part. A summary covers everything important. Check it fits the whole paragraph or text.",,,Shown to parents as: Summarises only part of the text,,
 Mistake explanation,,,,,sci-sun-orbits-earth,"It looks like the Sun moves around us, but it's the Earth that spins. Earth spins once a day (day and night) and orbits the Sun once a year.",,,Shown to parents as: Thinks the Sun goes around the Earth,,
 Mistake explanation,,,,,sci-seasons-distance,Distance to the Sun isn't what causes seasons. Seasons come from Earth's tilt: your half of the Earth leans towards the Sun in summer.,,,Shown to parents as: Thinks seasons come from distance to the Sun,,
 Mistake explanation,,,,,sci-moon-own-light,"The Moon looks bright, but it doesn't make light. The Moon reflects sunlight. Only light sources, like the Sun, make their own light.",,,Shown to parents as: Thinks the Moon makes its own light,,

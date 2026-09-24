@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HelpEvent } from '../brain/help';
 import type { ItemStats } from '../brain/items';
 import { describeReward, getBadge } from '../brain/badges';
@@ -11,6 +11,9 @@ import type { Profile, Question, SubjectId } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
 import { hintLadder, topicNotes, wordsIn } from '../content/solver';
 import { getSkill, skillsFor } from '../content/skills';
+import { useSpeech } from '../speech';
+import { questionSpeech, SpeakButton } from './SpeakButton';
+import { PassageCard } from './PassageCard';
 
 const SESSION_LENGTH = 10;
 
@@ -44,6 +47,8 @@ const minus = (s: string) => s.replace(/^-/, '−');
 
 interface Props {
   profile: Profile;
+  /** Start on this skill (e.g. homework from the teacher). The brain still teaches what it needs first. */
+  focusSkill?: string;
   subject: SubjectId;
   onUpdate: (p: Profile) => void;
   items: ItemStats;
@@ -85,11 +90,11 @@ function nextTurn(profile: Profile, subject: SubjectId, focus: string | null, an
   return { plan, question, example, shownAt: Date.now() };
 }
 
-export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer, tutor, onExit }: Props) {
+export function Practice({ profile, subject, focusSkill, onUpdate, items, onItems, onAnswer, tutor, onExit }: Props) {
   const masteredAtStart = useRef(
     new Set(skillsFor(subject).filter((s) => isMastered(skillState(profile, s.id))).map((s) => s.id)),
   );
-  const [turn, setTurn] = useState<Turn>(() => nextTurn(profile, subject, null, 0, items));
+  const [turn, setTurn] = useState<Turn>(() => nextTurn(profile, subject, focusSkill ?? null, 0, items));
   const [studying, setStudying] = useState(!!turn.example);
   // Problem Solver state for the current question.
   const [solverOpen, setSolverOpen] = useState(!!turn.plan.showHint);
@@ -117,6 +122,14 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer,
   // Any use of the Problem Solver means the answer counts as practice, not proof.
   const usedSolver = hintsShown > 0 || showNotes || showWords || solverExample !== null || chat.length > 0;
   const removed = ladder.slice(0, hintsShown).find((h) => h.kind === 'remove');
+
+  // Read each new question aloud if the child switched that on.
+  const speech = useSpeech();
+  const autoRead = profile.settings.autoRead && speech.available;
+  useEffect(() => {
+    if (!autoRead) return;
+    speech.speak(studying && example ? `Worked example. ${example.prompt}` : questionSpeech(question.prompt, question.choices));
+  }, [question.id, studying, autoRead]); // only when the question changes
 
   function start(t: Turn) {
     setTurn(t);
@@ -193,7 +206,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer,
           {open && <p>We'll keep working on <strong>{getSkill(open.skillId).name}</strong> together next time, until you've got it.</p>}
           <p className="muted">Schoolzone has updated what it knows about you, so next time starts at the right level.</p>
           <div className="row center">
-            <button className="primary" onClick={() => { setAnswered(0); setScore(0); setCracked(0); start(nextTurn(profile, subject, null, 0, items)); }}>
+            <button className="primary" onClick={() => { setAnswered(0); setScore(0); setCracked(0); start(nextTurn(profile, subject, focusSkill ?? null, 0, items)); }}>
               Next mission
             </button>
             <button onClick={onExit}>Back to base</button>
@@ -222,9 +235,10 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer,
       <main className="page">
         {header}
         <p className="banner help">{plan.message}</p>
+        {example.passageId && <PassageCard key={example.passageId} passageId={example.passageId} />}
         <div className="card question-card worked">
           <div className="question-meta"><span>{skill.emoji} {skill.name}</span><span>📖 Worked example</span></div>
-          <p className="prompt">{example.prompt}</p>
+          <div className="prompt-row"><p className="prompt">{example.prompt}</p><SpeakButton text={`${example.prompt}. ${example.explanation}`} /></div>
           {example.choices && <p className="muted">Choices: {example.choices.join(' · ')}</p>}
           <div className="steps">
             <p><strong>How to solve it:</strong> {example.explanation}</p>
@@ -271,6 +285,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer,
       {header}
 
       {plan.message && !feedback && <p className={`banner ${plan.reason}`}>{plan.message}</p>}
+      {question.passageId && <PassageCard key={question.passageId} passageId={question.passageId} />}
 
       <div className="card question-card">
         <div className="question-meta">
@@ -279,7 +294,7 @@ export function Practice({ profile, subject, onUpdate, items, onItems, onAnswer,
             {'★'.repeat(question.level)}{'☆'.repeat(5 - question.level)}
           </span>
         </div>
-        <p className="prompt">{question.prompt}</p>
+        <div className="prompt-row"><p className="prompt">{question.prompt}</p><SpeakButton text={questionSpeech(question.prompt, shownChoices)} /></div>
 
         {shownChoices ? (
           <div className="choices">

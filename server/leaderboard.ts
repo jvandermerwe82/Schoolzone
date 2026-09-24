@@ -119,9 +119,15 @@ export function registerSchoolRoutes(app: FastifyInstance, ctx: Ctx): void {
   const isAdmin = (req: FastifyRequest) => !!ctx.adminToken && req.headers['x-admin-token'] === ctx.adminToken;
 
   const membership = (childId: string) => db.prepare(
-    `SELECT m.school_id AS schoolId, s.name AS schoolName, m.code_name AS codeName, m.on_board AS onBoard
+    `SELECT m.school_id AS schoolId, s.name AS schoolName, m.code_name AS codeName, m.on_board AS onBoard,
+       m.share_progress AS shareProgress, s.focus_json AS focusJson
      FROM memberships m JOIN schools s ON s.id = m.school_id WHERE m.child_id = ?`,
-  ).get(childId) as { schoolId: string; schoolName: string; codeName: string; onBoard: number } | undefined;
+  ).get(childId) as { schoolId: string; schoolName: string; codeName: string; onBoard: number; shareProgress: number; focusJson: string | null } | undefined;
+  /** What a parent (and the child) see about their school membership. */
+  const view = (m: NonNullable<ReturnType<typeof membership>>) => ({
+    school: { name: m.schoolName }, codeName: m.codeName, onBoard: !!m.onBoard, shareProgress: !!m.shareProgress,
+    homework: m.focusJson ? JSON.parse(m.focusJson) as { skillId: string; note: string; setAt: number } : null,
+  });
 
   /** A code name no one else in the school has. */
   const uniqueCodeName = (schoolId: string) => {
@@ -139,7 +145,7 @@ export function registerSchoolRoutes(app: FastifyInstance, ctx: Ctx): void {
   // ---------- parents: joining a school ----------
   app.get<{ Params: { id: string } }>('/api/children/:id/school', { preHandler: ctx.requireChild }, async (req) => {
     const m = membership(req.params.id);
-    return m ? { school: { name: m.schoolName }, codeName: m.codeName, onBoard: !!m.onBoard } : { school: null };
+    return m ? view(m) : { school: null };
   });
 
   app.post<{ Params: { id: string }; Body: { code: string } }>('/api/children/:id/school', {
@@ -151,26 +157,33 @@ export function registerSchoolRoutes(app: FastifyInstance, ctx: Ctx): void {
       .get(normaliseCode(req.body.code)) as { id: string; name: string } | undefined;
     if (!school) return reply.code(404).send({ error: 'That code isn\'t right. Please check it with the school.' });
     const existing = membership(req.params.id);
-    if (existing?.schoolId === school.id) return { school: { name: school.name }, codeName: existing.codeName, onBoard: !!existing.onBoard };
+    if (existing?.schoolId === school.id) return view(existing);
     // Moving school starts fresh: no points carried over.
     db.prepare('DELETE FROM memberships WHERE child_id = ?').run(req.params.id);
     db.prepare('DELETE FROM points WHERE child_id = ?').run(req.params.id);
     const codeName = uniqueCodeName(school.id);
     db.prepare('INSERT INTO memberships (child_id, school_id, code_name, on_board, joined_at) VALUES (?, ?, ?, 0, ?)')
       .run(req.params.id, school.id, codeName, now());
-    return reply.code(201).send({ school: { name: school.name }, codeName, onBoard: false });
+    return reply.code(201).send(view(membership(req.params.id)!));
   });
 
-  app.patch<{ Params: { id: string }; Body: { onBoard?: boolean; newCodeName?: boolean } }>('/api/children/:id/school', {
+  app.patch<{ Params: { id: string }; Body: { onBoard?: boolean; newCodeName?: boolean; shareProgress?: boolean } }>('/api/children/:id/school', {
     preHandler: ctx.requireChild,
-    schema: { body: { type: 'object', additionalProperties: false, properties: { onBoard: { type: 'boolean' }, newCodeName: { type: 'boolean' } } } },
+    schema: {
+      body: {
+        type: 'object', additionalProperties: false,
+        properties: { onBoard: { type: 'boolean' }, newCodeName: { type: 'boolean' }, shareProgress: { type: 'boolean' } },
+      },
+    },
   }, async (req, reply) => {
     const m = membership(req.params.id);
     if (!m) return reply.code(404).send({ error: 'Not in a school.' });
     const codeName = req.body.newCodeName ? uniqueCodeName(m.schoolId) : m.codeName;
     const onBoard = req.body.onBoard ?? !!m.onBoard;
-    db.prepare('UPDATE memberships SET code_name = ?, on_board = ? WHERE child_id = ?').run(codeName, onBoard ? 1 : 0, req.params.id);
-    return { school: { name: m.schoolName }, codeName, onBoard };
+    const share = req.body.shareProgress ?? !!m.shareProgress;
+    db.prepare('UPDATE memberships SET code_name = ?, on_board = ?, share_progress = ? WHERE child_id = ?')
+      .run(codeName, onBoard ? 1 : 0, share ? 1 : 0, req.params.id);
+    return view(membership(req.params.id)!);
   });
 
   app.delete<{ Params: { id: string } }>('/api/children/:id/school', { preHandler: ctx.requireChild }, async (req) => {

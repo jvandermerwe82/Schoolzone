@@ -15,6 +15,8 @@ const PATTERNS: [SafetyCategory, RegExp][] = [
   // Feeling unsafe, being hurt, or thoughts of self-harm.
   ['wellbeing', /\b(kill (myself|me)|want to die|wanna die|suicid\w*|self[- ]?harm|hurt(ing)? myself|cut(ting)? myself|end my life|nobody (loves|cares about) me)\b/i],
   ['wellbeing', /\b(being (hit|hurt|abused|bullied)|(hits|hurts|touches|touched|abuses) me|i'?m (scared|frightened) (of|at) home|not safe at home)\b/i],
+  // Secrecy is a warning sign of grooming, whether a child reports it or an adult writes it.
+  ['wellbeing', /\b((don'?t|do not|never) tell (your |my )?(mum|mom|dad|parents?|carers?|anyone|anybody|teachers?)|(our|a) (little )?secret|keep (this|it) (a )?secret|told me not to tell)\b/i],
   ['sexual', /\b(sex|sexy|nude|nudes|naked|porn\w*)\b/i],
   // Attempts to arrange contact or move the conversation elsewhere.
   ['contact', /\b(meet (up|me|you)|where do you live|your address|my address is|add me on|snapchat|whatsapp|instagram|tiktok|discord|send (me )?(a )?(pic|photo|picture))\b/i],

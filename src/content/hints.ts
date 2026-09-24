@@ -23,6 +23,7 @@ const TIPS: Record<string, string> = {
   homophones: 'Work out what the word has to mean in this sentence, then pick the spelling with that meaning.',
   'grammar-y6': 'Find the verb first. The subject does the verb; the object has it done to them.',
   'punctuation-y6': 'Check whether each part could stand on its own as a sentence.',
+  'reading-y6': 'Go back to the text. Find the part the question is about and read it again before choosing.',
   // Science
   'living-things': 'Think about what living things need: food, water, air and (for plants) light.',
   'human-body': 'Picture where the organ is in the body and what job it does.',

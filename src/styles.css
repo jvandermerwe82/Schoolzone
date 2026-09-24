@@ -332,3 +332,56 @@ details summary { cursor: pointer; font-weight: 700; }
 .board-name small { display: block; font-weight: 500; color: var(--muted); font-size: 0.75rem; }
 .board-score { font-weight: 800; color: var(--gold); white-space: nowrap; }
 .join-code { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.4rem; letter-spacing: 0.12em; font-weight: 800; color: var(--primary-2); }
+
+/* Accessibility settings (per child). Easy-read follows the British Dyslexia Association style guide:
+   wider letter/word spacing, 1.5+ line spacing, left-aligned, no italics or all-capitals. */
+html.big-text { font-size: 118%; }
+html.easy-read body { letter-spacing: 0.04em; word-spacing: 0.14em; line-height: 1.7; }
+html.easy-read .prompt { line-height: 1.6; text-align: left; }
+html.easy-read .eyebrow, html.easy-read .pill, html.easy-read .loading { text-transform: none; letter-spacing: 0.04em; }
+html.easy-read em, html.easy-read i { font-style: normal; font-weight: 700; }
+html.easy-read .passage { max-width: 60ch; }
+html.calm *, html.calm *::before, html.calm *::after { animation: none !important; transition: none !important; }
+
+.speak { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 0.9rem; font-weight: 700; }
+.prompt-row { display: flex; gap: 0.6rem; align-items: flex-start; justify-content: space-between; }
+.prompt-row .prompt { flex: 1; }
+.settings-list .check { margin: 0.8rem 0; }
+
+/* Reading passages */
+.passage-card h2 { margin: 0.1rem 0 0.4rem; }
+.passage-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap; }
+.passage { max-height: 45vh; overflow-y: auto; padding-right: 0.5rem; line-height: 1.65; font-size: 1.02rem; }
+.passage p { margin: 0 0 0.9rem; }
+.passage.poem p { white-space: pre-line; }
+
+/* SATs practice */
+.sats-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 0.8rem; align-items: center; width: 100%; text-align: left;
+  margin: 1rem 0; padding: 1rem 1.1rem; border-radius: var(--radius); border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-3)); color: var(--text); }
+.sats-banner > span:first-child { font-size: 1.8rem; }
+.sats-banner small { display: block; color: var(--muted); font-weight: 500; }
+.sats-grid { display: grid; gap: 0.8rem; margin: 1rem 0; }
+.sats-card { display: grid; gap: 0.3rem; text-align: left; padding: 1rem; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.sats-card small { color: var(--muted); font-weight: 500; }
+.sats-card .tag { color: var(--warn); font-weight: 700; }
+.word-list { font-weight: 700; line-height: 1.8; }
+.big-speak { font-size: 1.05rem; padding: 0.6rem 1rem; margin-bottom: 0.8rem; }
+
+/* Teacher class view */
+.class-skills { display: grid; gap: 0.5rem; }
+.class-skill { display: grid; grid-template-columns: minmax(8rem, 1.2fr) 2fr auto; gap: 0.6rem; align-items: center; }
+.class-skill-name { font-weight: 700; font-size: 0.9rem; }
+.class-skill-name small { display: block; color: var(--muted); font-weight: 500; text-transform: capitalize; }
+.stack { display: flex; height: 0.8rem; border-radius: 999px; overflow: hidden; background: var(--surface-3); }
+.st-mastered { background: var(--good); }
+.st-learning { background: var(--primary-2); }
+.st-struggling { background: var(--bad); }
+.class-skill-counts { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.pupil-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.8rem; }
+.pupil-list li { padding: 0.8rem; border-radius: 12px; background: var(--surface-2); }
+.pupil-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem; }
+.homework-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 0.8rem; align-items: center; width: 100%; text-align: left;
+  margin: 0 0 1rem; padding: 0.9rem 1rem; border-radius: var(--radius); border: 2px solid var(--primary-2); background: var(--surface-2); color: var(--text); }
+.homework-banner small { display: block; color: var(--muted); font-weight: 500; }
+@media (max-width: 520px) { .class-skill { grid-template-columns: 1fr; gap: 0.2rem; } }
