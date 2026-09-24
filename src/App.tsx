@@ -289,6 +289,7 @@ export function App() {
           profile={current}
           offline={mode === 'local'}
           onPractice={startPractice}
+          onSaveProfile={updateProfile}
           homework={homework}
           onDashboard={() => setScreen({ name: 'dashboard' })}
           onParents={() => setScreen({ name: 'parents' })}
