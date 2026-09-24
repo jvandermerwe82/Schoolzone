@@ -72,10 +72,14 @@ export function chooseLevel(
   choiceCount?: number,
   offsetFor: (level: Level) => number = () => 0,
   maxLevel: Level = 5,
+  allowedLevels?: readonly Level[],
 ): Level {
-  let best: Level = 1;
+  const candidates = LEVELS.filter(
+    (level) => level <= maxLevel && (!allowedLevels?.length || allowedLevels.includes(level)),
+  );
+  let best: Level = candidates[0] ?? 1;
   let bestGap = Infinity;
-  for (const level of LEVELS.filter((l) => l <= maxLevel)) {
+  for (const level of candidates) {
     const p = predictCorrect(state.ability, level, guessRate(level, choiceCount), offsetFor(level));
     const gap = Math.abs(p - target);
     if (gap < bestGap) { best = level; bestGap = gap; }
@@ -88,6 +92,10 @@ export interface SessionContext {
   focus: string | null;
   /** Questions answered so far in this session. */
   answered: number;
+  /** Verified question levels for a curriculum-specific practice route. */
+  allowedLevels?: readonly Level[];
+  /** Keep the session on this focus except when the stuck-child tutor intervenes. */
+  strictFocus?: boolean;
 }
 
 const lower = (l: Level): Level => Math.max(1, l - 1) as Level;
@@ -105,11 +113,23 @@ export function planNext(
   items: ItemStats = {},
 ): Plan {
   const skills = skillsFor(subject);
-  const levelFor = (skillId: string, target: number, maxLevel: Level = 5) =>
-    chooseLevel(skillState(profile, skillId), target, getSkill(skillId).choices,
-      (l) => itemOffset(items, itemKey({ id: '', skillId, level: l })), maxLevel);
+  const levelFor = (
+    skillId: string,
+    target: number,
+    maxLevel: Level = 5,
+    allowedLevels?: readonly Level[],
+  ) =>
+    chooseLevel(
+      skillState(profile, skillId),
+      target,
+      getSkill(skillId).choices,
+      (l) => itemOffset(items, itemKey({ id: '', skillId, level: l })),
+      maxLevel,
+      allowedLevels,
+    );
   const plan = (skillId: string, reason: Reason, message: string, target = TARGET_SUCCESS): Plan => {
-    let level = levelFor(skillId, target);
+    const allowedLevels = session.focus === skillId ? session.allowedLevels : undefined;
+    let level = levelFor(skillId, target, 5, allowedLevels);
     // Stretch: after a run of unaided correct answers, try one level up if the
     // child has a fair chance at it. Easy questions tell the rating little, so
     // without this a child can stay on easy questions long after they're ready.
@@ -125,7 +145,8 @@ export function planNext(
       && fastRun.length === FAST_PLACEMENT_RUN
       && fastRun.every(clean);
     const run = fastPlacement ? fastRun : normalRun;
-    const onARoll = fastPlacement || normalStretch;
+    const routeLocked = !!allowedLevels?.length;
+    const onARoll = !routeLocked && (fastPlacement || normalStretch);
     if (onARoll) {
       const top = Math.max(...run.map((h) => h.level));
       const next = Math.min(5, top + 1) as Level;
@@ -175,6 +196,16 @@ export function planNext(
         return { ...base, reason: 'climb', level, message: `${resumed}${msg}` };
       }
     }
+  }
+
+  // A curriculum-specific teacher route stays on its verified practice
+  // contract. The stuck-child tutor above can still step outside it temporarily.
+  if (
+    session.strictFocus
+    && session.focus
+    && getSkill(session.focus).subject === subject
+  ) {
+    return plan(session.focus, 'continue', '');
   }
 
   // 2. Every 4th question, revisit a mastered skill that is due, so it isn't forgotten.
