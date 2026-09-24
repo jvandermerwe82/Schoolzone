@@ -119,6 +119,7 @@ export function runSyntheticLearner(
       predicted: result.predicted,
       trueProbability,
       correct,
+      hinted: strategyHinted(decision),
       rapid,
       abilityEstimate,
       abilityError: Math.abs(abilityEstimate - learner.trueAbility),
