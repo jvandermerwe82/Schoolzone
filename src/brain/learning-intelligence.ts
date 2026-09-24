@@ -114,6 +114,8 @@ export interface LearningIntent {
   source: IntentSource;
   objective: string;
   skillIds: string[];
+  /** Curriculum-independent target concepts; optional for legacy intents. */
+  canonicalNodeIds?: string[];
   /** Curriculum-pack references, if the objective came from mapped curriculum content. */
   curriculumRefs: string[];
   priority: 1 | 2 | 3;
@@ -256,6 +258,7 @@ export function upsertLearningIntent(
     ...intent,
     objective,
     skillIds: [...new Set(intent.skillIds)].slice(0, 50),
+    ...(intent.canonicalNodeIds ? { canonicalNodeIds: [...new Set(intent.canonicalNodeIds)].slice(0, 50) } : {}),
     curriculumRefs: [...new Set(intent.curriculumRefs)].slice(0, 50),
   };
   const kept = state.intents.filter((item) => item.id !== next.id);
