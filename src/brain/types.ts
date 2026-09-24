@@ -1,3 +1,5 @@
+import type { LearningIntelligenceState } from './learning-intelligence';
+
 /** Shared types for the learner model ("the brain"). */
 
 export type SubjectId = 'maths' | 'science' | 'english';
@@ -164,6 +166,12 @@ export interface Profile {
   settings: AccessSettings;
   /** SATs practice papers taken (content/sats.ts). Kept apart from the adaptive brain. */
   sats: SatsResult[];
+  /**
+   * Learning Intelligence v1. Optional only for backwards compatibility with
+   * profiles created before this architecture existed; normalizeProfile()
+   * always supplies it before a profile is used.
+   */
+  learningIntelligence?: LearningIntelligenceState;
 }
 
 export interface SatsResult {
