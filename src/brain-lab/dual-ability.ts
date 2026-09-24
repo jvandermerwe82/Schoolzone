@@ -1,0 +1,155 @@
+import { getSkill } from '../content/skills';
+import { guessRate, initialSkillState, kFactor, predictCorrect } from '../brain/model';
+import { currentBrainPolicy, runSyntheticLearner } from './benchmark';
+import { mixSeed } from './rng';
+import { syntheticPopulation } from './synthetic';
+import type { HiddenLearner, LearnerRun } from './types';
+
+export interface ShadowAbilityWeights {
+  name: string;
+  hintedWeight: number;
+  rapidWeight: number;
+}
+
+export interface ShadowAbilityCurvePoint {
+  afterAnswers: number;
+  abilityMae: number;
+}
+
+export interface ShadowAbilityBenchmark {
+  name: string;
+  learnerCount: number;
+  answersPerLearner: number;
+  hintedWeight: number;
+  rapidWeight: number;
+  finalAbilityMae: number;
+  medianAnswersToStableEstimate: number | null;
+  stableEstimateRate: number;
+  learningCurve: ShadowAbilityCurvePoint[];
+}
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+const mean = (values: readonly number[]) =>
+  values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const median = (values: readonly number[]): number | null => {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+const stableAt = (errors: readonly number[], threshold = 0.6, window = 3): number | null => {
+  for (let index = 0; index <= errors.length - window; index++) {
+    if (errors.slice(index, index + window).every((error) => error <= threshold)) return index + 1;
+  }
+  return null;
+};
+
+export function productionRuns(
+  population: readonly HiddenLearner[] = syntheticPopulation(),
+  answersPerLearner = 30,
+  seed = 20260925,
+): LearnerRun[] {
+  return population.map((learner, index) =>
+    runSyntheticLearner(
+      learner,
+      currentBrainPolicy,
+      answersPerLearner,
+      mixSeed(seed, index + 1),
+    ));
+}
+
+/**
+ * Estimate independent/unaided ability in parallel with the production Brain.
+ *
+ * This state is deliberately shadow-only: it never changes question selection,
+ * prediction, BKT, support routing or the production ability scalar.
+ */
+export function shadowAbilityBenchmark(
+  runs: readonly LearnerRun[],
+  weights: ShadowAbilityWeights,
+  curveAt: readonly number[] = [2, 5, 10, 20, 30],
+): ShadowAbilityBenchmark {
+  const hintedWeight = clamp01(weights.hintedWeight);
+  const rapidWeight = clamp01(weights.rapidWeight);
+
+  const learnerErrors = runs.map((run) => {
+    const skill = getSkill(run.learner.skillId);
+    let ability = initialSkillState(run.learner.year, skill.typicalYear).ability;
+    let effectiveAttempts = 0;
+    const errors: number[] = [];
+
+    for (const step of run.steps) {
+      const reliability = step.rapid
+        ? rapidWeight
+        : step.hinted
+          ? hintedWeight
+          : 1;
+      const expected = predictCorrect(
+        ability,
+        step.level,
+        guessRate(step.level, skill.choices),
+      );
+      if (reliability > 0) {
+        ability += kFactor(effectiveAttempts)
+          * reliability
+          * ((step.correct ? 1 : 0) - expected);
+        effectiveAttempts += reliability;
+      }
+      errors.push(Math.abs(ability - run.learner.trueAbility));
+    }
+
+    return {
+      errors,
+      stableAt: stableAt(errors),
+    };
+  });
+
+  const finalErrors = learnerErrors.map((item) => item.errors.at(-1) ?? 0);
+  const stable = learnerErrors
+    .map((item) => item.stableAt)
+    .filter((value): value is number => value !== null);
+  const answersPerLearner = runs[0]?.steps.length ?? 0;
+  const points = [...new Set(curveAt)]
+    .filter((answer) => answer > 0 && answer <= answersPerLearner)
+    .sort((a, b) => a - b)
+    .map((afterAnswers) => ({
+      afterAnswers,
+      abilityMae: mean(
+        learnerErrors.map((item) => item.errors[Math.min(afterAnswers, item.errors.length) - 1] ?? 0),
+      ),
+    }));
+
+  return {
+    name: weights.name,
+    learnerCount: runs.length,
+    answersPerLearner,
+    hintedWeight,
+    rapidWeight,
+    finalAbilityMae: mean(finalErrors),
+    medianAnswersToStableEstimate: median(stable),
+    stableEstimateRate: runs.length === 0 ? 0 : stable.length / runs.length,
+    learningCurve: points,
+  };
+}
+
+export const SHADOW_ABILITY_GRID: readonly ShadowAbilityWeights[] = [
+  { name: 'clean-only', hintedWeight: 0, rapidWeight: 0 },
+  { name: 'hinted-25', hintedWeight: 0.25, rapidWeight: 0 },
+  { name: 'hinted-50', hintedWeight: 0.5, rapidWeight: 0 },
+  { name: 'hinted-75', hintedWeight: 0.75, rapidWeight: 0 },
+  { name: 'hinted-25-rapid-10', hintedWeight: 0.25, rapidWeight: 0.1 },
+  { name: 'hinted-50-rapid-10', hintedWeight: 0.5, rapidWeight: 0.1 },
+  { name: 'hinted-50-rapid-25', hintedWeight: 0.5, rapidWeight: 0.25 },
+  { name: 'hinted-75-rapid-10', hintedWeight: 0.75, rapidWeight: 0.1 },
+] as const;
+
+export function shadowAbilityGrid(
+  runs: readonly LearnerRun[],
+): ShadowAbilityBenchmark[] {
+  return SHADOW_ABILITY_GRID.map((weights) => shadowAbilityBenchmark(runs, weights));
+}
