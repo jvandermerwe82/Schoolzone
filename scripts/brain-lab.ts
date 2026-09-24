@@ -26,6 +26,10 @@ import {
   retentionScheduleChallengers,
   runRetentionBenchmark,
 } from '../src/brain-lab/retention';
+import {
+  compareTeacherIntentPolicies,
+  teacherIntentPopulation,
+} from '../src/brain-lab/teacher-intent';
 
 const population = syntheticPopulation(84);
 const options = { population, answersPerLearner: 30, seed: 20260925 };
@@ -66,6 +70,12 @@ const retentionChallengers = retentionScheduleChallengers(
   { seed: 20260925 },
 );
 const retentionGate = evaluateRetentionLabGate(retentionLearning);
+const teacherIntentPopulationLocked = teacherIntentPopulation(120);
+const teacherIntent = compareTeacherIntentPolicies({
+  population: teacherIntentPopulationLocked,
+  horizonQuestions: 24,
+  seed: 20260925,
+});
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -104,6 +114,7 @@ process.stdout.write(JSON.stringify({
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
+  teacherIntent,
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
