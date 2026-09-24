@@ -57,18 +57,34 @@ Anthropic has [guidelines for organisations whose products are used by minors](h
 
 The safety screen is a simple word-and-phrase check. It will flag some harmless messages and miss some worrying ones. It's a first layer, not a full moderation system.
 
+### Operations
+
+- **Security headers** on every response: a strict Content-Security-Policy (no third-party scripts, fonts or frames), `nosniff`, no referrer, and HSTS when `APP_URL` is `https://`. API responses aren't cached.
+- **Health check:** `GET /api/health` checks the database and returns 503 if it's unavailable.
+- **Backups:** once a day (`VACUUM INTO`, a consistent copy) into `BACKUP_DIR`, keeping `BACKUP_KEEP` days. `npm run backup` makes one straight away.
+- **Behind a proxy:** `TRUST_PROXY` makes rate limits see the real visitor address.
+- **Docker:** `Dockerfile` builds one container that runs as a non-root user, with data in a `/data` volume.
+- **Checks:** `npm run check:email -- you@example.com` and `npm run check:tutor` test the real email provider and API key.
+
+See **[docs/deployment.md](docs/deployment.md)** for the step-by-step guide.
+
+### Checkpoints (measuring whether it helps)
+
+Before a child's first mission in a subject, the app offers a short **checkpoint**: every Year 6 skill at two levels (maths 16 questions, English 10, science 10), with no hints and no marking until the end. A second checkpoint is offered 28 days later using the other of two forms (A/B, counterbalanced per child). Children can choose "Later". Parents see first and latest scores in the parent area, and `GET /api/admin/checkpoints.csv` exports results for research-consented families. See [docs/evaluation-plan.md](docs/evaluation-plan.md), including its limits (no control group; forms not statistically equated).
+
 ### Before children use it: pilot checklist
 
-In place and tested: everything above (server API tests cover auth, consent, privacy between families, sync conflicts, events, research export, deletion, retention, tutor safeguards and safety flags).
+In place and tested: everything above (server API tests cover auth, consent, privacy between families, sync conflicts, events, research exports, deletion, retention, tutor safeguards, safety flags, security headers, health and backups).
 
-Still needed, and some of these are decisions for you:
-- [ ] **Hosting** with HTTPS, plus a backup plan for the database file (SQLite suits a single-server pilot).
-- [ ] **An email provider** with SMTP (for confirmations, password resets and safety alerts), and `APP_URL` set to the real address.
-- [ ] **An Anthropic API key.** Then review Anthropic's minors guidelines, and add Anthropic's child-safety system prompt if they provide one.
-- [ ] **A privacy notice and a data protection impact assessment.** The [ICO Children's Code](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/) applies to UK services likely to be used by children. Having someone qualified review the consent wording is worthwhile.
-- [ ] **A process for flagged chats:** who reads them, and how quickly.
-- [ ] **A Year 6 teacher's review** of the questions, explanations and topic notes.
-- [ ] **An evaluation plan:** short checkpoint tests before and after the pilot, to measure whether it actually helps.
+| Item | Done in the code / docs | Still needs you |
+| --- | --- | --- |
+| **Hosting, HTTPS, backups** | Dockerfile, health check, HSTS, daily rotating backups, restore steps ([deployment.md](docs/deployment.md)) | Choose a host (ideally UK/EEA), set up HTTPS, copy backups off-site encrypted, test a restore |
+| **Email and `APP_URL`** | SMTP support, `npm run check:email` | Choose a provider, set `SMTP_URL`, `MAIL_FROM`, `APP_URL`, and SPF/DKIM/DMARC |
+| **Anthropic API key** | `npm run check:tutor` (checks the key, then two real tutor replies) | Create the key; review Anthropic's minors guidelines |
+| **Privacy notice and DPIA** | Drafts: [privacy-notice.md](docs/privacy-notice.md), [dpia-draft.md](docs/dpia-draft.md); child-friendly "Your information" page in the app | Fill in the [TO COMPLETE] parts; qualified review; sign-off |
+| **Flagged-chat process** | Draft: [safeguarding-procedure.md](docs/safeguarding-procedure.md) | Name a lead and deputy; set response times |
+| **Year 6 teacher review** | `npm run content:export` writes every question, note and explanation (856 rows) to `review/schoolzone-content-review.csv`, with columns for the reviewer | Find a teacher to review it |
+| **Before-and-after tests** | Checkpoints, parent view, export, [evaluation-plan.md](docs/evaluation-plan.md) | Recruit families; decide on a comparison group |
 
 ## What's covered
 
@@ -177,9 +193,11 @@ The PIN is stored on the device and only keeps children out casually. It isn't s
 ```
 src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
 src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, Problem Solver (hints, notes, word meanings)
-src/ui/        React screens: sign-in, consent, player select, home, missions, skills, parent area
+src/ui/        React screens: sign-in, consent, player select, home, missions, checkpoints, skills, parent area, "Your information"
 src/api.ts     server client; src/sync.ts: offline-safe syncing
-server/        API (app.ts), database (db.ts), security, AI tutor (tutor.ts), safety screening (safety.ts), tests
+server/        API (app.ts), database (db.ts), backups (backup.ts), AI tutor (tutor.ts), safety screening (safety.ts), tests
+scripts/       content export for teacher review, email and AI tutor checks
+docs/          deployment guide and drafts: privacy notice, DPIA, safeguarding procedure, evaluation plan
 ```
 
 ## Adding content
@@ -193,7 +211,6 @@ server/        API (app.ts), database (db.ts), security, AI tutor (tutor.ts), sa
 - An LLM tutor that talks through mistakes in the child's own words, using the learner model (and the diagnosed misconception) as context.
 - More mistake patterns, especially for English grammar and science, where only some wrong options are tagged so far.
 - A child-friendly light theme option.
-- Review of the English and science question banks by a Year 6 teacher.
 - Reading comprehension (needs passages written or licensed for the app).
 - Remaining Year 6 maths topics: ratio, converting units, coordinates and pie charts.
 - Calibrating each question's difficulty from real answers, instead of fixed levels.

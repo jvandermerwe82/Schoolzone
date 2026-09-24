@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Consent } from '../api';
 import { BADGES, formatMoney, moneyTotals, parseMoney, rewardsOwed } from '../brain/badges';
 import type { BadgeReward, Profile } from '../brain/types';
+import { checkpointsFor, score } from '../content/checkpoint';
+import { SUBJECTS } from '../content/skills';
 
 /** What the parent area can do. Server mode adds account and privacy controls. */
 export interface ParentTools {
@@ -78,6 +80,31 @@ function PinGate({ tools, onUnlock }: { tools: ParentTools; onUnlock: () => void
       {error && <p className="error" role="alert">{error}</p>}
       <button type="submit" className="primary">{creating ? 'Create PIN' : 'Unlock'}</button>
     </form>
+  );
+}
+
+/** Before/after checkpoint results per subject. */
+function CheckpointResults({ profile }: { profile: Profile }) {
+  const rows = SUBJECTS.map((s) => ({ s, done: checkpointsFor(profile, s.id) })).filter((r) => r.done.length > 0);
+  return (
+    <section className="card">
+      <h2>Checkpoint results</h2>
+      <p className="muted">
+        Short fixed tests with no hints: one before {profile.name} starts a subject and another about four weeks later,
+        to see how much practice is helping.
+      </p>
+      {rows.length === 0 && <p className="muted">No checkpoints taken yet.</p>}
+      {rows.map(({ s, done }) => {
+        const [first, second] = done.map(score);
+        return (
+          <div key={s.id} className="strategy-row">
+            <span><strong>{s.name}</strong>: start {first.correct}/{first.total} ({new Date(done[0].at).toLocaleDateString()})
+              {second && <> → later {second.correct}/{second.total} ({new Date(done[1].at).toLocaleDateString()})</>}</span>
+            <span className="muted">{second ? `${second.pct - first.pct >= 0 ? '+' : ''}${second.pct - first.pct} points` : 'second one due later'}</span>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -295,6 +322,7 @@ export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime
             <button type="submit" className="primary wide">{firstTime ? `Save and let ${profile.name} start` : 'Save rewards'}</button>
           </form>
 
+          {!firstTime && <CheckpointResults profile={profile} />}
           {!firstTime && <Privacy tools={tools} profile={profile} />}
         </>
       )}

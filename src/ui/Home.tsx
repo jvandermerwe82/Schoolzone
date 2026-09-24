@@ -3,6 +3,7 @@ import { BADGES, describeReward, type Rarity } from '../brain/badges';
 import { subjectReport } from '../brain/insights';
 import type { Profile, SubjectId } from '../brain/types';
 import { dayStreak, playerLevel } from '../brain/xp';
+import { checkpointDue } from '../content/checkpoint';
 import { SUBJECTS } from '../content/skills';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   onPractice: (subject: SubjectId) => void;
   onDashboard: () => void;
   onParents: () => void;
+  onInfo: () => void;
   onSwitch: () => void;
 }
 
@@ -77,7 +79,7 @@ function Achievements({ profile }: { profile: Profile }) {
   );
 }
 
-export function Home({ profile, offline, onPractice, onDashboard, onParents, onSwitch }: Props) {
+export function Home({ profile, offline, onPractice, onDashboard, onParents, onInfo, onSwitch }: Props) {
   return (
     <main className="page">
       <header className="topbar">
@@ -101,6 +103,7 @@ export function Home({ profile, offline, onPractice, onDashboard, onParents, onS
               <span className="zone-progress">{mastered}/{reports.length} skills mastered</span>
               <span className="zone-meter"><span style={{ width: `${pct}%` }} /></span>
               <span className="zone-play">Play ▶</span>
+              {checkpointDue(profile, s.id, Date.now()) && <span className="zone-tag">📋 Checkpoint due</span>}
             </button>
           );
         })}
@@ -110,6 +113,7 @@ export function Home({ profile, offline, onPractice, onDashboard, onParents, onS
 
       <div className="row footer-links">
         <button className="secondary" onClick={onDashboard}>📊 My skills</button>
+        <button className="link" onClick={onInfo}>🔒 Your information</button>
         <button className="link" onClick={onParents}>Parents</button>
       </div>
     </main>

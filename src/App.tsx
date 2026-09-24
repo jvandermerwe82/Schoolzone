@@ -5,7 +5,10 @@ import type { Profile, SubjectId } from './brain/types';
 import { loadItems, loadParentPin, loadProfiles, normalizeProfile, saveItems, saveParentPin, saveProfiles } from './storage';
 import { flushEvents, ProfileSaver, queueEvent } from './sync';
 import { Auth, ResetPassword } from './ui/Auth';
+import { checkpointDue, type Form } from './content/checkpoint';
+import { Checkpoint } from './ui/Checkpoint';
 import { Consent } from './ui/Consent';
+import { YourInfo } from './ui/YourInfo';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
 import { ParentArea, type ParentTools } from './ui/ParentArea';
@@ -16,7 +19,9 @@ type Screen =
   | { name: 'profiles' }
   | { name: 'home' }
   | { name: 'practice'; subject: SubjectId }
+  | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second' }
   | { name: 'dashboard' }
+  | { name: 'info' }
   | { name: 'parents' };
 
 /** 'cloud' when a Schoolzone server is reachable; otherwise everything stays on this device. */
@@ -31,6 +36,8 @@ export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'profiles' });
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /** Checkpoints put off with "Later" this session (asked again next time). */
+  const [deferred, setDeferred] = useState<Set<string>>(new Set());
   // Links from emails: ?verify=… confirms the email, ?reset=… opens the new-password form.
   const [links] = useState(() => {
     const q = new URLSearchParams(window.location.search);
@@ -209,9 +216,15 @@ export function App() {
         <Home
           profile={current}
           offline={mode === 'local'}
-          onPractice={(subject) => setScreen({ name: 'practice', subject })}
+          onPractice={(subject) => {
+            const due = checkpointDue(current, subject, Date.now());
+            setScreen(due && !deferred.has(`${current.id}:${subject}`)
+              ? { name: 'checkpoint', subject, form: due.form, which: due.which }
+              : { name: 'practice', subject });
+          }}
           onDashboard={() => setScreen({ name: 'dashboard' })}
           onParents={() => setScreen({ name: 'parents' })}
+          onInfo={() => setScreen({ name: 'info' })}
           onSwitch={() => setScreen({ name: 'profiles' })}
         />
       );
@@ -229,7 +242,24 @@ export function App() {
           onExit={() => setScreen({ name: 'home' })}
         />
       );
+    case 'checkpoint':
+      return (
+        <Checkpoint
+          key={`${current.id}-${screen.subject}-${screen.form}`}
+          profile={current}
+          subject={screen.subject}
+          form={screen.form}
+          which={screen.which}
+          onFinish={(p) => { updateProfile(p); setScreen({ name: 'practice', subject: screen.subject }); }}
+          onLater={() => {
+            setDeferred((d) => new Set(d).add(`${current.id}:${screen.subject}`));
+            setScreen({ name: 'practice', subject: screen.subject });
+          }}
+        />
+      );
     case 'dashboard':
       return <Dashboard profile={current} items={items} onBack={() => setScreen({ name: 'home' })} />;
+    case 'info':
+      return <YourInfo profile={current} offline={mode === 'local'} tutorOn={!!tutor} onBack={() => setScreen({ name: 'home' })} />;
   }
 }

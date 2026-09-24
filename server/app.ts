@@ -34,6 +34,15 @@ export interface AppOptions {
   mailer?: Mailer;
   /** Public address of the app, used in email links (never taken from request headers). */
   appUrl?: string;
+  /**
+   * Behind a hosting proxy/load balancer, trust its X-Forwarded-For header so
+   * rate limits see the real client address: `true`, or the proxy's
+   * addresses/ranges (comma-separated). Only enable when the app can't be
+   * reached except through that proxy.
+   */
+  trustProxy?: boolean | string;
+  /** Send Strict-Transport-Security (only when served over HTTPS). */
+  hsts?: boolean;
   now?: () => number;
   logger?: boolean;
 }
@@ -55,8 +64,23 @@ declare module 'fastify' {
 export function buildApp(opts: AppOptions) {
   const { db } = opts;
   const now = opts.now ?? Date.now;
-  const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 1024 * 1024 });
+  const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 1024 * 1024, trustProxy: opts.trustProxy ?? false });
   app.register(cookie);
+
+  // Security headers on every response.
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('Content-Security-Policy', [
+      "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:",
+      "connect-src 'self'", "font-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+    ].join('; '));
+    reply.header('X-Content-Type-Options', 'nosniff');
+    // Email links carry one-time tokens in the URL: never pass them on to other sites.
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    if (opts.hsts) reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    if (req.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+  });
 
   const loginLimiter = new RateLimiter(10, 15 * 60_000);
   const signupLimiter = new RateLimiter(5, 60 * 60_000);
@@ -137,7 +161,14 @@ export function buildApp(opts: AppOptions) {
   const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 254;
 
   // ---------- health ----------
-  app.get('/api/health', async () => ({ ok: true, tutor: !!opts.tutor, consentVersion: CONSENT_VERSION }));
+  app.get('/api/health', async (_req, reply) => {
+    try {
+      db.prepare('SELECT 1').get();
+    } catch {
+      return reply.code(503).send({ ok: false, error: 'Database unavailable.' });
+    }
+    return { ok: true, tutor: !!opts.tutor, consentVersion: CONSENT_VERSION };
+  });
 
   // ---------- auth ----------
   const credentials = {
@@ -502,6 +533,33 @@ export function buildApp(opts: AppOptions) {
     const lines = rows.map((r) => [pseudo(String(r.child_id)), r.at, r.skill_id, r.level, r.item_key, r.correct, r.hinted, r.rapid, r.time_ms, r.predicted, r.misconception, r.strategy].map(esc).join(','));
     reply.header('content-type', 'text/csv; charset=utf-8');
     return [header, ...lines].join('\n');
+  });
+
+  /**
+   * Checkpoint results, one row per answer, for children whose parent opted in
+   * to research. Same pseudonymous learner ids as the events export.
+   */
+  app.get('/api/admin/checkpoints.csv', async (req, reply) => {
+    if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
+    const salt = opts.exportSalt ?? opts.adminToken;
+    const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
+    const kids = db.prepare(`SELECT c.id, c.profile_json FROM children c WHERE c.parent_id IN (
+      SELECT parent_id FROM consents x WHERE x.id = (SELECT MAX(id) FROM consents y WHERE y.parent_id = x.parent_id) AND x.research = 1)`)
+      .all() as { id: string; profile_json: string }[];
+    const lines = ['learner,year,subject,form,order,at,skill,level,correct,time_ms'];
+    for (const k of kids) {
+      const p = JSON.parse(k.profile_json) as { year?: number; checkpoints?: { subject: string; form: string; at: number; answers: { skillId: string; level: number; correct: boolean; timeMs: number }[] }[] };
+      const bySubject = new Map<string, number>();
+      for (const c of [...(p.checkpoints ?? [])].sort((a, b) => a.at - b.at)) {
+        const order = (bySubject.get(c.subject) ?? 0) + 1;
+        bySubject.set(c.subject, order);
+        for (const a of c.answers) {
+          lines.push([pseudo(k.id), p.year ?? '', c.subject, c.form, order, c.at, a.skillId, a.level, a.correct ? 1 : 0, a.timeMs].join(','));
+        }
+      }
+    }
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    return lines.join('\n');
   });
 
   return app;

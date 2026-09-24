@@ -38,6 +38,7 @@ export function normalizeProfile(raw: Partial<Profile> & { grade?: number }): Pr
     rewardsSetUp: p.rewardsSetUp ?? false,
     currency: p.currency ?? '£',
     xp: p.xp ?? 0,
+    checkpoints: p.checkpoints ?? [],
   };
 }
 
@@ -66,6 +67,7 @@ export function newProfile(name: string, avatar: string, year: number): Profile 
     rewardsSetUp: false,
     currency: '£',
     xp: 0,
+    checkpoints: [],
   };
 }
 

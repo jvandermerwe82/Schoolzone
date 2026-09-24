@@ -154,6 +154,15 @@ export interface Profile {
   currency: string;
   /** Total XP earned (kept separately so trimming old history never lowers it). */
   xp: number;
+  /** Before/after checkpoint results (see content/checkpoint.ts). */
+  checkpoints: CheckpointResult[];
+}
+
+export interface CheckpointResult {
+  subject: SubjectId;
+  form: 'A' | 'B';
+  at: number;
+  answers: { skillId: string; level: Level; questionId: string; correct: boolean; timeMs: number }[];
 }
 
 export interface EarnedBadge {

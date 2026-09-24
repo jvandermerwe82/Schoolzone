@@ -10,7 +10,11 @@
     "typecheck": "tsc",
     "dev:server": "tsx watch --env-file-if-exists=.env server/index.ts",
     "start": "NODE_ENV=production tsx --env-file-if-exists=.env server/index.ts",
-    "preview:scripted-tutor": "vite build && tsx server/dev-fake-tutor.ts"
+    "preview:scripted-tutor": "vite build && tsx server/dev-fake-tutor.ts",
+    "backup": "tsx --env-file-if-exists=.env server/backup-now.ts",
+    "content:export": "tsx scripts/export-content.ts",
+    "check:email": "tsx --env-file-if-exists=.env scripts/check-email.ts",
+    "check:tutor": "tsx --env-file-if-exists=.env scripts/check-tutor.ts"
   },
   "repository": {
     "type": "git",

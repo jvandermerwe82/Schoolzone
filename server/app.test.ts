@@ -423,3 +423,23 @@ describe('email verification and password reset', () => {
     expect(alerts()).toHaveLength(2);
   });
 });
+
+describe('checkpoint export', () => {
+  it('exports checkpoint answers pseudonymised, only for research-consented families', async () => {
+    const { app } = setup();
+    const yes = await signUp(app, 'yes@example.com');
+    await consent(app, yes.cookie, false, true);
+    const no = await signUp(app, 'no@example.com');
+    await consent(app, no.cookie, false, false);
+    const checkpoint = { subject: 'maths', form: 'A', at: 1, answers: [{ skillId: 'algebra', level: 2, questionId: 'q', correct: true, timeMs: 900 }] };
+    for (const { cookie } of [yes, no]) {
+      const child = await addChild(app, cookie, 'Kai');
+      await app.inject({ method: 'PUT', url: `/api/children/${child.id}`, headers: { cookie }, payload: { profile: { name: 'Kai', year: 6, checkpoints: [checkpoint] }, version: 1 } });
+    }
+    expect((await app.inject({ method: 'GET', url: '/api/admin/checkpoints.csv' })).statusCode).toBe(404);
+    const csv = (await app.inject({ method: 'GET', url: '/api/admin/checkpoints.csv', headers: { 'x-admin-token': 'admin-secret' } })).body.split('\n');
+    expect(csv).toHaveLength(2); // header + one answer, from the consenting family only
+    expect(csv[1]).toMatch(/^[0-9a-f]{16},6,maths,A,1,1,algebra,2,1,900$/);
+    expect(csv.join('\n')).not.toContain('Kai');
+  });
+});

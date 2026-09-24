@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app';
+import { backupDb } from './backup';
 import { openDb, pruneOldData } from './db';
 import { ConsoleMailer, SmtpMailer } from './mailer';
 import { ClaudeTutorModel } from './tutor';
@@ -40,6 +41,9 @@ const app = buildApp({
   tutorDailyLimit: Number(env.TUTOR_DAILY_LIMIT ?? 60),
   mailer,
   appUrl: env.APP_URL ?? `http://localhost:${production ? port : 5173}`,
+  // TRUST_PROXY=true (or the proxy's addresses) when running behind a hosting proxy / load balancer.
+  trustProxy: !env.TRUST_PROXY || env.TRUST_PROXY === 'false' ? false : env.TRUST_PROXY === 'true' ? true : env.TRUST_PROXY,
+  hsts: production && (env.APP_URL ?? '').startsWith('https://'),
   logger: true,
 });
 
@@ -52,8 +56,27 @@ if (production && existsSync(dist)) {
     req.url.startsWith('/api/') ? reply.code(404).send({ error: 'Not found.' }) : reply.sendFile('index.html'));
 }
 
-pruneOldData(db, Date.now(), retentionDays);
-setInterval(() => pruneOldData(db, Date.now(), retentionDays), 86_400_000).unref();
+const daily = () => {
+  pruneOldData(db, Date.now(), retentionDays);
+  if (env.BACKUP_DIR) {
+    try {
+      const file = backupDb(db, env.BACKUP_DIR, new Date(), Number(env.BACKUP_KEEP ?? 14));
+      app.log.info(`Backup written to ${file}`);
+    } catch (err) {
+      app.log.error({ err }, 'Backup failed');
+    }
+  }
+};
+daily();
+setInterval(daily, 86_400_000).unref();
+if (production && !env.BACKUP_DIR) console.warn('BACKUP_DIR is not set: no automatic backups.');
+
+// Finish in-flight requests and close the database cleanly when the host stops the app.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => {
+    void app.close().then(() => { db.close(); process.exit(0); });
+  });
+}
 
 app.listen({ port, host: env.HOST ?? (production ? '0.0.0.0' : '127.0.0.1') }).then(() => {
   console.log(`Schoolzone server on port ${port}. AI tutor: ${tutor ? `on (${env.TUTOR_MODEL ?? 'claude-opus-5'})` : 'off'}.`);
