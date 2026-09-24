@@ -148,7 +148,9 @@ export function runSessionLearner(
   for (let mission = 1; mission <= missions; mission++) {
     const now = mission * 86_400_000;
     const selected = missionLengthFor(policy, profile, learner.subject, now);
-    const rng = seededRng(mixSeed(seed, idNumber, mission, policy === 'adaptive' ? 0x61646170 : 0x66697831));
+    // Identical learner/mission seed across policies. Adaptive and fixed runs
+    // therefore face the same latent outcomes for overlapping positions.
+    const rng = seededRng(mixSeed(seed, idNumber, mission));
 
     let correct = 0;
     let usefulCorrect = 0;
