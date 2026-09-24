@@ -26,6 +26,8 @@ export const DIAGNOSTIC_TARGET_SUCCESS = 0.68;
 export const DIAGNOSTIC_MIN_SUCCESS = 0.55;
 export const DIAGNOSTIC_MAX_SUCCESS = 0.85;
 export const DIAGNOSTIC_MAX_ATTEMPTS = 2;
+/** Only probe more aggressively when the prior already says this learner is strong. */
+export const DIAGNOSTIC_MIN_PRIOR_ABILITY = 1.0;
 /** Unaided correct answers in a row before trying a harder level. */
 export const STRETCH_RUN = 4;
 /** Early clean success can accelerate placement before the long-run stretch rule. */
@@ -173,6 +175,7 @@ export function planNext(
     const diagnostic = !routeLocked
       && (reason === 'new' || reason === 'continue')
       && st.attempts < DIAGNOSTIC_MAX_ATTEMPTS
+      && st.ability >= DIAGNOSTIC_MIN_PRIOR_ABILITY
       && history.every(clean);
     let level = diagnostic
       ? chooseDiagnosticLevel(
