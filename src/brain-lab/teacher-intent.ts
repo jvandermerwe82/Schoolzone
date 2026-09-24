@@ -29,17 +29,24 @@ export interface HiddenTeacherIntentLearner {
 }
 
 export type TeacherIntentPolicy = 'route-aware' | 'direct-target';
+export type TeacherEvidencePolicy = 'lifetime' | 'recent-6' | 'recent-8' | 'recent-10';
+
+export const TEACHER_INTENT_SAFE_TARGET_KNOWLEDGE = 0.70;
+export const TEACHER_INTENT_SAFE_PREREQUISITE_KNOWLEDGE = 0.65;
 
 export interface TeacherIntentLearnerRun {
   learner: HiddenTeacherIntentLearner;
   policy: TeacherIntentPolicy;
   completed: boolean;
+  questionsAsked: number;
   questionsToCompletion: number | null;
+  targetKnowledgeAtCompletion: number | null;
   wrongAnswers: number;
   targetAttempts: number;
   prerequisiteAttempts: number;
   prematureTargetAttempts: number;
   prerequisiteEvidenceReadyAt: number | null;
+  prerequisiteKnowledgeAtReady: number | null;
   returnedToTargetAfterRepair: boolean;
   finalPrerequisiteKnowledge: number;
   finalTargetKnowledge: number;
@@ -47,6 +54,7 @@ export interface TeacherIntentLearnerRun {
 
 export interface TeacherIntentBenchmark {
   policy: TeacherIntentPolicy;
+  evidencePolicy: TeacherEvidencePolicy;
   learnerCount: number;
   horizonQuestions: number;
   completionRate: number;
@@ -58,6 +66,8 @@ export interface TeacherIntentBenchmark {
   meanPrematureTargetAttempts: number;
   prerequisiteRepairRate: number;
   returnToTargetRate: number;
+  prerequisiteReadinessPrecision: number;
+  completionReadinessPrecision: number;
   meanFinalTargetKnowledge: number;
 }
 
@@ -107,6 +117,51 @@ const evidence = (
 const homeworkFor = (
   target: TeacherObjectiveDefinition,
 ): StructuredHomework => structuredHomework(target, 1, { priority: 2 });
+
+const evidenceWindow = (policy: TeacherEvidencePolicy): number | null => {
+  switch (policy) {
+    case 'recent-6': return 6;
+    case 'recent-8': return 8;
+    case 'recent-10': return 10;
+    case 'lifetime': return null;
+  }
+};
+
+const historyForEvidencePolicy = (
+  history: readonly AnswerRecord[],
+  policy: TeacherEvidencePolicy,
+): AnswerRecord[] => {
+  const window = evidenceWindow(policy);
+  if (window === null) return [...history];
+
+  const counts = new Map<string, number>();
+  const kept: AnswerRecord[] = [];
+  for (let index = history.length - 1; index >= 0; index--) {
+    const answer = history[index];
+    const nodeIds = (answer.curriculumEvidence ?? [])
+      .filter((item) => item.curriculumId === 'au-ac-v9')
+      .map((item) => item.canonicalNodeId);
+
+    if (nodeIds.length === 0) {
+      kept.push(answer);
+      continue;
+    }
+
+    const relevant = nodeIds.some((nodeId) => (counts.get(nodeId) ?? 0) < window);
+    if (!relevant) continue;
+    kept.push(answer);
+    for (const nodeId of nodeIds) counts.set(nodeId, (counts.get(nodeId) ?? 0) + 1);
+  }
+  return kept.reverse();
+};
+
+const evidenceProfile = (
+  profile: Pick<Profile, 'history'>,
+  policy: TeacherEvidencePolicy,
+): Pick<Profile, 'history'> => ({
+  history: historyForEvidencePolicy(profile.history, policy),
+});
+
 
 /**
  * Use only real Australian teacher objectives where production routing has a
@@ -202,10 +257,15 @@ const learn = (
 export function runTeacherIntentLearner(
   learner: HiddenTeacherIntentLearner,
   policy: TeacherIntentPolicy,
-  options: { horizonQuestions?: number; seed?: number } = {},
+  options: {
+    horizonQuestions?: number;
+    seed?: number;
+    evidencePolicy?: TeacherEvidencePolicy;
+  } = {},
 ): TeacherIntentLearnerRun {
   const horizonQuestions = options.horizonQuestions ?? 24;
   const seed = options.seed ?? 20260925;
+  const evidencePolicy = options.evidencePolicy ?? 'lifetime';
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber, policy === 'route-aware' ? 0x726f7574 : 0x64697265));
 
@@ -214,24 +274,29 @@ export function runTeacherIntentLearner(
   let prerequisiteKnowledge = learner.prerequisiteKnowledge;
   let targetKnowledge = learner.targetKnowledge;
   let wrongAnswers = 0;
+  let questionsAsked = 0;
   let targetAttempts = 0;
   let prerequisiteAttempts = 0;
   let prematureTargetAttempts = 0;
   let prerequisiteEvidenceReadyAt: number | null = null;
+  let prerequisiteKnowledgeAtReady: number | null = null;
   let returnedToTargetAfterRepair = false;
   let questionsToCompletion: number | null = null;
+  let targetKnowledgeAtCompletion: number | null = null;
 
   for (let questionIndex = 1; questionIndex <= horizonQuestions; questionIndex++) {
+    const visibleProfile = evidenceProfile(profile, evidencePolicy);
     const targetProgress = australianCanonicalProgress(
-      profile,
+      visibleProfile,
       learner.scenario.target.canonicalNodeId,
     );
     if (canonicalProgressIsReady(targetProgress)) {
       questionsToCompletion = questionIndex - 1;
+      targetKnowledgeAtCompletion = targetKnowledge;
       break;
     }
 
-    const productionRoute = routeAustralianTeacherHomework(profile, homework);
+    const productionRoute = routeAustralianTeacherHomework(visibleProfile, homework);
     const activeNodeId = policy === 'route-aware'
       ? productionRoute?.activeCanonicalNodeId ?? learner.scenario.target.canonicalNodeId
       : learner.scenario.target.canonicalNodeId;
@@ -240,12 +305,13 @@ export function runTeacherIntentLearner(
       : learner.scenario.target.practiceSkillId;
 
     const prerequisiteProgress = australianCanonicalProgress(
-      profile,
+      visibleProfile,
       learner.scenario.prerequisiteNodeId,
     );
     const prerequisiteReady = canonicalProgressIsReady(prerequisiteProgress);
     if (prerequisiteReady && prerequisiteEvidenceReadyAt === null) {
       prerequisiteEvidenceReadyAt = questionIndex;
+      prerequisiteKnowledgeAtReady = prerequisiteKnowledge;
     }
 
     if (activeNodeId === learner.scenario.target.canonicalNodeId) {
@@ -256,6 +322,7 @@ export function runTeacherIntentLearner(
       prerequisiteAttempts++;
     }
 
+    questionsAsked++;
     const p = successProbability(
       activeNodeId,
       learner,
@@ -282,27 +349,36 @@ export function runTeacherIntentLearner(
     prerequisiteKnowledge = learned.prerequisiteKnowledge;
     targetKnowledge = learned.targetKnowledge;
 
-    const repaired = australianCanonicalProgress(profile, learner.scenario.prerequisiteNodeId);
+    const repairedVisible = evidenceProfile(profile, evidencePolicy);
+    const repaired = australianCanonicalProgress(repairedVisible, learner.scenario.prerequisiteNodeId);
     if (canonicalProgressIsReady(repaired) && prerequisiteEvidenceReadyAt === null) {
       prerequisiteEvidenceReadyAt = questionIndex;
+      prerequisiteKnowledgeAtReady = prerequisiteKnowledge;
     }
   }
 
   if (questionsToCompletion === null) {
-    const finalTarget = australianCanonicalProgress(profile, learner.scenario.target.canonicalNodeId);
-    if (canonicalProgressIsReady(finalTarget)) questionsToCompletion = horizonQuestions;
+    const finalVisible = evidenceProfile(profile, evidencePolicy);
+    const finalTarget = australianCanonicalProgress(finalVisible, learner.scenario.target.canonicalNodeId);
+    if (canonicalProgressIsReady(finalTarget)) {
+      questionsToCompletion = horizonQuestions;
+      targetKnowledgeAtCompletion = targetKnowledge;
+    }
   }
 
   return {
     learner,
     policy,
     completed: questionsToCompletion !== null,
+    questionsAsked,
     questionsToCompletion,
+    targetKnowledgeAtCompletion,
     wrongAnswers,
     targetAttempts,
     prerequisiteAttempts,
     prematureTargetAttempts,
     prerequisiteEvidenceReadyAt,
+    prerequisiteKnowledgeAtReady,
     returnedToTargetAfterRepair,
     finalPrerequisiteKnowledge: prerequisiteKnowledge,
     finalTargetKnowledge: targetKnowledge,
@@ -315,15 +391,18 @@ export function runTeacherIntentBenchmark(
     population?: HiddenTeacherIntentLearner[];
     horizonQuestions?: number;
     seed?: number;
+    evidencePolicy?: TeacherEvidencePolicy;
   } = {},
 ): TeacherIntentBenchmark {
   const population = options.population ?? teacherIntentPopulation();
   const horizonQuestions = options.horizonQuestions ?? 24;
   const seed = options.seed ?? 20260925;
+  const evidencePolicy = options.evidencePolicy ?? 'lifetime';
   const runs = population.map((learner, index) =>
     runTeacherIntentLearner(learner, policy, {
       horizonQuestions,
       seed: mixSeed(seed, index + 1),
+      evidencePolicy,
     }));
 
   const completed = runs
@@ -331,20 +410,34 @@ export function runTeacherIntentBenchmark(
     .filter((value): value is number => value !== null);
   const repaired = runs.filter((run) => run.prerequisiteEvidenceReadyAt !== null);
   const returned = repaired.filter((run) => run.returnedToTargetAfterRepair);
+  const completedRuns = runs.filter((run) => run.completed);
+  const prerequisiteSafe = repaired.filter(
+    (run) => (run.prerequisiteKnowledgeAtReady ?? 0) >= TEACHER_INTENT_SAFE_PREREQUISITE_KNOWLEDGE,
+  );
+  const completionSafe = completedRuns.filter(
+    (run) => (run.targetKnowledgeAtCompletion ?? 0) >= TEACHER_INTENT_SAFE_TARGET_KNOWLEDGE,
+  );
+  const totalQuestions = runs.reduce((sum, run) => sum + run.questionsAsked, 0);
+  const totalWrong = runs.reduce((sum, run) => sum + run.wrongAnswers, 0);
 
   return {
     policy,
+    evidencePolicy,
     learnerCount: runs.length,
     horizonQuestions,
     completionRate: runs.length === 0 ? 0 : completed.length / runs.length,
     medianQuestionsToCompletion: median(completed),
     meanWrongAnswers: mean(runs.map((run) => run.wrongAnswers)),
-    wrongAnswerRate: mean(runs.map((run) => run.wrongAnswers / horizonQuestions)),
+    wrongAnswerRate: totalQuestions === 0 ? 0 : totalWrong / totalQuestions,
     meanTargetAttempts: mean(runs.map((run) => run.targetAttempts)),
     meanPrerequisiteAttempts: mean(runs.map((run) => run.prerequisiteAttempts)),
     meanPrematureTargetAttempts: mean(runs.map((run) => run.prematureTargetAttempts)),
     prerequisiteRepairRate: runs.length === 0 ? 0 : repaired.length / runs.length,
     returnToTargetRate: repaired.length === 0 ? 0 : returned.length / repaired.length,
+    prerequisiteReadinessPrecision:
+      repaired.length === 0 ? 1 : prerequisiteSafe.length / repaired.length,
+    completionReadinessPrecision:
+      completedRuns.length === 0 ? 1 : completionSafe.length / completedRuns.length,
     meanFinalTargetKnowledge: mean(runs.map((run) => run.finalTargetKnowledge)),
   };
 }
@@ -354,13 +447,19 @@ export function compareTeacherIntentPolicies(
     population?: HiddenTeacherIntentLearner[];
     horizonQuestions?: number;
     seed?: number;
+    evidencePolicy?: TeacherEvidencePolicy;
   } = {},
 ): TeacherIntentComparison {
   const population = options.population ?? teacherIntentPopulation();
   const horizonQuestions = options.horizonQuestions ?? 24;
   const seed = options.seed ?? 20260925;
-  const routeAware = runTeacherIntentBenchmark('route-aware', { population, horizonQuestions, seed });
-  const directTarget = runTeacherIntentBenchmark('direct-target', { population, horizonQuestions, seed });
+  const evidencePolicy = options.evidencePolicy ?? 'lifetime';
+  const routeAware = runTeacherIntentBenchmark('route-aware', {
+    population, horizonQuestions, seed, evidencePolicy,
+  });
+  const directTarget = runTeacherIntentBenchmark('direct-target', {
+    population, horizonQuestions, seed, evidencePolicy,
+  });
 
   return {
     routeAware,
@@ -400,4 +499,47 @@ export function teacherIntentHorizonCurve(
       seed,
     }),
   }));
+}
+
+
+export interface TeacherEvidenceChallenger {
+  evidencePolicy: TeacherEvidencePolicy;
+  benchmark: TeacherIntentBenchmark;
+  deltaVsLifetime: {
+    completionRate: number;
+    wrongAnswerRate: number;
+    prerequisiteRepairRate: number;
+    meanTargetKnowledge: number;
+  };
+}
+
+export function teacherEvidenceChallengers(
+  population: HiddenTeacherIntentLearner[],
+  lifetime: TeacherIntentBenchmark,
+  options: { horizonQuestions?: number; seed?: number } = {},
+): TeacherEvidenceChallenger[] {
+  const horizonQuestions = options.horizonQuestions ?? 48;
+  const seed = options.seed ?? 20260925;
+  const policies: TeacherEvidencePolicy[] = ['recent-6', 'recent-8', 'recent-10'];
+
+  return policies.map((evidencePolicy) => {
+    const benchmark = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions,
+      seed,
+      evidencePolicy,
+    });
+    return {
+      evidencePolicy,
+      benchmark,
+      deltaVsLifetime: {
+        completionRate: benchmark.completionRate - lifetime.completionRate,
+        wrongAnswerRate: lifetime.wrongAnswerRate - benchmark.wrongAnswerRate,
+        prerequisiteRepairRate:
+          benchmark.prerequisiteRepairRate - lifetime.prerequisiteRepairRate,
+        meanTargetKnowledge:
+          benchmark.meanFinalTargetKnowledge - lifetime.meanFinalTargetKnowledge,
+      },
+    };
+  });
 }
