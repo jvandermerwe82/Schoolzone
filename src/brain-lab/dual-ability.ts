@@ -139,13 +139,12 @@ export function shadowAbilityBenchmark(
 
 export const SHADOW_ABILITY_GRID: readonly ShadowAbilityWeights[] = [
   { name: 'clean-only', hintedWeight: 0, rapidWeight: 0 },
-  { name: 'hinted-25', hintedWeight: 0.25, rapidWeight: 0 },
-  { name: 'hinted-50', hintedWeight: 0.5, rapidWeight: 0 },
-  { name: 'hinted-75', hintedWeight: 0.75, rapidWeight: 0 },
-  { name: 'hinted-25-rapid-10', hintedWeight: 0.25, rapidWeight: 0.1 },
-  { name: 'hinted-50-rapid-10', hintedWeight: 0.5, rapidWeight: 0.1 },
-  { name: 'hinted-50-rapid-25', hintedWeight: 0.5, rapidWeight: 0.25 },
-  { name: 'hinted-75-rapid-10', hintedWeight: 0.75, rapidWeight: 0.1 },
+  ...[0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1].flatMap((hintedWeight) =>
+    [0, 0.05, 0.1, 0.25, 0.5].map((rapidWeight) => ({
+      name: `hinted-${Math.round(hintedWeight * 100)}-rapid-${Math.round(rapidWeight * 100)}`,
+      hintedWeight,
+      rapidWeight,
+    }))),
 ] as const;
 
 export function shadowAbilityGrid(
