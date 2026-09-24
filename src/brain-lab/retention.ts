@@ -300,3 +300,63 @@ export function retentionScheduleChallengers(
     };
   });
 }
+
+
+export const RETENTION_LAB_THRESHOLDS = {
+  minRetentionCoverage70: 0.75,
+  minReviewSuccessRate: 0.45,
+  maxLapseRate: 0.55,
+  maxMaintenanceActionsPerLearner: 20,
+  minFinalRecallProbability: 0.75,
+  minMasteredAtEndRate: 0.98,
+} as const;
+
+export interface RetentionLabGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateRetentionLabGate(
+  benchmark: RetentionBenchmark,
+): RetentionLabGate {
+  const failures: string[] = [];
+
+  if (benchmark.retentionCoverage70 < RETENTION_LAB_THRESHOLDS.minRetentionCoverage70) {
+    failures.push(
+      `retention coverage ${benchmark.retentionCoverage70.toFixed(3)} is below ${RETENTION_LAB_THRESHOLDS.minRetentionCoverage70}`,
+    );
+  }
+  if (benchmark.reviewSuccessRate < RETENTION_LAB_THRESHOLDS.minReviewSuccessRate) {
+    failures.push(
+      `review success rate ${benchmark.reviewSuccessRate.toFixed(3)} is below ${RETENTION_LAB_THRESHOLDS.minReviewSuccessRate}`,
+    );
+  }
+  if (benchmark.lapseRate > RETENTION_LAB_THRESHOLDS.maxLapseRate) {
+    failures.push(
+      `lapse rate ${benchmark.lapseRate.toFixed(3)} exceeds ${RETENTION_LAB_THRESHOLDS.maxLapseRate}`,
+    );
+  }
+  if (
+    benchmark.meanMaintenanceActionsPerLearner
+    > RETENTION_LAB_THRESHOLDS.maxMaintenanceActionsPerLearner
+  ) {
+    failures.push(
+      `maintenance actions ${benchmark.meanMaintenanceActionsPerLearner.toFixed(3)} exceeds ${RETENTION_LAB_THRESHOLDS.maxMaintenanceActionsPerLearner}`,
+    );
+  }
+  if (
+    benchmark.meanFinalRecallProbability
+    < RETENTION_LAB_THRESHOLDS.minFinalRecallProbability
+  ) {
+    failures.push(
+      `final recall ${benchmark.meanFinalRecallProbability.toFixed(3)} is below ${RETENTION_LAB_THRESHOLDS.minFinalRecallProbability}`,
+    );
+  }
+  if (benchmark.masteredAtEndRate < RETENTION_LAB_THRESHOLDS.minMasteredAtEndRate) {
+    failures.push(
+      `mastered-at-end rate ${benchmark.masteredAtEndRate.toFixed(3)} is below ${RETENTION_LAB_THRESHOLDS.minMasteredAtEndRate}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
