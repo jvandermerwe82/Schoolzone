@@ -26,6 +26,17 @@ import {
   retentionScheduleChallengers,
   runRetentionBenchmark,
 } from '../src/brain-lab/retention';
+import {
+  compareTeacherIntentPolicies,
+  evaluateTeacherIntentLabGate,
+  runTeacherIntentBenchmark,
+  teacherDualEvidenceChallengers,
+  teacherEvidenceChallengers,
+  teacherHybridEvidenceChallengers,
+  teacherRecoveryEvidenceChallengers,
+  teacherIntentHorizonCurve,
+  teacherIntentPopulation,
+} from '../src/brain-lab/teacher-intent';
 
 const population = syntheticPopulation(84);
 const options = { population, answersPerLearner: 30, seed: 20260925 };
@@ -66,6 +77,46 @@ const retentionChallengers = retentionScheduleChallengers(
   { seed: 20260925 },
 );
 const retentionGate = evaluateRetentionLabGate(retentionLearning);
+const teacherIntentPopulationLocked = teacherIntentPopulation(120);
+const teacherIntent = compareTeacherIntentPolicies({
+  population: teacherIntentPopulationLocked,
+  horizonQuestions: 24,
+  seed: 20260925,
+});
+const teacherIntentCurve = teacherIntentHorizonCurve(
+  teacherIntentPopulationLocked,
+  [12, 24, 36, 48],
+  20260925,
+);
+const teacherIntentLifetime48 = runTeacherIntentBenchmark('route-aware', {
+  population: teacherIntentPopulationLocked,
+  horizonQuestions: 48,
+  seed: 20260925,
+});
+const teacherIntentEvidence = teacherEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
+const teacherIntentHybridEvidence = teacherHybridEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
+const teacherIntentRecoveryEvidence = teacherRecoveryEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
+const teacherIntentDualEvidence = teacherDualEvidenceChallengers(
+  teacherIntentPopulationLocked,
+  teacherIntentLifetime48,
+  { horizonQuestions: 48, seed: 20260925 },
+);
+const teacherIntentGate = evaluateTeacherIntentLabGate(
+  teacherIntent,
+  teacherIntentLifetime48,
+);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -104,10 +155,26 @@ process.stdout.write(JSON.stringify({
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
+  teacherIntent: {
+    gate: teacherIntentGate,
+    current: teacherIntent,
+    horizonCurve: teacherIntentCurve,
+    lifetime48: teacherIntentLifetime48,
+    evidenceChallengers: teacherIntentEvidence,
+    guardedEvidenceChallengers: teacherIntentHybridEvidence,
+    recoveryEvidenceChallengers: teacherIntentRecoveryEvidence,
+    dualEvidenceChallengers: teacherIntentDualEvidence,
+  },
   comparisons: {
     vsAdaptive80: compareBenchmarks(current, adaptive).delta,
     vsStaticMid: compareBenchmarks(current, baseline).delta,
   },
 }, null, 2) + '\n');
 
-if (!gate.pass || !supportGate.pass || !misconceptionGate.pass || !retentionGate.pass) process.exitCode = 1;
+if (
+  !gate.pass
+  || !supportGate.pass
+  || !misconceptionGate.pass
+  || !retentionGate.pass
+  || !teacherIntentGate.pass
+) process.exitCode = 1;
