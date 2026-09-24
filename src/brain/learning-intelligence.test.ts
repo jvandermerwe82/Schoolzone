@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   activeLearningIntents,
   emptyLearningIntelligence,
+  recordEngagementSignal,
+  recordSupportOutcome,
+  setCurriculumContext,
+  setSupportPreference,
   summariseSupportStrategy,
+  upsertLearningIntent,
   type LearningIntent,
   type SupportOutcome,
 } from './learning-intelligence';
@@ -70,5 +75,65 @@ describe('learning intelligence', () => {
       'urgent-late',
       'later',
     ]);
+  });
+});
+
+
+describe('learning intelligence recording', () => {
+  it('keeps preferences separate by source and replaces only the same source/strategy pair', () => {
+    let state = emptyLearningIntelligence();
+    state = setSupportPreference(state, { strategy: 'read-aloud', source: 'parent', value: 'prefer', at: 1 });
+    state = setSupportPreference(state, { strategy: 'read-aloud', source: 'learner', value: 'avoid', at: 2 });
+    state = setSupportPreference(state, { strategy: 'read-aloud', source: 'parent', value: 'neutral', at: 3 });
+    expect(state.supportPreferences).toHaveLength(2);
+    expect(state.supportPreferences.find((p) => p.source === 'parent')?.value).toBe('neutral');
+    expect(state.supportPreferences.find((p) => p.source === 'learner')?.value).toBe('avoid');
+  });
+
+  it('sanitises support outcomes before storing them', () => {
+    const state = recordSupportOutcome(emptyLearningIntelligence(), {
+      strategy: 'shorter-missions',
+      at: 1,
+      delta: 9,
+      weight: -4,
+      source: 'observed-learning',
+    });
+    expect(state.supportOutcomes[0]).toMatchObject({ delta: 1, weight: 0 });
+  });
+
+  it('records engagement as observation only and bounds malformed numeric values', () => {
+    const state = recordEngagementSignal(emptyLearningIntelligence(), {
+      kind: 'continued-voluntarily',
+      at: 1,
+      value: Number.POSITIVE_INFINITY,
+    });
+    expect(state.engagement).toEqual([{ kind: 'continued-voluntarily', at: 1, value: 0 }]);
+  });
+
+  it('deduplicates intent skills and curriculum refs when updating an intent', () => {
+    const state = upsertLearningIntent(emptyLearningIntelligence(), {
+      id: 'teacher-1',
+      source: 'teacher',
+      objective: ' Fractions this week ',
+      skillIds: ['fractions', 'fractions'],
+      curriculumRefs: ['au-ac-v9:AC9M6N05', 'au-ac-v9:AC9M6N05'],
+      priority: 1,
+      assignedAt: 10,
+      dueAt: null,
+      status: 'active',
+    });
+    expect(state.intents[0].objective).toBe('Fractions this week');
+    expect(state.intents[0].skillIds).toEqual(['fractions']);
+    expect(state.intents[0].curriculumRefs).toEqual(['au-ac-v9:AC9M6N05']);
+  });
+
+  it('sets curriculum context only when explicitly requested', () => {
+    const state = setCurriculumContext(emptyLearningIntelligence(), {
+      jurisdiction: 'AU',
+      curriculumId: 'au-ac-v9',
+      curriculumVersion: '9.0',
+      yearLevel: '5',
+    });
+    expect(state.curriculum?.jurisdiction).toBe('AU');
   });
 });
