@@ -22,6 +22,7 @@ export type SupportStrategyId =
   | 'chunked-instructions'
   | 'visible-steps'
   | 'read-aloud'
+  | 'easier-read-text'
   | 'reduced-visual-density'
   | 'larger-text'
   | 'extended-response-time'
@@ -212,6 +213,31 @@ export function setSupportPreference(
     ...state,
     supportPreferences: tail([...kept, next], MAX_SUPPORT_PREFERENCES),
   };
+}
+
+/** Remove one source's preference without changing any measured outcome evidence. */
+export function clearSupportPreference(
+  state: LearningIntelligenceState,
+  strategy: SupportStrategyId,
+  source: PreferenceSource,
+): LearningIntelligenceState {
+  const supportPreferences = state.supportPreferences.filter(
+    (item) => !(item.strategy === strategy && item.source === source),
+  );
+  return supportPreferences.length === state.supportPreferences.length
+    ? state
+    : { ...state, supportPreferences };
+}
+
+/** Return one source's current explicit preference, if any. */
+export function supportPreference(
+  state: LearningIntelligenceState,
+  strategy: SupportStrategyId,
+  source: PreferenceSource,
+): SupportPreference | null {
+  return state.supportPreferences.find(
+    (item) => item.strategy === strategy && item.source === source,
+  ) ?? null;
 }
 
 /** Record measured or human-reported evidence about one support strategy. */
