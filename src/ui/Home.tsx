@@ -9,11 +9,12 @@ import { dayStreak, playerLevel } from '../brain/xp';
 import { checkpointDue } from '../content/checkpoint';
 import { getSkill, SUBJECTS } from '../content/skills';
 import { isStructuredHomework } from '../curriculum/australia-teacher-objectives';
+import { structuredHomeworkRoute, type AustralianPracticeRoute } from '../curriculum/australia-intent-routing';
 
 interface Props {
   profile: Profile;
   offline: boolean;
-  onPractice: (subject: SubjectId, focus?: string) => void;
+  onPractice: (subject: SubjectId, focus?: string, teacherRoute?: AustralianPracticeRoute) => void;
   /** Topic set by the child's teacher, if any. */
   homework?: Homework | null;
   onDashboard: () => void;
@@ -103,20 +104,25 @@ export function Home({ profile, offline, homework, onPractice, onDashboard, onPa
       <h2 className="section-title">Choose a zone</h2>
       {homework && (() => {
         if (isStructuredHomework(homework)) {
-          const skill = getSkill(homework.practiceSkillId);
-          const done = isMastered(skillState(profile, skill.id));
+          const route = structuredHomeworkRoute(profile, homework);
+          const targetDone = route.targetProgress?.status === 'mastered';
           return (
-            <button className="homework-banner" onClick={() => onPractice(skill.subject, skill.id)}>
+            <button
+              className="homework-banner"
+              onClick={() => onPractice(route.subject, route.practiceSkillId, route)}
+            >
               <span aria-hidden>📌</span>
               <span>
                 <strong>From your teacher: Year {homework.yearLevel} · {homework.objective}</strong>
                 <small>
-                  {homework.note || 'SchoolZone will personalise the route to this objective.'}
-                  {homework.dueAt ? ` Due ${new Date(homework.dueAt).toLocaleDateString()}.` : ""}
-                  {done ? ' You may already know much of this route.' : ''}
+                  {route.reason === 'prerequisite'
+                    ? `SchoolZone is strengthening ${route.activeTitle} first, then will bring you back to the teacher's goal. `
+                    : (homework.note || 'SchoolZone has chosen your personal route to this objective. ')}
+                  {homework.dueAt ? `Due ${new Date(homework.dueAt).toLocaleDateString()}. ` : ''}
+                  {targetDone ? 'You already have strong evidence of mastery.' : ''}
                 </small>
               </span>
-              <span className="zone-play">Go ▶</span>
+              <span className="zone-play">{route.reason === 'prerequisite' ? 'Build ▶' : 'Go ▶'}</span>
             </button>
           );
         }
