@@ -772,3 +772,95 @@ export function teacherDualEvidenceChallengers(
     };
   });
 }
+
+
+export const TEACHER_INTENT_LAB_THRESHOLDS = {
+  minCompletionRate24: 0.15,
+  minCompletionAdvantage24: 0.10,
+  maxWrongAnswerRate24: 0.35,
+  minWrongAnswerRateImprovement24: 0.25,
+  maxPrematureTargetAttempts24: 0.10,
+  minPrerequisiteRepairRate24: 0.60,
+  minReturnToTargetRate: 0.95,
+  minPrerequisiteReadinessPrecision: 0.95,
+  minPrerequisiteRepairRate48: 0.90,
+} as const;
+
+export interface TeacherIntentLabGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateTeacherIntentLabGate(
+  comparison24: TeacherIntentComparison,
+  routeAware48: TeacherIntentBenchmark,
+): TeacherIntentLabGate {
+  const failures: string[] = [];
+  const route = comparison24.routeAware;
+
+  if (route.completionRate < TEACHER_INTENT_LAB_THRESHOLDS.minCompletionRate24) {
+    failures.push(
+      `24-question route completion ${route.completionRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minCompletionRate24}`,
+    );
+  }
+  if (
+    comparison24.delta.completionRate
+    < TEACHER_INTENT_LAB_THRESHOLDS.minCompletionAdvantage24
+  ) {
+    failures.push(
+      `24-question completion advantage ${comparison24.delta.completionRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minCompletionAdvantage24}`,
+    );
+  }
+  if (route.wrongAnswerRate > TEACHER_INTENT_LAB_THRESHOLDS.maxWrongAnswerRate24) {
+    failures.push(
+      `24-question wrong-answer rate ${route.wrongAnswerRate.toFixed(3)} exceeds ${TEACHER_INTENT_LAB_THRESHOLDS.maxWrongAnswerRate24}`,
+    );
+  }
+  if (
+    comparison24.delta.wrongAnswerRate
+    < TEACHER_INTENT_LAB_THRESHOLDS.minWrongAnswerRateImprovement24
+  ) {
+    failures.push(
+      `24-question wrong-answer improvement ${comparison24.delta.wrongAnswerRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minWrongAnswerRateImprovement24}`,
+    );
+  }
+  if (
+    route.meanPrematureTargetAttempts
+    > TEACHER_INTENT_LAB_THRESHOLDS.maxPrematureTargetAttempts24
+  ) {
+    failures.push(
+      `premature target attempts ${route.meanPrematureTargetAttempts.toFixed(3)} exceeds ${TEACHER_INTENT_LAB_THRESHOLDS.maxPrematureTargetAttempts24}`,
+    );
+  }
+  if (
+    route.prerequisiteRepairRate
+    < TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteRepairRate24
+  ) {
+    failures.push(
+      `24-question prerequisite repair ${route.prerequisiteRepairRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteRepairRate24}`,
+    );
+  }
+  if (route.returnToTargetRate < TEACHER_INTENT_LAB_THRESHOLDS.minReturnToTargetRate) {
+    failures.push(
+      `return-to-target rate ${route.returnToTargetRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minReturnToTargetRate}`,
+    );
+  }
+  if (
+    route.prerequisiteReadinessPrecision
+    < TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteReadinessPrecision
+  ) {
+    failures.push(
+      `prerequisite readiness precision ${route.prerequisiteReadinessPrecision.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteReadinessPrecision}`,
+    );
+  }
+  if (
+    routeAware48.prerequisiteRepairRate
+    < TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteRepairRate48
+  ) {
+    failures.push(
+      `48-question prerequisite repair ${routeAware48.prerequisiteRepairRate.toFixed(3)} is below ${TEACHER_INTENT_LAB_THRESHOLDS.minPrerequisiteRepairRate48}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
