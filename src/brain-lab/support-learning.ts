@@ -1,10 +1,11 @@
-import { nextStrategy, STRATEGIES } from '../brain/help';
+import { nextStrategy, strategyScore, STRATEGIES, weakPrerequisite } from '../brain/help';
 import {
   emptyLearningIntelligence,
   recordSupportOutcome,
   type LearningIntelligenceState,
   type SupportStrategyId,
 } from '../brain/learning-intelligence';
+import { contextualSupportSummary } from '../brain/rapid-learning';
 import type { Profile, StrategyId } from '../brain/types';
 import { newProfile } from '../storage';
 import { mixSeed, seededRng } from './rng';
@@ -340,6 +341,156 @@ export function supportWeightChallengers(
           || current.medianTrialsToStablePreference === null
             ? null
             : current.medianTrialsToStablePreference - benchmark.medianTrialsToStablePreference,
+        stablePreferenceRate: benchmark.stablePreferenceRate - current.stablePreferenceRate,
+      },
+    };
+  });
+}
+
+
+export interface SupportRoutingLabConfig {
+  name: string;
+  rapidMinCount: number;
+  rapidMinConfidence: number;
+  rapidMinScore: number;
+  rapidCap: number;
+  matureMinEvidence: number;
+  matureMinConfidence: number;
+  matureCap: number;
+}
+
+export const CURRENT_SUPPORT_ROUTING_LAB_CONFIG: SupportRoutingLabConfig = {
+  name: 'current-routing',
+  rapidMinCount: 2,
+  rapidMinConfidence: 0.25,
+  rapidMinScore: 0.6,
+  rapidCap: 0.05,
+  matureMinEvidence: 3,
+  matureMinConfidence: 0.3,
+  matureCap: 0.08,
+};
+
+const observedLabAdjustment = (
+  profile: Profile,
+  strategy: StrategyId,
+  now: number,
+  config: SupportRoutingLabConfig,
+): number => {
+  const intelligence = profile.learningIntelligence ?? emptyLearningIntelligence();
+  const summary = contextualSupportSummary(
+    intelligence.supportOutcomes,
+    SUPPORT_FOR_HELP[strategy],
+    { subject: 'maths', skillId: 'fractions-y6', now },
+  );
+  const mature = summary.evidenceCount >= config.matureMinEvidence
+    && summary.confidence >= config.matureMinConfidence;
+  const rapid = !mature
+    && summary.exactSkillCount >= config.rapidMinCount
+    && summary.confidence >= config.rapidMinConfidence
+    && Math.abs(summary.score) >= config.rapidMinScore;
+  const cap = mature ? config.matureCap : rapid ? config.rapidCap : 0;
+  return cap === 0
+    ? 0
+    : Math.max(-cap, Math.min(cap, summary.score * summary.confidence * cap));
+};
+
+/**
+ * Lab-only replica of the production selector with tunable evidence gates.
+ * No learner/parent preferences are present in the synthetic support cohort,
+ * so the current config should reproduce currentSupportPolicy exactly.
+ */
+export function parameterizedSupportPolicy(
+  config: SupportRoutingLabConfig,
+): SupportPolicy {
+  return (profile, _learner, _trial, now) => {
+    const prereq = weakPrerequisite(profile, 'fractions-y6');
+    const usable = STRATEGIES.filter(
+      (strategy) => strategy !== 'prerequisite' || !!prereq,
+    );
+    return [...usable].sort((a, b) => {
+      const aScore = strategyScore(profile.help, a)
+        + observedLabAdjustment(profile, a, now, config);
+      const bScore = strategyScore(profile.help, b)
+        + observedLabAdjustment(profile, b, now, config);
+      return bScore - aScore || STRATEGIES.indexOf(a) - STRATEGIES.indexOf(b);
+    })[0];
+  };
+}
+
+export const SUPPORT_SPEED_CONFIGS: readonly SupportRoutingLabConfig[] = [
+  CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+  { ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG, name: 'rapid-cap-075', rapidCap: 0.075 },
+  { ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG, name: 'rapid-cap-100', rapidCap: 0.10 },
+  { ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG, name: 'rapid-cap-150', rapidCap: 0.15 },
+  {
+    ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+    name: 'one-shot-cap-020',
+    rapidMinCount: 1,
+    rapidMinConfidence: 0.10,
+    rapidCap: 0.02,
+  },
+  {
+    ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+    name: 'one-shot-cap-040',
+    rapidMinCount: 1,
+    rapidMinConfidence: 0.10,
+    rapidCap: 0.04,
+  },
+  {
+    ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+    name: 'one-shot-cap-060',
+    rapidMinCount: 1,
+    rapidMinConfidence: 0.10,
+    rapidCap: 0.06,
+  },
+  {
+    ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+    name: 'mature-cap-100',
+    matureCap: 0.10,
+  },
+  {
+    ...CURRENT_SUPPORT_ROUTING_LAB_CONFIG,
+    name: 'mature-cap-120',
+    matureCap: 0.12,
+  },
+] as const;
+
+export interface SupportRoutingChallengerResult {
+  config: SupportRoutingLabConfig;
+  benchmark: SupportBenchmark;
+  deltaVsCurrent: {
+    final5PreferredRate: number;
+    meanRegret: number;
+    medianTrialsToStablePreference: number | null;
+    stablePreferenceRate: number;
+  };
+}
+
+export function supportRoutingChallengers(
+  population: HiddenLearner[],
+  current: SupportBenchmark,
+  options: { trialsPerLearner?: number; seed?: number } = {},
+): SupportRoutingChallengerResult[] {
+  const trialsPerLearner = options.trialsPerLearner ?? 20;
+  const seed = options.seed ?? 20260925;
+  return SUPPORT_SPEED_CONFIGS.map((config) => {
+    const benchmark = runSupportBenchmark(
+      config.name,
+      parameterizedSupportPolicy(config),
+      { population, trialsPerLearner, seed },
+    );
+    return {
+      config,
+      benchmark,
+      deltaVsCurrent: {
+        final5PreferredRate: benchmark.final5PreferredRate - current.final5PreferredRate,
+        meanRegret: current.meanRegret - benchmark.meanRegret,
+        medianTrialsToStablePreference:
+          benchmark.medianTrialsToStablePreference === null
+          || current.medianTrialsToStablePreference === null
+            ? null
+            : current.medianTrialsToStablePreference
+              - benchmark.medianTrialsToStablePreference,
         stablePreferenceRate: benchmark.stablePreferenceRate - current.stablePreferenceRate,
       },
     };
