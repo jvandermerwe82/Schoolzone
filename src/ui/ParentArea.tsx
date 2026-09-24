@@ -14,6 +14,7 @@ export interface ParentTools {
     email: string;
     consent: Consent;
     safetyFlags: number;
+    changePassword: (current: string, password: string) => Promise<void>;
     tutorAvailable: boolean;
     updateConsent: (c: { dataProcessing: boolean; aiTutor: boolean; research: boolean }) => Promise<void>;
     tutorLog: (childId: string) => Promise<{ at: number; role: string; text: string; flagged: string | null }[]>;
@@ -85,6 +86,7 @@ function Privacy({ tools, profile }: { tools: ParentTools; profile: Profile }) {
   const cloud = tools.cloud;
   const [log, setLog] = useState<Awaited<ReturnType<NonNullable<ParentTools['cloud']>['tutorLog']>> | null>(null);
   const [msg, setMsg] = useState('');
+  const [pw, setPw] = useState({ open: false, current: '', next: '', error: '', done: false });
   const confirmDelete = (what: string) => window.confirm(`Delete ${what}? This can't be undone.`);
 
   if (!cloud) {
@@ -144,6 +146,28 @@ function Privacy({ tools, profile }: { tools: ParentTools; profile: Profile }) {
           ))}
         </div>
       )}
+      {!pw.open ? (
+        <button className="link" onClick={() => setPw({ ...pw, open: true, done: false })}>Change my password</button>
+      ) : (
+        <form
+          className="form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await cloud.changePassword(pw.current, pw.next);
+              setPw({ open: false, current: '', next: '', error: '', done: true });
+            } catch (err) {
+              setPw({ ...pw, error: (err as Error).message });
+            }
+          }}
+        >
+          <label>Current password<input type="password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required /></label>
+          <label>New password<input type="password" autoComplete="new-password" minLength={10} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required /><small>At least 10 characters. Other devices will be signed out.</small></label>
+          {pw.error && <p className="error" role="alert">{pw.error}</p>}
+          <div className="row"><button type="submit" className="primary">Change password</button><button type="button" onClick={() => setPw({ ...pw, open: false })}>Cancel</button></div>
+        </form>
+      )}
+      {pw.done && <p className="muted" role="status">Password changed. Other devices have been signed out.</p>}
       <div className="row danger-zone">
         <button className="danger" onClick={() => confirmDelete(`all of ${profile.name}'s data`) && cloud.deleteChild(profile.id)}>
           Delete {profile.name}'s data

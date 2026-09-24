@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Question } from '../src/brain/types';
 import { buildApp, CONSENT_VERSION } from './app';
 import { openDb, pruneOldData, type DB } from './db';
+import { MemoryMailer } from './mailer';
 import { findWrongSum, scrub, type TutorModel } from './tutor';
 
 const PASSWORD = 'correct horse battery';
@@ -21,16 +22,29 @@ const question: Question = {
   explanation: 'Add the ones first: 7 + 8 = 15. That makes 15, so write 5 and carry 1. Then add the rest: 47 + 38 = 85.',
 };
 
+const mailers = new WeakMap<object, MemoryMailer>();
+
 function setup(tutor: TutorModel | null = null, extra: Partial<Parameters<typeof buildApp>[0]> = {}) {
   const db = openDb(':memory:');
-  const app = buildApp({ db, tutor, adminToken: 'admin-secret', exportSalt: 'salt', ...extra });
-  return { db, app };
+  const mailer = new MemoryMailer();
+  const app = buildApp({ db, tutor, adminToken: 'admin-secret', exportSalt: 'salt', mailer, appUrl: 'https://app.test', ...extra });
+  mailers.set(app, mailer);
+  return { db, app, mailer };
 }
 
-async function signUp(app: ReturnType<typeof buildApp>, email = 'parent@example.com') {
+const tokenFrom = (link: string | null) => new URL(link!).searchParams.values().next().value!;
+
+/** Sign up and (by default) confirm the email using the link from the verification email. */
+async function signUp(app: ReturnType<typeof buildApp>, email = 'parent@example.com', verify = true) {
   const res = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email, password: PASSWORD } });
   expect(res.statusCode).toBe(201);
   const cookie = res.cookies.find((c) => c.name === 'sz_session')!;
+  if (verify) {
+    const link = mailers.get(app)!.lastLink(email);
+    expect(link).toMatch(/^https:\/\/app\.test\/\?verify=/);
+    const v = await app.inject({ method: 'POST', url: '/api/auth/verify', payload: { token: tokenFrom(link) } });
+    expect(v.statusCode).toBe(200);
+  }
   return { cookie: `sz_session=${cookie.value}`, raw: cookie };
 }
 
@@ -214,7 +228,7 @@ describe('deletion and retention', () => {
 
   it('prunes old events and expired sessions', () => {
     const db: DB = openDb(':memory:');
-    db.prepare("INSERT INTO parents VALUES ('p', 'e@x.co', 'h', NULL, 0)").run();
+    db.prepare("INSERT INTO parents (id, email, password_hash, created_at) VALUES ('p', 'e@x.co', 'h', 0)").run();
     db.prepare("INSERT INTO children VALUES ('c', 'p', '{}', 1, 0, 0)").run();
     db.prepare("INSERT INTO events (child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted) VALUES ('c', 0, 's', 1, 'k', 1, 0, 0, 1, 0.5)").run();
     db.prepare("INSERT INTO sessions VALUES ('t', 'p', 0, 5)").run();
@@ -311,5 +325,101 @@ describe('AI tutor', () => {
     expect((await ask('a')).statusCode).toBe(200);
     expect((await ask('b')).statusCode).toBe(200);
     expect((await ask('c')).statusCode).toBe(429);
+  });
+});
+
+describe('email verification and password reset', () => {
+  it('needs a confirmed email before adding a child', async () => {
+    const { app, mailer } = setup();
+    const { cookie } = await signUp(app, 'new@example.com', false);
+    await consent(app, cookie);
+    const blocked = await app.inject({ method: 'POST', url: '/api/children', headers: { cookie }, payload: { profile: { name: 'Ava' } } });
+    expect(blocked.statusCode).toBe(403);
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json().emailVerified).toBe(false);
+    const token = tokenFrom(mailer.lastLink('new@example.com'));
+    expect((await app.inject({ method: 'POST', url: '/api/auth/verify', payload: { token } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'POST', url: '/api/auth/verify', payload: { token } })).statusCode).toBe(400); // single use
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json().emailVerified).toBe(true);
+    await addChild(app, cookie);
+  });
+
+  it('can resend the verification email', async () => {
+    const { app, mailer } = setup();
+    const { cookie } = await signUp(app, 'new@example.com', false);
+    await app.inject({ method: 'POST', url: '/api/auth/verify/resend', headers: { cookie } });
+    expect(mailer.sent.filter((m) => m.to === 'new@example.com')).toHaveLength(2);
+  });
+
+  it('forgot-password gives the same answer whether or not the account exists, and only emails real accounts', async () => {
+    const { app, mailer } = setup();
+    await signUp(app);
+    const known = await app.inject({ method: 'POST', url: '/api/auth/forgot', payload: { email: 'parent@example.com' } });
+    const unknown = await app.inject({ method: 'POST', url: '/api/auth/forgot', payload: { email: 'nobody@example.com' } });
+    expect(known.body).toBe(unknown.body);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mailer.sent.some((m) => m.to === 'nobody@example.com')).toBe(false);
+    expect(mailer.lastLink('parent@example.com')).toMatch(/^https:\/\/app\.test\/\?reset=/);
+  });
+
+  it('resets the password with a single-use link and signs out every other device', async () => {
+    const { app, mailer } = setup();
+    const { cookie: oldCookie } = await signUp(app);
+    await app.inject({ method: 'POST', url: '/api/auth/forgot', payload: { email: 'parent@example.com' } });
+    await new Promise((r) => setTimeout(r, 0));
+    const token = tokenFrom(mailer.lastLink('parent@example.com'));
+    const weak = await app.inject({ method: 'POST', url: '/api/auth/reset', payload: { token, password: 'short' } });
+    expect(weak.statusCode).toBe(400);
+    const res = await app.inject({ method: 'POST', url: '/api/auth/reset', payload: { token, password: 'a brand new password' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.cookies.some((c) => c.name === 'sz_session')).toBe(true);
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: oldCookie } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'POST', url: '/api/auth/reset', payload: { token, password: 'another new password' } })).statusCode).toBe(400);
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'parent@example.com', password: 'a brand new password' } });
+    expect(login.statusCode).toBe(200);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mailer.sent.at(-1)!.subject).toMatch(/password was changed/);
+  });
+
+  it('reset links expire after an hour', async () => {
+    let t = 1_000_000;
+    const { app, mailer } = setup(null, { now: () => t });
+    await signUp(app);
+    await app.inject({ method: 'POST', url: '/api/auth/forgot', payload: { email: 'parent@example.com' } });
+    await new Promise((r) => setTimeout(r, 0));
+    const token = tokenFrom(mailer.lastLink('parent@example.com'));
+    t += 61 * 60_000;
+    expect((await app.inject({ method: 'POST', url: '/api/auth/reset', payload: { token, password: 'a brand new password' } })).statusCode).toBe(400);
+  });
+
+  it('changes the password when signed in, only with the current password', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    const wrong = await app.inject({ method: 'POST', url: '/api/auth/password', headers: { cookie }, payload: { current: 'nope nope nope', password: 'a brand new password' } });
+    expect(wrong.statusCode).toBe(401);
+    const ok = await app.inject({ method: 'POST', url: '/api/auth/password', headers: { cookie }, payload: { current: PASSWORD, password: 'a brand new password' } });
+    expect(ok.statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(401); // old session signed out
+  });
+
+  it('emails the parent when a chat is flagged, at most once an hour per child', async () => {
+    let t = 5_000_000;
+    const fake = new FakeTutor([]);
+    const { app, mailer } = setup(fake, { now: () => t });
+    const { cookie } = await signUp(app);
+    await consent(app, cookie);
+    const child = await addChild(app, cookie, 'Zola');
+    const ask = (message: string) => app.inject({ method: 'POST', url: `/api/children/${child.id}/tutor`, headers: { cookie }, payload: { question, history: [], message } });
+    await ask('i want to die');
+    await ask('nobody cares about me');
+    await new Promise((r) => setTimeout(r, 0));
+    const alerts = () => mailer.sent.filter((m) => m.subject.includes('AI tutor chat'));
+    expect(alerts()).toHaveLength(1);
+    expect(alerts()[0].text).toContain('Zola');
+    expect(alerts()[0].text).toContain('0800 1111');
+    expect(alerts()[0].text).not.toContain('i want to die'); // the message itself isn't put in the email
+    t += 61 * 60_000;
+    await ask('i want to hurt myself');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(alerts()).toHaveLength(2);
   });
 });

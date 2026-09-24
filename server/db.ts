@@ -71,19 +71,40 @@ CREATE TABLE IF NOT EXISTS tutor_messages (
   flagged TEXT
 );
 CREATE INDEX IF NOT EXISTS tutor_child ON tutor_messages(child_id, at);
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  token_hash TEXT PRIMARY KEY,
+  parent_id TEXT NOT NULL REFERENCES parents(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS flag_notices (
+  child_id TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
+  last_sent_at INTEGER NOT NULL
+);
 `;
+
+/** Columns added after the first version; added to existing databases on start-up. */
+const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
+  ['parents', 'email_verified_at', 'INTEGER'],
+];
 
 export function openDb(path: string): DB {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON;');
   if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  for (const [table, column, definition] of ADDED_COLUMNS) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
   return db;
 }
 
 /** Remove expired sessions and answer events older than the retention period. */
 export function pruneOldData(db: DB, now: number, retentionDays: number): void {
   db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
+  db.prepare('DELETE FROM auth_tokens WHERE expires_at < ?').run(now);
   db.prepare('DELETE FROM events WHERE at < ?').run(now - retentionDays * 86_400_000);
   db.prepare('DELETE FROM tutor_messages WHERE at < ?').run(now - retentionDays * 86_400_000);
 }

@@ -8,18 +8,22 @@ export const AVATARS = ['🐉', '🦊', '🐺', '🦈', '🦅', '🐯', '🤖', 
 interface Props {
   profiles: Profile[];
   error?: string;
+  notice?: string;
   offline: boolean;
+  /** Shown when a parent hasn't confirmed their email yet. */
+  verify?: { email: string; resend: () => Promise<void>; recheck: () => Promise<void> };
   onPick: (id: string) => void;
   onCreate: (p: Profile) => void;
 }
 
-export function ProfilePicker({ profiles, error, offline, onPick, onCreate }: Props) {
+export function ProfilePicker({ profiles, error, notice, offline, verify, onPick, onCreate }: Props) {
   // null = not chosen yet: show the form only when there are no players (players may arrive from the server after mounting).
   const [addingChoice, setAdding] = useState<boolean | null>(null);
   const adding = addingChoice ?? profiles.length === 0;
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [year, setYear] = useState(6);
+  const [resent, setResent] = useState('');
 
   return (
     <main className="page">
@@ -28,6 +32,22 @@ export function ProfilePicker({ profiles, error, offline, onPick, onCreate }: Pr
         <p className="tagline">Level up your maths, English and science.</p>
         {offline && <p className="pill muted">Offline mode: progress is saved on this device only</p>}
       </header>
+
+      {notice && <p className="banner new" role="status">{notice}</p>}
+      {verify && (
+        <div className="banner help" role="alert">
+          <p style={{ margin: 0 }}>
+            <strong>Parents: please confirm your email.</strong> We sent a link to {verify.email}. You'll need it before adding a player.
+          </p>
+          <div className="row">
+            <button onClick={async () => { try { await verify.resend(); setResent('Sent again. Check your inbox and spam folder.'); } catch (e) { setResent((e as Error).message); } }}>
+              Send the link again
+            </button>
+            <button className="link" onClick={() => void verify.recheck()}>I've confirmed it</button>
+          </div>
+          {resent && <p className="muted" role="status">{resent}</p>}
+        </div>
+      )}
 
       {!adding && (
         <section>

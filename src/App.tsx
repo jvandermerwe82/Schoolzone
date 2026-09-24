@@ -4,7 +4,7 @@ import type { ItemStats } from './brain/items';
 import type { Profile, SubjectId } from './brain/types';
 import { loadItems, loadParentPin, loadProfiles, normalizeProfile, saveItems, saveParentPin, saveProfiles } from './storage';
 import { flushEvents, ProfileSaver, queueEvent } from './sync';
-import { Auth } from './ui/Auth';
+import { Auth, ResetPassword } from './ui/Auth';
 import { Consent } from './ui/Consent';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
@@ -30,6 +30,14 @@ export function App() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'profiles' });
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  // Links from emails: ?verify=… confirms the email, ?reset=… opens the new-password form.
+  const [links] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    return { verify: q.get('verify'), reset: q.get('reset') };
+  });
+  const [resetToken, setResetToken] = useState(links.reset);
+  const clearLink = () => window.history.replaceState(null, '', window.location.pathname);
 
   const saver = useRef<ProfileSaver | null>(null);
   if (!saver.current && typeof window !== 'undefined') {
@@ -59,13 +67,22 @@ export function App() {
     void (async () => {
       if (await serverAvailable()) {
         setMode('cloud');
+        if (links.verify) {
+          try {
+            await api.verifyEmail(links.verify);
+            setNotice('Email confirmed. Thank you!');
+          } catch (e) {
+            setNotice((e as Error).message);
+          }
+          clearLink();
+        }
         await loadCloud();
       } else {
         setMode('local');
         setProfiles(loadProfiles());
       }
     })();
-  }, [loadCloud]);
+  }, [loadCloud, links.verify]);
 
   useEffect(() => { if (mode === 'local') saveProfiles(profiles); }, [mode, profiles]);
   useEffect(() => saveItems(items), [items]);
@@ -123,6 +140,7 @@ export function App() {
           email: me.email,
           consent: me.consent!,
           safetyFlags: me.safetyFlags,
+          changePassword: async (current, password) => { await api.changePassword(current, password); },
           tutorAvailable: me.tutorAvailable,
           updateConsent: async (c) => { await api.consent(c); await loadCloud(); },
           tutorLog: (childId) => api.tutorLog(childId),
@@ -141,7 +159,17 @@ export function App() {
   if (mode === 'checking') {
     return <main className="page center-screen"><p className="loading">Loading Schoolzone…</p></main>;
   }
-  if (mode === 'cloud' && !me) return <Auth onDone={loadCloud} />;
+  if (mode === 'cloud' && resetToken) {
+    const leave = () => { clearLink(); setResetToken(null); };
+    return (
+      <ResetPassword
+        token={resetToken}
+        onDone={() => { leave(); setNotice('Password changed. You are signed in.'); void loadCloud(); }}
+        onCancel={leave}
+      />
+    );
+  }
+  if (mode === 'cloud' && !me) return <Auth onDone={loadCloud} notice={notice} />;
   if (mode === 'cloud' && me && !me.consent) return <Consent tutorAvailable={me.tutorAvailable} onDone={loadCloud} />;
 
   if (!current || screen.name === 'profiles') {
@@ -149,7 +177,11 @@ export function App() {
       <ProfilePicker
         profiles={profiles}
         error={error}
+        notice={notice}
         offline={mode === 'local'}
+        verify={mode === 'cloud' && me && !me.emailVerified
+          ? { email: me.email, resend: async () => { await api.resendVerification(); }, recheck: loadCloud }
+          : undefined}
         onPick={(id) => { setCurrentId(id); setScreen({ name: 'home' }); }}
         onCreate={createProfile}
       />

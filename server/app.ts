@@ -13,6 +13,7 @@ import { updateItem, type ItemStats } from '../src/brain/items';
 import type { Level, Question } from '../src/brain/types';
 import type { DB } from './db';
 import { hashSecret, hashToken, newId, newToken, RateLimiter, verifySecret } from './security';
+import { ConsoleMailer, emails, type Mailer } from './mailer';
 import { askTutor, type TutorModel, type TutorTurn } from './tutor';
 
 export const CONSENT_VERSION = '2026-09-v1';
@@ -29,11 +30,18 @@ export interface AppOptions {
   exportSalt?: string;
   /** Maximum AI tutor messages per child per day. */
   tutorDailyLimit?: number;
+  /** Sends verification, password-reset and safety emails. Defaults to logging them. */
+  mailer?: Mailer;
+  /** Public address of the app, used in email links (never taken from request headers). */
+  appUrl?: string;
   now?: () => number;
   logger?: boolean;
 }
 
 const SESSION_DAYS = 30;
+const RESET_TTL = 60 * 60_000;
+const VERIFY_TTL = 7 * 86_400_000;
+const FLAG_EMAIL_GAP = 60 * 60_000;
 const COOKIE = 'sz_session';
 const MAX_PROFILE_BYTES = 512 * 1024;
 
@@ -52,6 +60,35 @@ export function buildApp(opts: AppOptions) {
 
   const loginLimiter = new RateLimiter(10, 15 * 60_000);
   const signupLimiter = new RateLimiter(5, 60 * 60_000);
+  const forgotLimiter = new RateLimiter(5, 60 * 60_000);
+  const mailer = opts.mailer ?? new ConsoleMailer();
+  const appUrl = (opts.appUrl ?? 'http://localhost:5173').replace(/\/$/, '');
+
+  /** Email failures are logged, never shown to the user (they could reveal whether an account exists). */
+  const sendMail = (to: string, mail: { subject: string; text: string }) =>
+    mailer.send({ to, ...mail }).catch((err) => app.log.error({ err }, 'email failed'));
+
+  /** Single-use token: only its hash is stored. */
+  const issueToken = (parentId: string, kind: 'reset' | 'verify', ttl: number) => {
+    const token = newToken();
+    db.prepare('INSERT INTO auth_tokens (token_hash, parent_id, kind, expires_at) VALUES (?, ?, ?, ?)')
+      .run(hashToken(token), parentId, kind, now() + ttl);
+    return token;
+  };
+  /** Returns the parent id if the token is valid, and marks it used. */
+  const useToken = (token: string, kind: 'reset' | 'verify'): string | null => {
+    const row = db.prepare('SELECT parent_id, expires_at, used_at FROM auth_tokens WHERE token_hash = ? AND kind = ?')
+      .get(hashToken(token), kind) as { parent_id: string; expires_at: number; used_at: number | null } | undefined;
+    if (!row || row.used_at !== null || row.expires_at < now()) return null;
+    db.prepare('UPDATE auth_tokens SET used_at = ? WHERE token_hash = ?').run(now(), hashToken(token));
+    return row.parent_id;
+  };
+  const sendVerification = (parentId: string, email: string) => {
+    const token = issueToken(parentId, 'verify', VERIFY_TTL);
+    return sendMail(email, emails.verify(`${appUrl}/?verify=${token}`));
+  };
+  const isVerified = (parentId: string) =>
+    !!(db.prepare('SELECT email_verified_at FROM parents WHERE id = ?').get(parentId) as { email_verified_at: number | null }).email_verified_at;
 
   // ---------- helpers ----------
   const setSession = (reply: FastifyReply, parentId: string) => {
@@ -121,6 +158,7 @@ export function buildApp(opts: AppOptions) {
     const id = newId();
     db.prepare('INSERT INTO parents (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)')
       .run(id, email, await hashSecret(req.body.password), now());
+    await sendVerification(id, email);
     setSession(reply, id);
     return reply.code(201).send({ email });
   });
@@ -144,6 +182,87 @@ export function buildApp(opts: AppOptions) {
     return { ok: true };
   });
 
+  // ---------- email verification ----------
+  const tokenBody = {
+    type: 'object', required: ['token'], additionalProperties: false,
+    properties: { token: { type: 'string', maxLength: 200 } },
+  } as const;
+
+  app.post<{ Body: { token: string } }>('/api/auth/verify', { schema: { body: tokenBody } }, async (req, reply) => {
+    const parentId = useToken(req.body.token, 'verify');
+    if (!parentId) return reply.code(400).send({ error: 'That link has expired or was already used. Sign in and ask for a new one.' });
+    db.prepare('UPDATE parents SET email_verified_at = ? WHERE id = ? AND email_verified_at IS NULL').run(now(), parentId);
+    return { ok: true };
+  });
+
+  const resendLimiter = new RateLimiter(3, 60 * 60_000);
+  app.post('/api/auth/verify/resend', { preHandler: requireParent }, async (req, reply) => {
+    if (isVerified(req.parent!.id)) return { ok: true };
+    if (!resendLimiter.take(req.parent!.id, now())) return reply.code(429).send({ error: 'Please wait a while before asking again.' });
+    await sendVerification(req.parent!.id, req.parent!.email);
+    return { ok: true };
+  });
+
+  // ---------- password reset ----------
+  app.post<{ Body: { email: string } }>('/api/auth/forgot', {
+    schema: { body: { type: 'object', required: ['email'], additionalProperties: false, properties: { email: { type: 'string', maxLength: 254 } } } },
+  }, async (req, reply) => {
+    const email = req.body.email.trim().toLowerCase();
+    if (!forgotLimiter.take(req.ip, now()) || !forgotLimiter.take(`e|${email}`, now())) {
+      return reply.code(429).send({ error: 'Too many requests. Try again later.' });
+    }
+    const row = db.prepare('SELECT id FROM parents WHERE email = ?').get(email) as { id: string } | undefined;
+    if (row) {
+      const token = issueToken(row.id, 'reset', RESET_TTL);
+      // Not awaited, so the response time doesn't reveal whether the account exists.
+      void sendMail(email, emails.reset(`${appUrl}/?reset=${token}`));
+    }
+    // Same answer either way.
+    return { ok: true };
+  });
+
+  app.post<{ Body: { token: string; password: string } }>('/api/auth/reset', {
+    schema: {
+      body: {
+        type: 'object', required: ['token', 'password'], additionalProperties: false,
+        properties: { token: { type: 'string', maxLength: 200 }, password: { type: 'string', maxLength: 200 } },
+      },
+    },
+  }, async (req, reply) => {
+    if (req.body.password.length < 10) return reply.code(400).send({ error: 'Please use a password of at least 10 characters.' });
+    const parentId = useToken(req.body.token, 'reset');
+    if (!parentId) return reply.code(400).send({ error: 'That link has expired or was already used. Please ask for a new one.' });
+    const parent = db.prepare('SELECT email FROM parents WHERE id = ?').get(parentId) as { email: string };
+    db.prepare('UPDATE parents SET password_hash = ? WHERE id = ?').run(await hashSecret(req.body.password), parentId);
+    // Clicking the emailed link proves the address works.
+    db.prepare('UPDATE parents SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?').run(now(), parentId);
+    db.prepare('DELETE FROM sessions WHERE parent_id = ?').run(parentId); // sign out every device
+    db.prepare("UPDATE auth_tokens SET used_at = ? WHERE parent_id = ? AND kind = 'reset' AND used_at IS NULL").run(now(), parentId);
+    void sendMail(parent.email, emails.passwordChanged());
+    setSession(reply, parentId);
+    return { email: parent.email };
+  });
+
+  app.post<{ Body: { current: string; password: string } }>('/api/auth/password', {
+    preHandler: requireParent,
+    schema: {
+      body: {
+        type: 'object', required: ['current', 'password'], additionalProperties: false,
+        properties: { current: { type: 'string', maxLength: 200 }, password: { type: 'string', maxLength: 200 } },
+      },
+    },
+  }, async (req, reply) => {
+    if (!loginLimiter.take(`${req.ip}|${req.parent!.email}`, now())) return reply.code(429).send({ error: 'Too many attempts. Try again in 15 minutes.' });
+    const row = db.prepare('SELECT password_hash FROM parents WHERE id = ?').get(req.parent!.id) as { password_hash: string };
+    if (!(await verifySecret(req.body.current, row.password_hash))) return reply.code(401).send({ error: 'Your current password is not right.' });
+    if (req.body.password.length < 10) return reply.code(400).send({ error: 'Please use a password of at least 10 characters.' });
+    db.prepare('UPDATE parents SET password_hash = ? WHERE id = ?').run(await hashSecret(req.body.password), req.parent!.id);
+    db.prepare('DELETE FROM sessions WHERE parent_id = ?').run(req.parent!.id);
+    void sendMail(req.parent!.email, emails.passwordChanged());
+    setSession(reply, req.parent!.id);
+    return { ok: true };
+  });
+
   app.get('/api/me', { preHandler: requireParent }, async (req) => {
     const c = latestConsent(req.parent!.id);
     const pin = db.prepare('SELECT pin_hash FROM parents WHERE id = ?').get(req.parent!.id) as { pin_hash: string | null };
@@ -151,6 +270,7 @@ export function buildApp(opts: AppOptions) {
       WHERE c.parent_id = ? AND t.flagged LIKE 'safety:%' AND t.at > ?`).get(req.parent!.id, now() - 30 * 86_400_000) as { n: number };
     return {
       email: req.parent!.email,
+      emailVerified: isVerified(req.parent!.id),
       safetyFlags: flags.n,
       hasPin: !!pin.pin_hash,
       consent: c && c.version === CONSENT_VERSION
@@ -212,6 +332,8 @@ export function buildApp(opts: AppOptions) {
     schema: { body: { type: 'object', required: ['profile'], properties: { profile: { type: 'object' } } } },
   }, async (req, reply) => {
     if (!hasDataConsent(req.parent!.id)) return reply.code(403).send({ error: 'Consent needed first.' });
+    // A confirmed email means we can always reach the parent (e.g. about a flagged chat).
+    if (!isVerified(req.parent!.id)) return reply.code(403).send({ error: 'Please confirm your email first. Check your inbox for our link.' });
     const json = JSON.stringify(req.body.profile);
     if (json.length > MAX_PROFILE_BYTES) return reply.code(413).send({ error: 'Profile too large.' });
     const id = newId();
@@ -332,6 +454,7 @@ export function buildApp(opts: AppOptions) {
     async (req, reply) => {
       if (!opts.tutor) return reply.code(503).send({ error: 'The tutor is not switched on.' });
       if (latestConsent(req.parent!.id)?.ai_tutor !== 1) return reply.code(403).send({ error: 'A parent needs to switch on the AI tutor first.' });
+      if (!isVerified(req.parent!.id)) return reply.code(403).send({ error: 'A parent needs to confirm their email first.' });
       const since = now() - 86_400_000;
       const used = db.prepare("SELECT COUNT(*) AS n FROM tutor_messages WHERE child_id = ? AND role = 'user' AND at > ?").get(req.params.id, since) as { n: number };
       if (used.n >= tutorLimit) return reply.code(429).send({ error: 'That\'s enough tutor chat for today. Try the hints and examples!' });
@@ -340,6 +463,18 @@ export function buildApp(opts: AppOptions) {
       const log = db.prepare('INSERT INTO tutor_messages (child_id, at, role, text, flagged) VALUES (?, ?, ?, ?, ?)');
       log.run(req.params.id, now(), 'user', req.body.message.slice(0, 1000), null);
       log.run(req.params.id, now(), 'assistant', result.reply, result.flagged);
+
+      // Tell the parent straight away (at most once an hour per child, so they aren't flooded).
+      if (result.flagged?.startsWith('safety:')) {
+        const last = db.prepare('SELECT last_sent_at FROM flag_notices WHERE child_id = ?').get(req.params.id) as { last_sent_at: number } | undefined;
+        if (!last || now() - last.last_sent_at >= FLAG_EMAIL_GAP) {
+          db.prepare('INSERT INTO flag_notices (child_id, last_sent_at) VALUES (?, ?) ON CONFLICT(child_id) DO UPDATE SET last_sent_at = excluded.last_sent_at')
+            .run(req.params.id, now());
+          const child = db.prepare('SELECT profile_json FROM children WHERE id = ?').get(req.params.id) as { profile_json: string };
+          const name = String((JSON.parse(child.profile_json) as { name?: string }).name ?? 'your child');
+          void sendMail(req.parent!.email, emails.safetyFlag(name, result.flagged.slice(7), appUrl));
+        }
+      }
       return result;
     },
   );

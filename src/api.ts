@@ -26,7 +26,7 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 }
 
 export interface Consent { version: string; dataProcessing: boolean; aiTutor: boolean; research: boolean; at: number }
-export interface Me { email: string; hasPin: boolean; consent: Consent | null; tutorAvailable: boolean; /** AI tutor messages flagged for a parent to check, last 30 days. */ safetyFlags: number }
+export interface Me { email: string; emailVerified: boolean; hasPin: boolean; consent: Consent | null; tutorAvailable: boolean; /** AI tutor messages flagged for a parent to check, last 30 days. */ safetyFlags: number }
 export interface ServerChild { id: string; version: number; profile: Profile }
 export interface AnswerEvent {
   at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean; rapid: boolean;
@@ -52,6 +52,11 @@ export const api = {
   signup: (email: string, password: string) => call<{ email: string }>('POST', '/api/auth/signup', { email, password }),
   login: (email: string, password: string) => call<{ email: string }>('POST', '/api/auth/login', { email, password }),
   logout: () => call<{ ok: true }>('POST', '/api/auth/logout', {}),
+  verifyEmail: (token: string) => call<{ ok: true }>('POST', '/api/auth/verify', { token }),
+  resendVerification: () => call<{ ok: true }>('POST', '/api/auth/verify/resend', {}),
+  forgot: (email: string) => call<{ ok: true }>('POST', '/api/auth/forgot', { email }),
+  resetPassword: (token: string, password: string) => call<{ email: string }>('POST', '/api/auth/reset', { token, password }),
+  changePassword: (current: string, password: string) => call<{ ok: true }>('POST', '/api/auth/password', { current, password }),
   consent: (c: Omit<Consent, 'at' | 'version'>) => call<{ ok: true }>('POST', '/api/consent', { version: CONSENT_VERSION, ...c }),
   setPin: (pin: string) => call<{ ok: true }>('POST', '/api/pin', { pin }),
   checkPin: (pin: string) => call<{ ok: boolean }>('POST', '/api/pin/check', { pin }),

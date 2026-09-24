@@ -20,8 +20,9 @@ const scripted: TutorModel = {
   },
 };
 
-const app = buildApp({ db: openDb(process.env.DATABASE_PATH ?? ':memory:'), tutor: scripted, logger: false });
+const port = Number(process.env.PORT ?? 8788);
+const app = buildApp({ db: openDb(process.env.DATABASE_PATH ?? ':memory:'), tutor: scripted, logger: false, appUrl: process.env.APP_URL ?? `http://127.0.0.1:${port}` });
 const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 app.register(fastifyStatic, { root: dist });
 app.setNotFoundHandler((req, reply) => (req.url.startsWith('/api/') ? reply.code(404).send({}) : reply.sendFile('index.html')));
-app.listen({ port: Number(process.env.PORT ?? 8788), host: '127.0.0.1' }).then(() => console.log('preview with scripted tutor ready'));
+app.listen({ port, host: '127.0.0.1' }).then(() => console.log('preview with scripted tutor ready'));

@@ -34,6 +34,7 @@ If no server is reachable, the app runs in **offline mode**: everything stays in
 | Area | What's in place |
 | --- | --- |
 | **Accounts** | Parent accounts (children never have logins). Passwords hashed with scrypt. Only a hash of each session token is stored. Cookies are http-only and SameSite=Lax, and Secure in production. Logins, sign-ups and PIN checks are rate-limited. |
+| **Email** | The parent must confirm their email before adding a child, so they can always be reached. Password reset links work once and expire after an hour, and "forgot password" never reveals whether an email has an account. A reset or password change signs out every other device and sends a "your password was changed" email. Works with any SMTP provider (`SMTP_URL`); without it, emails go to the server log. |
 | **Consent** | Versioned parental consent is recorded before any child data is stored. The AI tutor and research use are separate opt-ins, off by default. |
 | **Data minimisation** | Only first name or nickname, year, avatar and practice data are stored. Children get random ids, and names never appear in answer logs. |
 | **Sync** | Profiles are saved with version checks, so two devices can't silently overwrite each other; the copy with more practice wins. Answers queue on the device and are sent in batches, so nothing is lost offline. |
@@ -51,7 +52,7 @@ Anthropic has [guidelines for organisations whose products are used by minors](h
 - **Content screening:** worrying messages (self-harm, being hurt, sexual content, arranging contact, violence) are never sent to the AI. The child gets a kind, fixed reply pointing to a trusted adult and [Childline, free on 0800 1111](https://www.childline.org.uk/). The message is flagged for the parent. AI replies are screened the same way.
 - **Contact details:** emails, phone numbers and links are removed before anything is sent.
 - **Never gives the answer:** tutors that hand out answers can harm learning ([Bastani et al., PNAS 2025](https://www.pnas.org/doi/10.1073/pnas.2422633122)). Every reply is checked by code: if it contains the answer or a wrong sum, it's retried once and then replaced with a pre-written hint.
-- **Monitoring:** parents can read every chat. Flagged messages are highlighted with a warning in the parent area.
+- **Monitoring:** parents can read every chat. Flagged messages are highlighted in the parent area, and the parent is emailed straight away (at most once an hour per child). The email doesn't include the message itself.
 - **Limits:** 60 messages per child per day by default (`TUTOR_DAILY_LIMIT`).
 
 The safety screen is a simple word-and-phrase check. It will flag some harmless messages and miss some worrying ones. It's a first layer, not a full moderation system.
@@ -62,10 +63,10 @@ In place and tested: everything above (server API tests cover auth, consent, pri
 
 Still needed, and some of these are decisions for you:
 - [ ] **Hosting** with HTTPS, plus a backup plan for the database file (SQLite suits a single-server pilot).
+- [ ] **An email provider** with SMTP (for confirmations, password resets and safety alerts), and `APP_URL` set to the real address.
 - [ ] **An Anthropic API key.** Then review Anthropic's minors guidelines, and add Anthropic's child-safety system prompt if they provide one.
 - [ ] **A privacy notice and a data protection impact assessment.** The [ICO Children's Code](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/) applies to UK services likely to be used by children. Having someone qualified review the consent wording is worthwhile.
 - [ ] **A process for flagged chats:** who reads them, and how quickly.
-- [ ] **Password reset and email verification.** Not built yet.
 - [ ] **A Year 6 teacher's review** of the questions, explanations and topic notes.
 - [ ] **An evaluation plan:** short checkpoint tests before and after the pilot, to measure whether it actually helps.
 
