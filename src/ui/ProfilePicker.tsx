@@ -14,9 +14,11 @@ interface Props {
   verify?: { email: string; resend: () => Promise<void>; recheck: () => Promise<void> };
   onPick: (id: string) => void;
   onCreate: (p: Profile) => void;
+  /** Server mode: open the teachers' page (registering a school for the leaderboard). */
+  onTeacher?: () => void;
 }
 
-export function ProfilePicker({ profiles, error, notice, offline, verify, onPick, onCreate }: Props) {
+export function ProfilePicker({ profiles, error, notice, offline, verify, onPick, onCreate, onTeacher }: Props) {
   // null = not chosen yet: show the form only when there are no players (players may arrive from the server after mounting).
   const [addingChoice, setAdding] = useState<boolean | null>(null);
   const adding = addingChoice ?? profiles.length === 0;
@@ -106,6 +108,9 @@ export function ProfilePicker({ profiles, error, notice, offline, verify, onPick
             {profiles.length > 0 && <button type="button" onClick={() => setAdding(false)}>Cancel</button>}
           </div>
         </form>
+      )}
+      {onTeacher && (
+        <p className="center"><button className="link" onClick={onTeacher}>🏫 Teachers: put your school on the leaderboard</button></p>
       )}
     </main>
   );

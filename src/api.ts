@@ -32,6 +32,19 @@ export interface AnswerEvent {
   at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean; rapid: boolean;
   timeMs: number; predicted: number; misconception: string | null; strategy: string | null;
 }
+export interface SchoolMembership { school: { name: string } | null; codeName?: string; onBoard?: boolean }
+export interface BoardSchool { name: string; pupils: number; score: number; rank: number; mine: boolean }
+export interface BoardPupil { rank: number; codeName: string; avatar: string; score: number; me: boolean }
+export interface Leaderboard {
+  period: 'week' | 'all';
+  weekStart: string;
+  school: { name: string; pupils: number; rank: number | null; score: number | null; minPupils: number } | null;
+  schools: BoardSchool[];
+  pupils?: BoardPupil[];
+  me?: { codeName: string; onBoard: boolean; score: number; rank: number | null };
+  dailyCap?: number;
+}
+export interface TeacherSchool { id: string; name: string; status: 'pending' | 'approved'; pupils: number; joinCode: string | null }
 export interface TutorTurn { role: 'user' | 'assistant'; content: string }
 
 /** True if a Schoolzone server answers. */
@@ -69,5 +82,13 @@ export const api = {
   tutor: (id: string, body: { question: Question; given?: string; misconception?: string; history: TutorTurn[]; message: string }) =>
     call<{ reply: string; flagged: string | null }>('POST', `/api/children/${id}/tutor`, body),
   tutorLog: (id: string) => call<{ at: number; role: string; text: string; flagged: string | null }[]>('GET', `/api/children/${id}/tutor`),
+  school: (id: string) => call<SchoolMembership>('GET', `/api/children/${id}/school`),
+  joinSchool: (id: string, code: string) => call<SchoolMembership>('POST', `/api/children/${id}/school`, { code }),
+  updateSchool: (id: string, patch: { onBoard?: boolean; newCodeName?: boolean }) => call<SchoolMembership>('PATCH', `/api/children/${id}/school`, patch),
+  leaveSchool: (id: string) => call<{ ok: true }>('DELETE', `/api/children/${id}/school`),
+  leaderboard: (id: string, period: 'week' | 'all') => call<Leaderboard>('GET', `/api/children/${id}/leaderboard?period=${period}`),
+  mySchools: () => call<TeacherSchool[]>('GET', '/api/schools'),
+  registerSchool: (name: string) => call<{ id: string }>('POST', '/api/schools', { name }),
+  newJoinCode: (schoolId: string) => call<{ joinCode: string }>('POST', `/api/schools/${schoolId}/code`, {}),
   deleteAccount: () => call<{ ok: true }>('DELETE', '/api/account'),
 };

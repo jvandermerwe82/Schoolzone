@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Consent } from '../api';
+import { useEffect, useState } from 'react';
+import type { Consent, SchoolMembership } from '../api';
 import { BADGES, formatMoney, moneyTotals, parseMoney, rewardsOwed } from '../brain/badges';
 import type { BadgeReward, Profile } from '../brain/types';
 import { checkpointsFor, score } from '../content/checkpoint';
@@ -21,6 +21,12 @@ export interface ParentTools {
     updateConsent: (c: { dataProcessing: boolean; aiTutor: boolean; research: boolean }) => Promise<void>;
     tutorLog: (childId: string) => Promise<{ at: number; role: string; text: string; flagged: string | null }[]>;
     deleteChild: (childId: string) => Promise<void>;
+    school: {
+      get: (childId: string) => Promise<SchoolMembership>;
+      join: (childId: string, code: string) => Promise<SchoolMembership>;
+      update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean }) => Promise<SchoolMembership>;
+      leave: (childId: string) => Promise<void>;
+    };
     deleteAccount: () => Promise<void>;
     signOut: () => Promise<void>;
   };
@@ -104,6 +110,51 @@ function CheckpointResults({ profile }: { profile: Profile }) {
           </div>
         );
       })}
+    </section>
+  );
+}
+
+/** Joining a school's leaderboard. Off the pupil board unless the parent switches it on. */
+function SchoolSection({ school, profile }: { school: NonNullable<ParentTools['cloud']>['school']; profile: Profile }) {
+  const [m, setM] = useState<SchoolMembership | null>(null);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { school.get(profile.id).then(setM).catch((e: Error) => setError(e.message)); }, [school, profile.id]);
+  const run = async (f: () => Promise<SchoolMembership>) => {
+    setError('');
+    try { setM(await f()); } catch (e) { setError((e as Error).message); }
+  };
+  if (!m) return null;
+  return (
+    <section className="card">
+      <h2>🏫 School leaderboard</h2>
+      {!m.school ? (
+        <form className="form" onSubmit={(e) => { e.preventDefault(); void run(() => school.join(profile.id, code)); }}>
+          <p className="muted">
+            If {profile.name}'s school uses Schoolzone, enter the join code from the school. {profile.name}'s points will count
+            towards the school's score (an average, with no names).
+          </p>
+          <label>School join code<input value={code} onChange={(e) => setCode(e.target.value)} placeholder="ABCD-EFGH" maxLength={20} autoComplete="off" required /></label>
+          <button type="submit" className="primary">Join school</button>
+        </form>
+      ) : (
+        <>
+          <p>{profile.name} is in <strong>{m.school.name}</strong>.</p>
+          <label className="check">
+            <input type="checkbox" checked={!!m.onBoard} onChange={(e) => void run(() => school.update(profile.id, { onBoard: e.target.checked }))} />
+            <span>
+              <strong>Show {profile.name} on the school's pupil leaderboard</strong> as <strong>{m.codeName}</strong>.
+              Only pupils in {m.school.name} can see it. {profile.name}'s real name is never shown.
+            </span>
+          </label>
+          <div className="row">
+            <button onClick={() => void run(() => school.update(profile.id, { newCodeName: true }))}>New code name</button>
+            <button className="link" onClick={() => window.confirm(`Take ${profile.name} out of ${m.school!.name}? This week's points will be deleted.`)
+              && void run(async () => { await school.leave(profile.id); return { school: null }; })}>Leave school</button>
+          </div>
+        </>
+      )}
+      {error && <p className="error" role="alert">{error}</p>}
     </section>
   );
 }
@@ -323,6 +374,7 @@ export function ParentArea({ tools, profile, onSave, onDone, onCancel, firstTime
           </form>
 
           {!firstTime && <CheckpointResults profile={profile} />}
+          {!firstTime && tools.cloud && <SchoolSection school={tools.cloud.school} profile={profile} />}
           {!firstTime && <Privacy tools={tools} profile={profile} />}
         </>
       )}

@@ -14,6 +14,7 @@ import type { Level, Question } from '../src/brain/types';
 import type { DB } from './db';
 import { hashSecret, hashToken, newId, newToken, RateLimiter, verifySecret } from './security';
 import { ConsoleMailer, emails, type Mailer } from './mailer';
+import { awardPoints, registerSchoolRoutes } from './leaderboard';
 import { askTutor, type TutorModel, type TutorTurn } from './tutor';
 
 export const CONSENT_VERSION = '2026-09-v1';
@@ -41,6 +42,8 @@ export interface AppOptions {
    * reached except through that proxy.
    */
   trustProxy?: boolean | string;
+  /** Where to send "a new school needs approving" emails. */
+  adminEmail?: string;
   /** Send Strict-Transport-Security (only when served over HTTPS). */
   hsts?: boolean;
   now?: () => number;
@@ -443,6 +446,8 @@ export function buildApp(opts: AppOptions) {
           for (const [k, v] of Object.entries(items)) if (before[k] !== v) upsert.run(k, v.offset, v.n);
         }
       }
+      // Leaderboard effort points (only if the child has joined a school).
+      awardPoints(db, req.params.id, req.body.events, now());
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
@@ -513,6 +518,12 @@ export function buildApp(opts: AppOptions) {
   /** Parents can read everything their child said to the tutor, and every reply. */
   app.get<{ Params: { id: string } }>('/api/children/:id/tutor', { preHandler: requireChild }, async (req) =>
     db.prepare('SELECT at, role, text, flagged FROM tutor_messages WHERE child_id = ? ORDER BY id DESC LIMIT 200').all(req.params.id));
+
+  // ---------- schools and leaderboards ----------
+  registerSchoolRoutes(app, {
+    db, now, requireParent, requireChild, isVerified, sendMail, appUrl,
+    adminToken: opts.adminToken, adminEmail: opts.adminEmail,
+  });
 
   // ---------- account deletion ----------
   app.delete('/api/account', { preHandler: requireParent }, async (req, reply) => {

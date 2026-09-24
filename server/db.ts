@@ -78,6 +78,28 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   expires_at INTEGER NOT NULL,
   used_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS schools (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  owner_id TEXT REFERENCES parents(id) ON DELETE SET NULL,
+  join_code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS memberships (
+  child_id TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
+  school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  code_name TEXT NOT NULL,
+  on_board INTEGER NOT NULL,
+  joined_at INTEGER NOT NULL,
+  UNIQUE (school_id, code_name)
+);
+CREATE TABLE IF NOT EXISTS points (
+  child_id TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  PRIMARY KEY (child_id, day)
+);
 CREATE TABLE IF NOT EXISTS flag_notices (
   child_id TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
   last_sent_at INTEGER NOT NULL
@@ -107,4 +129,6 @@ export function pruneOldData(db: DB, now: number, retentionDays: number): void {
   db.prepare('DELETE FROM auth_tokens WHERE expires_at < ?').run(now);
   db.prepare('DELETE FROM events WHERE at < ?').run(now - retentionDays * 86_400_000);
   db.prepare('DELETE FROM tutor_messages WHERE at < ?').run(now - retentionDays * 86_400_000);
+  // Weekly leaderboard points are only needed for the current week.
+  db.prepare('DELETE FROM points WHERE day < ?').run(new Date(now - 14 * 86_400_000).toISOString().slice(0, 10));
 }

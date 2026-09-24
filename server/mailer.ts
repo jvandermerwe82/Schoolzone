@@ -59,4 +59,12 @@ export const emails = {
     subject: `Schoolzone: please check ${childName}'s AI tutor chat`,
     text: `Hello,\n\nA message ${childName} typed to the Schoolzone AI tutor was flagged for you to check (category: ${category}).\n\nThe message was not sent to the AI. ${childName} was shown a kind message suggesting they talk to a trusted adult, and Childline (free on 0800 1111).\n\nTo read the chat, sign in at ${appUrl}, open Parents, then "Read ${childName}'s AI tutor chats".\n\nIf you think ${childName} may be at risk, please talk with them, and contact your local services or the NSPCC helpline for advice.${SIGN_OFF}`,
   }),
+  schoolPending: (schoolName: string, ownerEmail: string): Omit<Email, 'to'> => ({
+    subject: `Schoolzone: new school to approve (${schoolName})`,
+    text: `Hello,\n\n${ownerEmail} registered the school "${schoolName}" for the leaderboard.\n\nBefore approving, check that this person really works at the school (for example, a reply from the school's office or an address on the school's own email domain).\n\nList schools waiting for approval:\n  curl -H "x-admin-token: $ADMIN_TOKEN" <APP_URL>/api/admin/schools${SIGN_OFF}`,
+  }),
+  schoolApproved: (schoolName: string, appUrl: string): Omit<Email, 'to'> => ({
+    subject: `Schoolzone: ${schoolName} is ready`,
+    text: `Hello,\n\n${schoolName} has been approved for the Schoolzone leaderboard. Sign in at ${appUrl} and open "Teachers" to see your school's join code. Give it to parents: they enter it in the Parents area to join.${SIGN_OFF}`,
+  }),
 };

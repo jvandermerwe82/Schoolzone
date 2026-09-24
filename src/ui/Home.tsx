@@ -13,6 +13,8 @@ interface Props {
   onDashboard: () => void;
   onParents: () => void;
   onInfo: () => void;
+  /** Server mode only. */
+  onLeaderboard?: () => void;
   onSwitch: () => void;
 }
 
@@ -79,7 +81,7 @@ function Achievements({ profile }: { profile: Profile }) {
   );
 }
 
-export function Home({ profile, offline, onPractice, onDashboard, onParents, onInfo, onSwitch }: Props) {
+export function Home({ profile, offline, onPractice, onDashboard, onParents, onInfo, onLeaderboard, onSwitch }: Props) {
   return (
     <main className="page">
       <header className="topbar">
@@ -113,6 +115,7 @@ export function Home({ profile, offline, onPractice, onDashboard, onParents, onI
 
       <div className="row footer-links">
         <button className="secondary" onClick={onDashboard}>📊 My skills</button>
+        {onLeaderboard && <button className="secondary" onClick={onLeaderboard}>🏆 Leaderboard</button>}
         <button className="link" onClick={onInfo}>🔒 Your information</button>
         <button className="link" onClick={onParents}>Parents</button>
       </div>

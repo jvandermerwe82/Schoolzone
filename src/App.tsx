@@ -9,6 +9,8 @@ import { checkpointDue, type Form } from './content/checkpoint';
 import { Checkpoint } from './ui/Checkpoint';
 import { Consent } from './ui/Consent';
 import { YourInfo } from './ui/YourInfo';
+import { Leaderboard } from './ui/Leaderboard';
+import { Teacher, type TeacherTools } from './ui/Teacher';
 import { Dashboard } from './ui/Dashboard';
 import { Home } from './ui/Home';
 import { ParentArea, type ParentTools } from './ui/ParentArea';
@@ -22,10 +24,25 @@ type Screen =
   | { name: 'checkpoint'; subject: SubjectId; form: Form; which: 'first' | 'second' }
   | { name: 'dashboard' }
   | { name: 'info' }
+  | { name: 'leaderboard' }
+  | { name: 'teacher' }
   | { name: 'parents' };
 
 /** 'cloud' when a Schoolzone server is reachable; otherwise everything stays on this device. */
 type Mode = 'checking' | 'local' | 'cloud';
+
+// Stable objects, so screens that load data on mount don't reload on every render.
+const SCHOOL_TOOLS = {
+  get: (childId: string) => api.school(childId),
+  join: (childId: string, code: string) => api.joinSchool(childId, code),
+  update: (childId: string, patch: { onBoard?: boolean; newCodeName?: boolean }) => api.updateSchool(childId, patch),
+  leave: async (childId: string) => { await api.leaveSchool(childId); },
+};
+const TEACHER_TOOLS: TeacherTools = {
+  list: () => api.mySchools(),
+  register: (name) => api.registerSchool(name),
+  newCode: (schoolId) => api.newJoinCode(schoolId),
+};
 
 export function App() {
   const [mode, setMode] = useState<Mode>('checking');
@@ -132,6 +149,9 @@ export function App() {
     if (mode === 'cloud') queueEvent(childId, e);
   }, [mode]);
 
+  const currentKey = current?.id;
+  const loadBoard = useCallback((period: 'week' | 'all') => api.leaderboard(currentKey!, period), [currentKey]);
+
   const tutor: TutorFn | undefined = useMemo(() => {
     if (mode !== 'cloud' || !me?.tutorAvailable || !me.consent?.aiTutor || !current) return undefined;
     const id = current.id;
@@ -152,6 +172,7 @@ export function App() {
           updateConsent: async (c) => { await api.consent(c); await loadCloud(); },
           tutorLog: (childId) => api.tutorLog(childId),
           deleteChild: deleteProfile,
+          school: SCHOOL_TOOLS,
           deleteAccount: async () => { await api.deleteAccount(); setMe(null); setProfiles([]); setScreen({ name: 'profiles' }); },
           signOut: async () => { await api.logout(); setMe(null); setProfiles([]); setScreen({ name: 'profiles' }); },
         },
@@ -179,7 +200,11 @@ export function App() {
   if (mode === 'cloud' && !me) return <Auth onDone={loadCloud} notice={notice} />;
   if (mode === 'cloud' && me && !me.consent) return <Consent tutorAvailable={me.tutorAvailable} onDone={loadCloud} />;
 
-  if (!current || screen.name === 'profiles') {
+  if (screen.name === 'teacher' && mode === 'cloud') {
+    return <Teacher tools={TEACHER_TOOLS} onBack={() => setScreen({ name: 'profiles' })} />;
+  }
+
+  if (!current || screen.name === 'profiles' || screen.name === 'teacher') {
     return (
       <ProfilePicker
         profiles={profiles}
@@ -191,6 +216,7 @@ export function App() {
           : undefined}
         onPick={(id) => { setCurrentId(id); setScreen({ name: 'home' }); }}
         onCreate={createProfile}
+        onTeacher={mode === 'cloud' && me?.emailVerified ? () => setScreen({ name: 'teacher' }) : undefined}
       />
     );
   }
@@ -225,6 +251,7 @@ export function App() {
           onDashboard={() => setScreen({ name: 'dashboard' })}
           onParents={() => setScreen({ name: 'parents' })}
           onInfo={() => setScreen({ name: 'info' })}
+          onLeaderboard={mode === 'cloud' ? () => setScreen({ name: 'leaderboard' }) : undefined}
           onSwitch={() => setScreen({ name: 'profiles' })}
         />
       );
@@ -259,6 +286,8 @@ export function App() {
       );
     case 'dashboard':
       return <Dashboard profile={current} items={items} onBack={() => setScreen({ name: 'home' })} />;
+    case 'leaderboard':
+      return <Leaderboard profile={current} load={loadBoard} onBack={() => setScreen({ name: 'home' })} />;
     case 'info':
       return <YourInfo profile={current} offline={mode === 'local'} tutorOn={!!tutor} onBack={() => setScreen({ name: 'home' })} />;
   }

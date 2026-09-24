@@ -72,6 +72,14 @@ See **[docs/deployment.md](docs/deployment.md)** for the step-by-step guide.
 
 Before a child's first mission in a subject, the app offers a short **checkpoint**: every Year 6 skill at two levels (maths 16 questions, English 10, science 10), with no hints and no marking until the end. A second checkpoint is offered 28 days later using the other of two forms (A/B, counterbalanced per child). Children can choose "Later". Parents see first and latest scores in the parent area, and `GET /api/admin/checkpoints.csv` exports results for research-consented families. See [docs/evaluation-plan.md](docs/evaluation-plan.md), including its limits (no control group; forms not statistically equated).
 
+### Schools and leaderboards
+
+- **Joining:** a teacher registers the school (from "Teachers" on the player screen). It goes live only after an admin checks the teacher works there (`ADMIN_EMAIL` is told; approve with `/api/admin/schools`). The teacher then gets a join code, and parents enter it in the Parents area.
+- **Two boards, two periods:** a **school board** (average per pupil, shown once a school has 5 pupils) and a **pupil board** inside each school, each for **This week** (effort points) and **All time** (XP).
+- **Effort points** are counted by the server: 10 for a right answer, 5 with a hint, 2 for a real try, 0 for a rushed guess. Capped at 300 a day, new week every Monday (UK time), so long sessions don't win.
+- **Privacy:** pupils are on the pupil board only if a parent switches it on, and then under a generated code name ("Swift Falcon"), never their real name, and only other pupils at the same school can see it. Only the top 10 are listed (plus the child's own place). Teachers see how many pupils joined, not who.
+- **Known limit:** all-time XP is worked out on the child's device, so a determined adult could inflate it. Weekly points are counted and capped by the server, so they're much harder to game.
+
 ### Before children use it: pilot checklist
 
 In place and tested: everything above (server API tests cover auth, consent, privacy between families, sync conflicts, events, research exports, deletion, retention, tutor safeguards, safety flags, security headers, health and backups).
@@ -193,9 +201,9 @@ The PIN is stored on the device and only keeps children out casually. It isn't s
 ```
 src/brain/     learner model, tutor, stuck-episode help, misconceptions, question calibration, badges, tests
 src/content/   skill map, maths generators (maths.ts, maths-y6.ts), English and science question banks, Problem Solver (hints, notes, word meanings)
-src/ui/        React screens: sign-in, consent, player select, home, missions, checkpoints, skills, parent area, "Your information"
+src/ui/        React screens: sign-in, consent, player select, home, missions, checkpoints, leaderboard, teachers, skills, parent area, "Your information"
 src/api.ts     server client; src/sync.ts: offline-safe syncing
-server/        API (app.ts), database (db.ts), backups (backup.ts), AI tutor (tutor.ts), safety screening (safety.ts), tests
+server/        API (app.ts), database (db.ts), schools and leaderboards (leaderboard.ts), backups (backup.ts), AI tutor (tutor.ts), safety screening (safety.ts), tests
 scripts/       content export for teacher review, email and AI tutor checks
 docs/          deployment guide and drafts: privacy notice, DPIA, safeguarding procedure, evaluation plan
 ```

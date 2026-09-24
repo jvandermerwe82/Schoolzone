@@ -37,6 +37,7 @@ const app = buildApp({
   tutor,
   secureCookies: production,
   adminToken: env.ADMIN_TOKEN,
+  adminEmail: env.ADMIN_EMAIL,
   exportSalt: env.EXPORT_SALT,
   tutorDailyLimit: Number(env.TUTOR_DAILY_LIMIT ?? 60),
   mailer,

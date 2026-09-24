@@ -11,7 +11,7 @@ Schoolzone processes personal data of children aged about 10–11, including lea
 **Nature.** Parents create accounts and child profiles. Children answer practice questions; the app adapts difficulty, diagnoses mistake patterns, and records progress. Optionally, children chat with an AI tutor (Anthropic's Claude) about a question.
 
 **Scope.**
-- Data: parent email, hashed password and PIN, consent records; child first name or nickname, school year, avatar, answers, timings, hints used, skills, mistake patterns, badges, XP, checkpoint results; optional tutor messages.
+- Data: parent and teacher emails, hashed password and PIN, consent records; school name and membership, generated code name, leaderboard choice, weekly points; child first name or nickname, school year, avatar, answers, timings, hints used, skills, mistake patterns, badges, XP, checkpoint results; optional tutor messages.
 - No special category data is requested. Tutor messages could contain sensitive information a child chooses to type (e.g. about their wellbeing).
 - Volume: pilot of **[TO COMPLETE: number]** families.
 - Retention: events and chats up to 365 days (configurable); profiles until deleted; backups 14 days (configurable).
@@ -44,6 +44,8 @@ Who has been or will be consulted: parents, children (e.g. a small user group), 
 | 5 | Server or backup breach | Remote | Severe | Medium |
 | 6 | Data used beyond what parents expect (function creep) | Remote | Significant | Low |
 | 7 | Gamification nudges children to overuse the app | Possible | Minimal–significant | Low–medium |
+| 8 | Leaderboards: a child is identified by classmates, or feels bad about a low rank | Possible | Minimal–significant | Medium |
+| 9 | Someone pretends to be a school to gather children into a group | Remote | Significant | Low–medium |
 
 ## Step 6: Measures
 
@@ -55,7 +57,9 @@ Who has been or will be consulted: parents, children (e.g. a small user group), 
 | 4 | Passwords ≥10 chars, scrypt hashing, rate limits, email confirmation, reset signs out all devices, password-change alerts | Consider two-factor sign-in later |
 | 5 | Hashed secrets; only token hashes stored; security headers; data only in `/data` volume | **HTTPS hosting, encrypted backups, access control** [TO COMPLETE] |
 | 6 | Purposes stated in consent; research opt-in; no advertising | Review annually |
-| 7 | Missions are short (10 questions); no pay-to-win; XP rewards effort not speed | Consider daily time reminders for parents |
+| 7 | Missions are short (10 questions); no pay-to-win; XP rewards effort not speed; weekly points capped at 300 a day and reset every Monday; neutral wording, no "you'll lose your place" messages | Consider daily time reminders for parents |
+| 8 | Pupil board off by default (parent opt-in); generated code names only, never real names; visible only inside the child's own school; top 10 only (no bottom of the table); school board shows averages, only from 5 pupils; points reward effort (right answers, hints, tries) not just ability | Ask children and teachers in the pilot how the board feels; a child who recognises a classmate's avatar could guess who they are |
+| 9 | Schools go live only after an admin checks the teacher works there; teachers see no pupil names or answers; join-code guessing is rate-limited; codes can be replaced | **Decide how you check teachers** [TO COMPLETE], e.g. a reply from the school office |
 
 ## Step 7: Sign-off **[TO COMPLETE]**
 

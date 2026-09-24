@@ -38,6 +38,7 @@ export function YourInfo({ profile, offline, tutorOn, onBack }: Props) {
           <li>{offline
             ? 'On this device, your progress is saved only in this web browser.'
             : 'It is saved safely on Schoolzone\'s computer so it\'s there next time. The people who run Schoolzone can only look at it to keep the app working.'}</li>
+          {!offline && <li>If your grown-up joins you to your school, your points count towards your school's score. You're only on the pupil leaderboard if your grown-up says yes, and then with a <strong>code name</strong>, never your real name.</li>}
           <li>We don't show adverts, and we don't sell your information.</li>
         </ul>
 
