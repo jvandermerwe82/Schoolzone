@@ -24,6 +24,7 @@
  */
 import { getSkill } from '../content/skills';
 import { isMastered } from './model';
+import { supportRoutingScore } from './support-routing';
 import type { HelpEpisode, HelpState, Level, Profile, Question, StrategyId } from './types';
 
 export const STRATEGIES: StrategyId[] = ['similar', 'worked-example', 'hint', 'smaller-steps', 'prerequisite'];
@@ -78,7 +79,11 @@ export function nextStrategy(profile: Profile, ep: Pick<HelpEpisode, 'skillId' |
     options = usable;
   }
   const help = profile.help ?? emptyHelp();
-  const strategy = [...options].sort((a, b) => strategyScore(help, b) - strategyScore(help, a) || STRATEGIES.indexOf(a) - STRATEGIES.indexOf(b))[0];
+  const routingScore = (strategy: StrategyId) =>
+    supportRoutingScore(profile, strategy, strategyScore(help, strategy)).total;
+  const strategy = [...options].sort(
+    (a, b) => routingScore(b) - routingScore(a) || STRATEGIES.indexOf(a) - STRATEGIES.indexOf(b),
+  )[0];
   return { strategy, tried, prereqSkill: strategy === 'prerequisite' ? prereq : null };
 }
 
