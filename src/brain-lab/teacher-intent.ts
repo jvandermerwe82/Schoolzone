@@ -36,7 +36,10 @@ export type TeacherEvidencePolicy =
   | 'recent-10'
   | 'recent-8-after-8'
   | 'recent-8-after-10'
-  | 'recent-10-after-10';
+  | 'recent-10-after-10'
+  | 'recovery-7-of-8'
+  | 'recovery-8-of-8'
+  | 'recovery-9-of-10';
 
 export const TEACHER_INTENT_SAFE_TARGET_KNOWLEDGE = 0.70;
 export const TEACHER_INTENT_SAFE_PREREQUISITE_KNOWLEDGE = 0.65;
@@ -128,6 +131,7 @@ const homeworkFor = (
 interface EvidenceWindowPolicy {
   window: number | null;
   minLifetimeDirectEvidence: number;
+  recoveryRequiredCorrect?: number;
 }
 
 const evidenceWindowPolicy = (policy: TeacherEvidencePolicy): EvidenceWindowPolicy => {
@@ -138,6 +142,12 @@ const evidenceWindowPolicy = (policy: TeacherEvidencePolicy): EvidenceWindowPoli
     case 'recent-8-after-8': return { window: 8, minLifetimeDirectEvidence: 8 };
     case 'recent-8-after-10': return { window: 8, minLifetimeDirectEvidence: 10 };
     case 'recent-10-after-10': return { window: 10, minLifetimeDirectEvidence: 10 };
+    case 'recovery-7-of-8':
+      return { window: 8, minLifetimeDirectEvidence: 8, recoveryRequiredCorrect: 7 };
+    case 'recovery-8-of-8':
+      return { window: 8, minLifetimeDirectEvidence: 8, recoveryRequiredCorrect: 8 };
+    case 'recovery-9-of-10':
+      return { window: 10, minLifetimeDirectEvidence: 10, recoveryRequiredCorrect: 9 };
     case 'lifetime': return { window: null, minLifetimeDirectEvidence: 0 };
   }
 };
@@ -149,19 +159,40 @@ const historyForEvidencePolicy = (
   const config = evidenceWindowPolicy(policy);
   if (config.window === null) return [...history];
 
-  const lifetimeDirectCounts = new Map<string, number>();
-  for (const answer of history) {
+  const byNode = new Map<string, { index: number; answer: AnswerRecord; correct: boolean; direct: boolean }[]>();
+  for (let index = 0; index < history.length; index++) {
+    const answer = history[index];
     for (const item of answer.curriculumEvidence ?? []) {
-      if (item.curriculumId !== 'au-ac-v9' || item.strength !== 'direct') continue;
-      lifetimeDirectCounts.set(
-        item.canonicalNodeId,
-        (lifetimeDirectCounts.get(item.canonicalNodeId) ?? 0) + 1,
-      );
+      if (item.curriculumId !== 'au-ac-v9') continue;
+      const rows = byNode.get(item.canonicalNodeId) ?? [];
+      rows.push({
+        index,
+        answer,
+        correct: answer.correct,
+        direct: item.strength === 'direct',
+      });
+      byNode.set(item.canonicalNodeId, rows);
+    }
+  }
+
+  const useRecentFor = new Set<string>();
+  for (const [nodeId, rows] of byNode) {
+    const directRows = rows.filter((row) => row.direct);
+    if (directRows.length < config.minLifetimeDirectEvidence) continue;
+
+    if (config.recoveryRequiredCorrect !== undefined) {
+      if (directRows.length < config.window) continue;
+      const recentDirect = directRows.slice(-config.window);
+      const correct = recentDirect.filter((row) => row.correct).length;
+      if (correct >= config.recoveryRequiredCorrect) useRecentFor.add(nodeId);
+    } else {
+      useRecentFor.add(nodeId);
     }
   }
 
   const recentCounts = new Map<string, number>();
-  const kept: AnswerRecord[] = [];
+  const keptIndices = new Set<number>();
+
   for (let index = history.length - 1; index >= 0; index--) {
     const answer = history[index];
     const nodeIds = (answer.curriculumEvidence ?? [])
@@ -169,26 +200,25 @@ const historyForEvidencePolicy = (
       .map((item) => item.canonicalNodeId);
 
     if (nodeIds.length === 0) {
-      kept.push(answer);
+      keptIndices.add(index);
       continue;
     }
 
-    const relevant = nodeIds.some((nodeId) => {
-      const lifetimeCount = lifetimeDirectCounts.get(nodeId) ?? 0;
-      if (lifetimeCount < config.minLifetimeDirectEvidence) return true;
-      return (recentCounts.get(nodeId) ?? 0) < config.window!;
-    });
-    if (!relevant) continue;
-
-    kept.push(answer);
+    let keep = false;
     for (const nodeId of nodeIds) {
-      const lifetimeCount = lifetimeDirectCounts.get(nodeId) ?? 0;
-      if (lifetimeCount >= config.minLifetimeDirectEvidence) {
+      if (!useRecentFor.has(nodeId)) {
+        keep = true;
+        continue;
+      }
+      if ((recentCounts.get(nodeId) ?? 0) < config.window) {
+        keep = true;
         recentCounts.set(nodeId, (recentCounts.get(nodeId) ?? 0) + 1);
       }
     }
+    if (keep) keptIndices.add(index);
   }
-  return kept.reverse();
+
+  return history.filter((_answer, index) => keptIndices.has(index));
 };
 
 const evidenceProfile = (
@@ -592,6 +622,42 @@ export function teacherHybridEvidenceChallengers(
     'recent-8-after-8',
     'recent-8-after-10',
     'recent-10-after-10',
+  ];
+
+  return policies.map((evidencePolicy) => {
+    const benchmark = runTeacherIntentBenchmark('route-aware', {
+      population,
+      horizonQuestions,
+      seed,
+      evidencePolicy,
+    });
+    return {
+      evidencePolicy,
+      benchmark,
+      deltaVsLifetime: {
+        completionRate: benchmark.completionRate - lifetime.completionRate,
+        wrongAnswerRate: lifetime.wrongAnswerRate - benchmark.wrongAnswerRate,
+        prerequisiteRepairRate:
+          benchmark.prerequisiteRepairRate - lifetime.prerequisiteRepairRate,
+        meanTargetKnowledge:
+          benchmark.meanFinalTargetKnowledge - lifetime.meanFinalTargetKnowledge,
+      },
+    };
+  });
+}
+
+
+export function teacherRecoveryEvidenceChallengers(
+  population: HiddenTeacherIntentLearner[],
+  lifetime: TeacherIntentBenchmark,
+  options: { horizonQuestions?: number; seed?: number } = {},
+): TeacherEvidenceChallenger[] {
+  const horizonQuestions = options.horizonQuestions ?? 48;
+  const seed = options.seed ?? 20260925;
+  const policies: TeacherEvidencePolicy[] = [
+    'recovery-7-of-8',
+    'recovery-8-of-8',
+    'recovery-9-of-10',
   ];
 
   return policies.map((evidencePolicy) => {
