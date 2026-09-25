@@ -282,6 +282,85 @@ describe('answer events and shared question difficulty', () => {
     expect((db.prepare('SELECT COUNT(*) n FROM events').get() as { n: number }).n).toBe(0);
   });
 
+  it('exports structured support and engagement evidence without notes or names', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, true, true);
+    const child = await addChild(app, cookie, 'Zanele');
+
+    const profile = {
+      name: 'Zanele',
+      year: 6,
+      learningIntelligence: {
+        schemaVersion: 1,
+        curriculum: null,
+        supportPreferences: [{
+          strategy: 'worked-examples',
+          source: 'parent',
+          value: 'prefer',
+          at: 10,
+          note: 'private parent note',
+        }],
+        supportOutcomes: [{
+          strategy: 'worked-examples',
+          at: 20,
+          delta: 0.9,
+          weight: 0.5,
+          source: 'observed-learning',
+          subject: 'maths',
+          skillId: 'fractions-y6',
+        }],
+        engagement: [{
+          kind: 'stopped-session',
+          at: 30,
+          subject: 'maths',
+          skillId: 'fractions-y6',
+          value: 4,
+        }],
+        intents: [],
+      },
+    };
+    const save = await app.inject({
+      method: 'PUT',
+      url: `/api/children/${child.id}`,
+      headers: { cookie },
+      payload: { profile, version: 1 },
+    });
+    expect(save.statusCode).toBe(200);
+
+    for (const path of [
+      '/api/admin/support-preferences.csv',
+      '/api/admin/support-outcomes.csv',
+      '/api/admin/engagement.csv',
+    ]) {
+      expect((await app.inject({ method: 'GET', url: path })).statusCode).toBe(404);
+    }
+
+    const headers = { 'x-admin-token': 'admin-secret' };
+    const prefs = (await app.inject({
+      method: 'GET', url: '/api/admin/support-preferences.csv', headers,
+    })).body;
+    const outcomes = (await app.inject({
+      method: 'GET', url: '/api/admin/support-outcomes.csv', headers,
+    })).body;
+    const engagement = (await app.inject({
+      method: 'GET', url: '/api/admin/engagement.csv', headers,
+    })).body;
+
+    expect(prefs).toContain('worked-examples');
+    expect(prefs).toContain('parent');
+    expect(prefs).not.toContain('private parent note');
+    expect(outcomes).toContain('observed-learning');
+    expect(outcomes).toContain('fractions-y6');
+    expect(engagement).toContain('stopped-session');
+
+    for (const csv of [prefs, outcomes, engagement]) {
+      expect(csv).not.toContain(child.id);
+      expect(csv).not.toContain('Zanele');
+      expect(csv).not.toContain('parent@example.com');
+    }
+  });
+
   it('exports research data pseudonymised, with no names or real ids, and only with the admin token', async () => {
     const { app } = setup();
     const { cookie } = await signUp(app);
