@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: schoolzone
+    runtime: docker
+    branch: claude/adaptive-school-app-skills-i93pd7
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+
+    disk:
+      name: schoolzone-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PATH
+        value: /data/schoolzone.db
+      - key: BACKUP_DIR
+        value: /data/backups
+      - key: BACKUP_KEEP
+        value: "14"
+      - key: RETENTION_DAYS
+        value: "365"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: TUTOR_ENABLED
+        value: "true"
+
+      # Filled when the production service is created.
+      - key: APP_URL
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+
+      # Render generates these once and preserves them for the service.
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: EXPORT_SALT
+        generateValue: true
