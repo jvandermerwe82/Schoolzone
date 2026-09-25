@@ -17,7 +17,10 @@ export type ScaffoldFadePolicy =
   | 'state-aware'
   | 'state-aware-v2-balanced'
   | 'state-aware-v2-conservative'
-  | 'state-aware-v2-strict';
+  | 'state-aware-v2-strict'
+  | 'state-aware-v3-tiered'
+  | 'state-aware-v3-tiered-light'
+  | 'state-aware-v3-tiered-wide';
 
 export interface HiddenScaffoldLearner {
   id: string;
@@ -87,6 +90,9 @@ export interface StateAwareScaffoldComparison {
   balanced: ScaffoldFadeBenchmark;
   conservative: ScaffoldFadeBenchmark;
   strict: ScaffoldFadeBenchmark;
+  tiered: ScaffoldFadeBenchmark;
+  tieredLight: ScaffoldFadeBenchmark;
+  tieredWide: ScaffoldFadeBenchmark;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -247,6 +253,39 @@ const requiredSupportedSuccesses = (
       || (heavy && evidence.supportedFailures > 0)
     ) return 3;
     if (perfectPriorTransfer && cleanLightSuccess) return 1;
+    return 2;
+  }
+
+  // v3 tests redistribution rather than more help overall: weak observed
+  // support-to-independence transfer gets an extra confirmation, while strong
+  // demonstrated transfer earns an earlier fade. No latent learner variables
+  // are available to the decision rule.
+  if (policy === 'state-aware-v3-tiered') {
+    if (evidence.priorTransferSuccesses <= 2) return 3;
+    if (
+      evidence.priorTransferSuccesses >= 5
+      && evidence.supportedFailures === 0
+      && evidence.unaidedRelapses === 0
+    ) return 1;
+    return 2;
+  }
+
+  if (policy === 'state-aware-v3-tiered-light') {
+    if (evidence.priorTransferSuccesses <= 2) return 3;
+    if (
+      evidence.priorTransferSuccesses >= 5
+      && cleanLightSuccess
+    ) return 1;
+    return 2;
+  }
+
+  if (policy === 'state-aware-v3-tiered-wide') {
+    if (evidence.priorTransferSuccesses <= 1) return 3;
+    if (
+      evidence.priorTransferSuccesses >= 5
+      && evidence.supportedFailures === 0
+      && evidence.unaidedRelapses === 0
+    ) return 1;
     return 2;
   }
 
@@ -590,6 +629,9 @@ export function compareStateAwareScaffoldPolicies(
     balanced: runScaffoldFadeBenchmark('state-aware-v2-balanced', common),
     conservative: runScaffoldFadeBenchmark('state-aware-v2-conservative', common),
     strict: runScaffoldFadeBenchmark('state-aware-v2-strict', common),
+    tiered: runScaffoldFadeBenchmark('state-aware-v3-tiered', common),
+    tieredLight: runScaffoldFadeBenchmark('state-aware-v3-tiered-light', common),
+    tieredWide: runScaffoldFadeBenchmark('state-aware-v3-tiered-wide', common),
   };
 }
 
