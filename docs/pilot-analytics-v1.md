@@ -33,6 +33,21 @@ Outputs:
 - `pilot-analytics-v1.json`
 - `pilot-analytics-v1.md`
 
+## Stage-0 integrity gate
+
+The CLI always writes the JSON and Markdown outputs, but exits non-zero when the technical evidence package is incomplete.
+
+Stage-0 currently requires:
+
+- all required columns in all five exports;
+- at least one practice answer;
+- at least **95%** Pilot Evidence v1 event coverage;
+- at least **95%** structured session/mission coverage;
+- at least one paired first/second checkpoint learner-subject result;
+- at least one measurable mission.
+
+This is a **data-plumbing gate**, not an effectiveness threshold. Passing it means the export is technically usable for the planned analysis; it does not mean SchoolZone is effective.
+
 ## Metrics
 
 ### Data integrity
