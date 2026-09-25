@@ -17,6 +17,7 @@ import { hintLadder, topicNotes, wordsIn } from '../content/solver';
 import { getSkill, skillsFor } from '../content/skills';
 import { useSpeech } from '../speech';
 import { questionSpeech, SpeakButton } from './SpeakButton';
+import { newMissionEvidenceId, pilotAnswerEvent } from '../pilot-evidence';
 import { PassageCard } from './PassageCard';
 
 
@@ -132,6 +133,7 @@ export function Practice({
   const masteredAtStart = useRef(
     new Set(skillsFor(subject).filter((s) => isMastered(skillState(profile, s.id))).map((s) => s.id)),
   );
+  const missionEvidenceId = useRef(newMissionEvidenceId());
   const [turn, setTurn] = useState<Turn>(
     () => nextTurn(profile, subject, focusSkill ?? null, 0, items, teacherRoute),
   );
@@ -215,19 +217,34 @@ export function Practice({
 
   function submit(given: string) {
     if (feedback || !given.trim()) return;
+    const at = Date.now();
+    const timeMs = at - turn.shownAt;
     const correct = checkAnswer(question, given);
+    const before = skillState(profile, question.skillId);
     const curriculumEvidence = curriculumEvidenceForQuestion(profile, question, curriculumFocus);
-    const result = recordAnswer(profile, question, correct, Date.now() - turn.shownAt, Date.now(), {
+    const result = recordAnswer(profile, question, correct, timeMs, at, {
       given, hinted: usedSolver, items, strategy: plan.strategy, curriculumEvidence,
       sessionPosition: answered + 1,
     });
+    const after = skillState(result.profile, question.skillId);
     onUpdate(result.profile);
     onItems(result.items);
-    onAnswer(profile.id, {
-      at: Date.now(), skillId: question.skillId, level: question.level, itemKey: itemKey(question), correct,
-      hinted: usedSolver, rapid: result.rapid, timeMs: Date.now() - turn.shownAt, predicted: result.predicted,
-      misconception: result.misconception, strategy: plan.strategy ?? null,
-    });
+    onAnswer(profile.id, pilotAnswerEvent({
+      at,
+      timeMs,
+      sessionId: missionEvidenceId.current,
+      sessionPosition: answered + 1,
+      question,
+      itemKey: itemKey(question),
+      correct,
+      hinted: usedSolver,
+      plan,
+      result,
+      before,
+      after,
+      curriculumEvidence,
+      teacherRoute,
+    }));
     setFeedback({ correct, given, misconception: result.misconception, rapid: result.rapid, event: result.event, badges: result.badges, xp: result.xp });
     setAnswered((n) => n + 1);
     setSessionXp((x) => x + result.xp);
@@ -257,6 +274,7 @@ export function Practice({
 
   function continueMission() {
     const nextProfile = withSessionSignal('continued-voluntarily', missionLength);
+    missionEvidenceId.current = newMissionEvidenceId();
     if (teacherRoute && onNextTeacherMission) {
       onNextTeacherMission(nextProfile);
       return;
