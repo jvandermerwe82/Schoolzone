@@ -46,6 +46,7 @@ export interface AnswerEvent {
   eventVersion?: number;
   sessionId?: string | null;
   sessionPosition?: number | null;
+  missionLength?: number | null;
   planReason?: 'new' | 'continue' | 'review' | 'help' | 'climb' | null;
   helpEvent?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
   diagnostic?: boolean | null;
