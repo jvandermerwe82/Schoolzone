@@ -219,9 +219,9 @@ export function evaluatePilotReleaseReadiness(input: {
     add(
       checks,
       'tutor-credentials',
-      !!env.ANTHROPIC_API_KEY?.trim() || !!env.ANTHROPIC_AUTH_TOKEN?.trim(),
-      'Tutor is enabled and Anthropic credentials are configured.',
-      'Tutor is enabled but no Anthropic API/auth credential is configured.',
+      !!env.ANTHROPIC_API_KEY?.trim(),
+      'Tutor is enabled and the Anthropic API key is configured.',
+      'Tutor is enabled but ANTHROPIC_API_KEY is not configured.',
     );
   } else {
     checks.push({
