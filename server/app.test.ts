@@ -250,7 +250,7 @@ describe('answer events and shared question difficulty', () => {
     });
   });
 
-  it('rejects free-text fields from the research event contract', async () => {
+  it('discards unknown free-text fields before research storage and export', async () => {
     const { app } = setup();
     const { cookie } = await signUp(app);
     await consent(app, cookie, true, true);
@@ -261,10 +261,21 @@ describe('answer events and shared question difficulty', () => {
       url: `/api/children/${child.id}/events`,
       headers: { cookie },
       payload: {
-        events: [event({ rawAnswer: 'private child answer', teacherNote: 'free text' })],
+        events: [event({ rawAnswer: 'private child answer', teacherNote: 'private teacher note' })],
       },
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true, stored: 1 });
+
+    const csv = (await app.inject({
+      method: 'GET',
+      url: '/api/admin/events.csv',
+      headers: { 'x-admin-token': 'admin-secret' },
+    })).body;
+    expect(csv).not.toContain('private child answer');
+    expect(csv).not.toContain('private teacher note');
+    expect(csv.split('\n')[0]).not.toContain('rawAnswer');
+    expect(csv.split('\n')[0]).not.toContain('teacherNote');
   });
 
   it('stores events with research consent, removes them if consent is withdrawn, and ignores keys from other skills', async () => {
