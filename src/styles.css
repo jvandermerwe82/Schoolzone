@@ -650,3 +650,17 @@ html.calm *, html.calm *::before, html.calm *::after { animation: none !importan
 @media (max-width: 480px) {
   .as-place-guide { grid-template-columns: repeat(2, 1fr); }
 }
+
+.as-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+.as-controls button {
+  flex: 1;
+  min-height: 42px;
+}
+@media (max-width: 480px) {
+  .as-controls { flex-direction: column; }
+}
