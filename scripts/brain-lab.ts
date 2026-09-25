@@ -31,6 +31,7 @@ import {
   evaluateSessionRegulationGate,
   sessionRegulationPopulation,
 } from '../src/brain-lab/session-regulation';
+import { compareScaffoldFadePolicies, scaffoldFadePopulation } from '../src/brain-lab/scaffold-fading';
 import {
   compareTeacherIntentPolicies,
   evaluateTeacherIntentLabGate,
@@ -129,6 +130,13 @@ const sessionRegulation = compareSessionRegulation({
   seed: 20260925,
 });
 const sessionRegulationGate = evaluateSessionRegulationGate(sessionRegulation);
+const scaffoldPopulationLocked = scaffoldFadePopulation(120);
+const scaffoldFading = compareScaffoldFadePolicies({
+  population: scaffoldPopulationLocked,
+  maxTurns: 18,
+  postResolutionProbes: 4,
+  seed: 20260925,
+});
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -171,6 +179,7 @@ process.stdout.write(JSON.stringify({
     gate: sessionRegulationGate,
     ...sessionRegulation,
   },
+  scaffoldFading,
   teacherIntent: {
     gate: teacherIntentGate,
     current: teacherIntent,
