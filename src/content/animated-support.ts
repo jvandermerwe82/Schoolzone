@@ -1,5 +1,7 @@
 import type { Question } from '../brain/types';
 
+export const ANIMATED_SUPPORT_VERSION = 1 as const;
+
 export type AnimatedSupportKind = 'place-value' | 'column' | 'fraction' | 'groups';
 
 export interface AnimatedSupportStep {
