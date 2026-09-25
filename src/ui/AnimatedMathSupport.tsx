@@ -166,9 +166,26 @@ function GroupsVisual({
   );
 }
 
-function SupportVisual({ support, step }: { support: AnimatedSupport; step: number }) {
+function SupportVisual({
+  support,
+  step,
+  mode,
+}: {
+  support: AnimatedSupport;
+  step: number;
+  mode: 'hint' | 'worked';
+}) {
   switch (support.kind) {
     case 'place-value':
+      if (mode === 'hint') {
+        return (
+          <div className="as-place-guide" aria-label="Place value order">
+            {['thousands', 'hundreds', 'tens', 'ones'].map((place) => (
+              <span key={place}>{place}</span>
+            ))}
+          </div>
+        );
+      }
       return <PlaceValueVisual support={support} step={step} />;
     case 'column':
       return <ColumnVisual support={support} step={step} />;
@@ -200,6 +217,9 @@ export function AnimatedMathSupport({ question, mode }: Props) {
   }, [support, step, playing]);
 
   if (!support) return null;
+  // A comparison bar can make a multiple-choice fraction answer visually obvious.
+  // Keep it for worked examples, but not for answer-safe hint mode.
+  if (mode === 'hint' && support.kind === 'fraction' && support.operation === 'compare') return null;
 
   const current = support.steps[Math.min(step, support.steps.length - 1)];
   const finished = step >= support.steps.length - 1;
@@ -223,7 +243,7 @@ export function AnimatedMathSupport({ question, mode }: Props) {
         </button>
       </div>
 
-      <SupportVisual support={support} step={step} />
+      <SupportVisual support={support} step={step} mode={mode} />
 
       <div className="as-step" aria-live="polite">
         <span className="as-step-count">Step {step + 1}/{support.steps.length}</span>
