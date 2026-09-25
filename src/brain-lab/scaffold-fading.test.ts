@@ -107,9 +107,14 @@ describe('Brain Lab scaffold fading and independence', () => {
     expect(selective.heavyTwo.learnerCount).toBe(40);
     expect(selective.deepTwo.learnerCount).toBe(40);
     expect(selective.heavyOrDeepTwo.learnerCount).toBe(40);
-    expect(stateAware.stateAware.learnerCount).toBe(40);
-    expect(stateAware.stateAware.resolutionRate).toBeGreaterThanOrEqual(0);
-    expect(stateAware.stateAware.resolutionRate).toBeLessThanOrEqual(1);
+    expect(stateAware.v1.learnerCount).toBe(40);
+    expect(stateAware.balanced.learnerCount).toBe(40);
+    expect(stateAware.conservative.learnerCount).toBe(40);
+    expect(stateAware.strict.learnerCount).toBe(40);
+    for (const benchmark of Object.values(stateAware)) {
+      expect(benchmark.resolutionRate).toBeGreaterThanOrEqual(0);
+      expect(benchmark.resolutionRate).toBeLessThanOrEqual(1);
+    }
   });
 
   it('compares current fading with two- and three-supported challengers', () => {
