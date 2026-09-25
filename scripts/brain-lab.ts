@@ -27,6 +27,16 @@ import {
   runRetentionBenchmark,
 } from '../src/brain-lab/retention';
 import {
+  compareSessionRegulation,
+  evaluateSessionRegulationGate,
+  sessionRegulationPopulation,
+} from '../src/brain-lab/session-regulation';
+import {
+  compareScaffoldFadePolicies,
+  evaluateScaffoldFadingGate,
+  scaffoldFadePopulation,
+} from '../src/brain-lab/scaffold-fading';
+import {
   compareTeacherIntentPolicies,
   evaluateTeacherIntentLabGate,
   runTeacherIntentBenchmark,
@@ -117,6 +127,21 @@ const teacherIntentGate = evaluateTeacherIntentLabGate(
   teacherIntent,
   teacherIntentLifetime48,
 );
+const sessionPopulationLocked = sessionRegulationPopulation(120);
+const sessionRegulation = compareSessionRegulation({
+  population: sessionPopulationLocked,
+  missionsPerLearner: 12,
+  seed: 20260925,
+});
+const sessionRegulationGate = evaluateSessionRegulationGate(sessionRegulation);
+const scaffoldPopulationLocked = scaffoldFadePopulation(120);
+const scaffoldFading = compareScaffoldFadePolicies({
+  population: scaffoldPopulationLocked,
+  maxTurns: 18,
+  postResolutionProbes: 4,
+  seed: 20260925,
+});
+const scaffoldFadingGate = evaluateScaffoldFadingGate(scaffoldFading.current);
 
 process.stdout.write(JSON.stringify({
   generatedAt: new Date().toISOString(),
@@ -155,6 +180,14 @@ process.stdout.write(JSON.stringify({
     current: retentionLearning,
     scheduleChallengers: retentionChallengers,
   },
+  sessionRegulation: {
+    gate: sessionRegulationGate,
+    ...sessionRegulation,
+  },
+  scaffoldFading: {
+    gate: scaffoldFadingGate,
+    ...scaffoldFading,
+  },
   teacherIntent: {
     gate: teacherIntentGate,
     current: teacherIntent,
@@ -177,4 +210,6 @@ if (
   || !misconceptionGate.pass
   || !retentionGate.pass
   || !teacherIntentGate.pass
+  || !sessionRegulationGate.pass
+  || !scaffoldFadingGate.pass
 ) process.exitCode = 1;
