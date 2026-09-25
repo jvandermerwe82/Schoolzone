@@ -181,6 +181,90 @@ describe('answer events and shared question difficulty', () => {
     expect(items['addition:L2'].offset).toBeGreaterThan(0); // missed when expected to pass → harder
   });
 
+  it('stores Pilot Evidence fields while remaining compatible with legacy minimal events', async () => {
+    const { db, app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, true, true);
+    const child = await addChild(app, cookie);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/children/${child.id}/events`,
+      headers: { cookie },
+      payload: {
+        events: [
+          event(),
+          event({
+            eventVersion: 1,
+            sessionId: 'm-pilot-1',
+            sessionPosition: 3,
+            planReason: 'help',
+            helpEvent: 'resolved',
+            diagnostic: false,
+            dueReview: true,
+            curriculumId: 'au-ac-v9',
+            canonicalNodeId: 'math.fractions.add-subtract-equivalent',
+            evidenceStrength: 'direct',
+            teacherTargetNodeId: 'math.fractions.add-subtract-equivalent',
+            teacherRouteReason: 'target',
+            pKnownBefore: 0.72,
+            pKnownAfter: 0.84,
+            abilityBefore: 0.4,
+            abilityAfter: 0.7,
+            masteredAfter: false,
+          }),
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true, stored: 2 });
+
+    const rows = db.prepare(`SELECT event_version, session_id, session_position, plan_reason, help_event,
+      diagnostic, due_review, curriculum_id, canonical_node_id, evidence_strength,
+      teacher_target_node_id, teacher_route_reason, p_known_before, p_known_after,
+      ability_before, ability_after, mastered_after
+      FROM events ORDER BY id`).all() as Record<string, string | number | null>[];
+
+    expect(rows[0].event_version).toBe(1);
+    expect(rows[0].session_id).toBeNull();
+    expect(rows[1]).toMatchObject({
+      event_version: 1,
+      session_id: 'm-pilot-1',
+      session_position: 3,
+      plan_reason: 'help',
+      help_event: 'resolved',
+      diagnostic: 0,
+      due_review: 1,
+      curriculum_id: 'au-ac-v9',
+      canonical_node_id: 'math.fractions.add-subtract-equivalent',
+      evidence_strength: 'direct',
+      teacher_target_node_id: 'math.fractions.add-subtract-equivalent',
+      teacher_route_reason: 'target',
+      p_known_before: 0.72,
+      p_known_after: 0.84,
+      ability_before: 0.4,
+      ability_after: 0.7,
+      mastered_after: 0,
+    });
+  });
+
+  it('rejects free-text fields from the research event contract', async () => {
+    const { app } = setup();
+    const { cookie } = await signUp(app);
+    await consent(app, cookie, true, true);
+    const child = await addChild(app, cookie);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/children/${child.id}/events`,
+      headers: { cookie },
+      payload: {
+        events: [event({ rawAnswer: 'private child answer', teacherNote: 'free text' })],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('stores events with research consent, removes them if consent is withdrawn, and ignores keys from other skills', async () => {
     const { db, app } = setup();
     const { cookie } = await signUp(app);
@@ -201,10 +285,39 @@ describe('answer events and shared question difficulty', () => {
     const { cookie } = await signUp(app);
     await consent(app, cookie);
     const child = await addChild(app, cookie, 'Zanele');
-    await app.inject({ method: 'POST', url: `/api/children/${child.id}/events`, headers: { cookie }, payload: { events: [event()] } });
+    await app.inject({
+      method: 'POST',
+      url: `/api/children/${child.id}/events`,
+      headers: { cookie },
+      payload: {
+        events: [event({
+          eventVersion: 1,
+          sessionId: 'm-export',
+          sessionPosition: 1,
+          planReason: 'continue',
+          helpEvent: null,
+          diagnostic: true,
+          dueReview: false,
+          curriculumId: 'au-ac-v9',
+          canonicalNodeId: 'math.fractions.add-subtract-equivalent',
+          evidenceStrength: 'direct',
+          teacherTargetNodeId: 'math.fractions.add-subtract-equivalent',
+          teacherRouteReason: 'target',
+          pKnownBefore: 0.6,
+          pKnownAfter: 0.7,
+          abilityBefore: 0.2,
+          abilityAfter: 0.4,
+          masteredAfter: false,
+        })],
+      },
+    });
     expect((await app.inject({ method: 'GET', url: '/api/admin/events.csv' })).statusCode).toBe(404);
     const csv = (await app.inject({ method: 'GET', url: '/api/admin/events.csv', headers: { 'x-admin-token': 'admin-secret' } })).body;
     expect(csv.split('\n')).toHaveLength(2);
+    expect(csv.split('\n')[0]).toContain('session_id');
+    expect(csv.split('\n')[0]).toContain('canonical_node_id');
+    expect(csv.split('\n')[0]).toContain('p_known_before');
+    expect(csv).toContain('math.fractions.add-subtract-equivalent');
     expect(csv).not.toContain(child.id);
     expect(csv).not.toContain('Zanele');
     expect(csv).not.toContain('parent@example.com');
