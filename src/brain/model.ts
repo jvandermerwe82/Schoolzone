@@ -59,6 +59,8 @@ export const MASTERY_P_KNOWN = 0.95;
 export const MASTERY_LEVEL3_SUCCESS = 0.75;
 /** Prerequisites at this knowledge level are "good enough" to start the next skill. */
 export const READY_P_KNOWN = 0.8;
+/** Successful due reviews grow the next interval by this factor. */
+export const REVIEW_INTERVAL_MULTIPLIER = 1.75;
 
 export interface AnswerDetail {
   /** The child opened a hint before answering. */
@@ -164,7 +166,9 @@ export function updateSkill(
     } else if (correct) {
       // Only a review that was actually due earns a longer gap.
       const due = s.nextReviewAt !== null && now >= s.nextReviewAt;
-      next.reviewIntervalDays = due ? Math.min(60, s.reviewIntervalDays * 2) : s.reviewIntervalDays;
+      next.reviewIntervalDays = due
+        ? Math.min(60, s.reviewIntervalDays * REVIEW_INTERVAL_MULTIPLIER)
+        : s.reviewIntervalDays;
     } else {
       next.reviewIntervalDays = 1;
     }
