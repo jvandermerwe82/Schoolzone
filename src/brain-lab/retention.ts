@@ -2,6 +2,7 @@ import {
   guessRate,
   initialSkillState,
   isMastered,
+  REVIEW_INTERVAL_MULTIPLIER,
   updateSkill,
 } from '../brain/model';
 import type { SkillState } from '../brain/types';
@@ -119,7 +120,7 @@ export function runRetentionLearner(
 ): RetentionLearnerRun {
   const horizonDays = options.horizonDays ?? 60;
   const seed = options.seed ?? 20260925;
-  const intervalMultiplier = options.intervalMultiplier ?? 2;
+  const intervalMultiplier = options.intervalMultiplier ?? REVIEW_INTERVAL_MULTIPLIER;
   const idNumber = Number(learner.id.replace(/\D/g, '')) || 1;
   const rng = seededRng(mixSeed(seed, idNumber, 0x7265746e));
 
@@ -158,10 +159,10 @@ export function runRetentionLearner(
       halfLifeDays = Math.min(120, halfLifeDays * learner.successGrowth);
       lastReinforcedDay = day;
 
-      // updateSkill() implements the production 2x interval. Lab challengers
+      // updateSkill() implements the production interval. Lab challengers
       // override only the next due interval so we can compare scheduling
       // policies without mutating production code.
-      if (intervalMultiplier !== 2 && isMastered(state)) {
+      if (intervalMultiplier !== REVIEW_INTERVAL_MULTIPLIER && isMastered(state)) {
         const nextInterval = Math.min(
           60,
           Math.max(1, previousInterval * intervalMultiplier),
@@ -231,7 +232,7 @@ export function runRetentionBenchmark(
     runRetentionLearner(learner, {
       horizonDays,
       seed: mixSeed(seed, index + 1),
-      intervalMultiplier: options.intervalMultiplier ?? 2,
+      intervalMultiplier: options.intervalMultiplier ?? REVIEW_INTERVAL_MULTIPLIER,
     }));
 
   const totalReviews = runs.reduce((sum, run) => sum + run.reviews, 0);
