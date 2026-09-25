@@ -8,6 +8,8 @@ import { BRAIN_LAB_THRESHOLDS } from './brain-lab/benchmark';
 import { SUPPORT_LAB_THRESHOLDS } from './brain-lab/support-learning';
 import { MISCONCEPTION_LAB_THRESHOLDS } from './brain-lab/misconception-learning';
 import { RETENTION_LAB_THRESHOLDS } from './brain-lab/retention';
+import { SESSION_REGULATION_THRESHOLDS } from './brain-lab/session-regulation';
+import { SCAFFOLD_FADING_THRESHOLDS } from './brain-lab/scaffold-fading';
 import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
 import {
   PILOT_ANALYSIS_PROVENANCE_VERSION,
@@ -54,6 +56,8 @@ describe('Pilot Version Manifest v1', () => {
       supportLearning: SUPPORT_LAB_THRESHOLDS,
       misconceptionLearning: MISCONCEPTION_LAB_THRESHOLDS,
       retention: RETENTION_LAB_THRESHOLDS,
+      sessionRegulation: SESSION_REGULATION_THRESHOLDS,
+      scaffoldFading: SCAFFOLD_FADING_THRESHOLDS,
       teacherIntent: TEACHER_INTENT_LAB_THRESHOLDS,
       pilotStage0: PILOT_STAGE0_THRESHOLDS,
     });
