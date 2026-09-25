@@ -14,14 +14,18 @@ import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
 
 export const PILOT_VERSION_MANIFEST_VERSION = 1 as const;
 
+type NumericGate<T extends Record<string, number>> = {
+  readonly [K in keyof T]: number;
+};
+
 export interface PilotVersionManifest {
   manifestVersion: typeof PILOT_VERSION_MANIFEST_VERSION;
   sourceGitSha: string;
   contracts: {
-    consentVersion: typeof CONSENT_VERSION;
-    learningIntelligenceVersion: typeof LEARNING_INTELLIGENCE_VERSION;
-    pilotEvidenceVersion: typeof PILOT_EVIDENCE_VERSION;
-    pilotAnalyticsVersion: typeof PILOT_ANALYTICS_VERSION;
+    consentVersion: string;
+    learningIntelligenceVersion: number;
+    pilotEvidenceVersion: number;
+    pilotAnalyticsVersion: number;
   };
   curriculum: {
     id: string;
@@ -35,12 +39,12 @@ export interface PilotVersionManifest {
     };
   };
   protectedGates: {
-    academic: typeof BRAIN_LAB_THRESHOLDS;
-    supportLearning: typeof SUPPORT_LAB_THRESHOLDS;
-    misconceptionLearning: typeof MISCONCEPTION_LAB_THRESHOLDS;
-    retention: typeof RETENTION_LAB_THRESHOLDS;
-    teacherIntent: typeof TEACHER_INTENT_LAB_THRESHOLDS;
-    pilotStage0: typeof PILOT_STAGE0_THRESHOLDS;
+    academic: NumericGate<typeof BRAIN_LAB_THRESHOLDS>;
+    supportLearning: NumericGate<typeof SUPPORT_LAB_THRESHOLDS>;
+    misconceptionLearning: NumericGate<typeof MISCONCEPTION_LAB_THRESHOLDS>;
+    retention: NumericGate<typeof RETENTION_LAB_THRESHOLDS>;
+    teacherIntent: NumericGate<typeof TEACHER_INTENT_LAB_THRESHOLDS>;
+    pilotStage0: NumericGate<typeof PILOT_STAGE0_THRESHOLDS>;
   };
 }
 
