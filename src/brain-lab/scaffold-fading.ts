@@ -14,7 +14,10 @@ export type ScaffoldFadePolicy =
   | 'heavy-two'
   | 'deep-two'
   | 'heavy-or-deep-two'
-  | 'state-aware';
+  | 'state-aware'
+  | 'state-aware-v2-balanced'
+  | 'state-aware-v2-conservative'
+  | 'state-aware-v2-strict';
 
 export interface HiddenScaffoldLearner {
   id: string;
@@ -80,7 +83,10 @@ export interface SelectiveScaffoldComparison {
 }
 
 export interface StateAwareScaffoldComparison {
-  stateAware: ScaffoldFadeBenchmark;
+  v1: ScaffoldFadeBenchmark;
+  balanced: ScaffoldFadeBenchmark;
+  conservative: ScaffoldFadeBenchmark;
+  strict: ScaffoldFadeBenchmark;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -198,23 +204,49 @@ const requiredSupportedSuccesses = (
       (evidence.priorTransferSuccesses + 1)
       / (evidence.priorTransferTrials + 2);
 
-    // Clear risk signals require stronger confirmation before withdrawing help.
+    // v1: deliberately preserved as a rejected research checkpoint.
     if (
       deep
       || evidence.unaidedRelapses > 0
       || evidence.supportedFailures >= 2
       || transferRate <= 0.375
     ) return 3;
-
-    // Learners with repeated demonstrated transfer can fade after one light,
-    // clean success. This fast path is intentionally unavailable for heavier
-    // scaffolds or after a supported failure.
     if (
       !heavy
       && evidence.supportedFailures === 0
       && transferRate >= 0.75
     ) return 1;
+    return 2;
+  }
 
+  const perfectPriorTransfer =
+    evidence.priorTransferSuccesses === evidence.priorTransferTrials;
+  const cleanLightSuccess =
+    !heavy
+    && plan.strategy === 'similar'
+    && evidence.supportedFailures === 0
+    && evidence.unaidedRelapses === 0;
+
+  if (policy === 'state-aware-v2-balanced') {
+    if (evidence.priorTransferSuccesses <= 1) return 3;
+    if (perfectPriorTransfer && cleanLightSuccess) return 1;
+    return 2;
+  }
+
+  if (policy === 'state-aware-v2-conservative') {
+    if (evidence.priorTransferSuccesses <= 2) return 3;
+    if (perfectPriorTransfer && cleanLightSuccess) return 1;
+    return 2;
+  }
+
+  if (policy === 'state-aware-v2-strict') {
+    if (
+      evidence.priorTransferSuccesses <= 2
+      || evidence.unaidedRelapses > 0
+      || evidence.supportedFailures >= 2
+      || (heavy && evidence.supportedFailures > 0)
+    ) return 3;
+    if (perfectPriorTransfer && cleanLightSuccess) return 1;
     return 2;
   }
 
@@ -551,13 +583,13 @@ export function compareStateAwareScaffoldPolicies(
   const postResolutionProbes = options.postResolutionProbes ?? 4;
   const seed = options.seed ?? 20260925;
 
+  const common = { population, maxTurns, postResolutionProbes, seed };
+
   return {
-    stateAware: runScaffoldFadeBenchmark('state-aware', {
-      population,
-      maxTurns,
-      postResolutionProbes,
-      seed,
-    }),
+    v1: runScaffoldFadeBenchmark('state-aware', common),
+    balanced: runScaffoldFadeBenchmark('state-aware-v2-balanced', common),
+    conservative: runScaffoldFadeBenchmark('state-aware-v2-conservative', common),
+    strict: runScaffoldFadeBenchmark('state-aware-v2-strict', common),
   };
 }
 
