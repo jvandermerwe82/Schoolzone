@@ -5,8 +5,8 @@
 import type { ItemStats } from './brain/items';
 import type { Profile, Question } from './brain/types';
 import type { TeacherHomework, TeacherIntentPriority } from './curriculum/australia-teacher-objectives';
-
-export const CONSENT_VERSION = '2026-09-v1';
+import { CONSENT_VERSION } from './consent-version';
+export { CONSENT_VERSION } from './consent-version';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public body?: unknown) {
