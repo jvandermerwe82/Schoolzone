@@ -1,26 +1,28 @@
 services:
   - type: web
     name: schoolzone
-    runtime: docker
+    runtime: node
     branch: claude/adaptive-school-app-skills-i93pd7
     region: singapore
     plan: 0.5c-512mb
     numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: mkdir -p data/backups && npm start
     healthCheckPath: /api/health
     autoDeployTrigger: commit
 
     disk:
       name: schoolzone-data
-      mountPath: /data
+      mountPath: /opt/render/project/src/data
       sizeGB: 1
 
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_PATH
-        value: /data/schoolzone.db
+        value: /opt/render/project/src/data/schoolzone.db
       - key: BACKUP_DIR
-        value: /data/backups
+        value: /opt/render/project/src/data/backups
       - key: BACKUP_KEEP
         value: "14"
       - key: RETENTION_DAYS
@@ -28,9 +30,9 @@ services:
       - key: TRUST_PROXY
         value: "true"
       - key: TUTOR_ENABLED
-        value: "true"
+        value: "false"
 
-      # Filled when the production service is created.
+      # Set to the final stable HTTPS URL after service creation.
       - key: APP_URL
         sync: false
       - key: SMTP_URL
