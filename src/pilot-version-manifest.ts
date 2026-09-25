@@ -13,6 +13,7 @@ import { RETENTION_LAB_THRESHOLDS } from './brain-lab/retention';
 import { SESSION_REGULATION_THRESHOLDS } from './brain-lab/session-regulation';
 import { SCAFFOLD_FADING_THRESHOLDS } from './brain-lab/scaffold-fading';
 import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
+import { ANIMATED_SUPPORT_VERSION } from './content/animated-support';
 
 export const PILOT_VERSION_MANIFEST_VERSION = 1 as const;
 
@@ -28,6 +29,8 @@ export interface PilotVersionManifest {
     learningIntelligenceVersion: number;
     pilotEvidenceVersion: number;
     pilotAnalyticsVersion: number;
+    /** Added after the original v1 manifest; absent on historical pre-animation cohorts. */
+    animatedSupportVersion?: number;
   };
   curriculum: {
     id: string;
@@ -76,6 +79,7 @@ export function pilotVersionManifest(sourceGitSha: string): PilotVersionManifest
       learningIntelligenceVersion: LEARNING_INTELLIGENCE_VERSION,
       pilotEvidenceVersion: PILOT_EVIDENCE_VERSION,
       pilotAnalyticsVersion: PILOT_ANALYTICS_VERSION,
+      animatedSupportVersion: ANIMATED_SUPPORT_VERSION,
     },
     curriculum: {
       id: AUSTRALIAN_CURRICULUM_V9.id,
@@ -113,6 +117,7 @@ This file identifies the exact SchoolZone configuration used for a pilot cohort 
 - Learning Intelligence schema: **v${manifest.contracts.learningIntelligenceVersion}**
 - Pilot Evidence schema: **v${manifest.contracts.pilotEvidenceVersion}**
 - Pilot Analytics schema: **v${manifest.contracts.pilotAnalyticsVersion}**
+- Animated Support: **${manifest.contracts.animatedSupportVersion ? `v${manifest.contracts.animatedSupportVersion}` : 'not recorded (historical cohort)'}**
 
 ## Curriculum
 
@@ -142,8 +147,8 @@ The exact numeric gate values are stored in the JSON manifest alongside this fil
 A pilot result is only directly comparable with another run when the relevant
 manifest fields are identical, or when differences are explicitly accounted for.
 
-Changing the Brain, curriculum pack, evidence contract, analytics contract or
-protected thresholds requires a new manifest tied to the new git commit.
+Changing the Brain, curriculum pack, support experience, evidence contract,
+analytics contract or protected thresholds requires a new manifest tied to the new git commit.
 `;
 }
 
@@ -195,6 +200,10 @@ export function parsePilotVersionManifest(json: string): PilotVersionManifest {
     || Number(contracts.pilotEvidenceVersion) < 1
     || !Number.isInteger(contracts.pilotAnalyticsVersion)
     || Number(contracts.pilotAnalyticsVersion) < 1
+    || (
+      contracts.animatedSupportVersion !== undefined
+      && (!Number.isInteger(contracts.animatedSupportVersion) || Number(contracts.animatedSupportVersion) < 1)
+    )
   ) {
     throw new Error('Pilot manifest contract versions are missing or invalid.');
   }
