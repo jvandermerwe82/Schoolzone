@@ -385,3 +385,245 @@ html.calm *, html.calm *::before, html.calm *::after { animation: none !importan
   margin: 0 0 1rem; padding: 0.9rem 1rem; border-radius: var(--radius); border: 2px solid var(--primary-2); background: var(--surface-2); color: var(--text); }
 .homework-banner small { display: block; color: var(--muted); font-weight: 500; }
 @media (max-width: 520px) { .class-skill { grid-template-columns: 1fr; gap: 0.2rem; } }
+
+
+/* ---------- Animated Support v1 ---------- */
+.animated-support {
+  margin: 0.75rem 0;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--primary-2) 45%, var(--border));
+  border-radius: 14px;
+  background:
+    radial-gradient(28rem 10rem at 20% -30%, color-mix(in srgb, var(--primary-2) 16%, transparent), transparent 65%),
+    var(--bg);
+  overflow: hidden;
+}
+.animated-support.hint {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+}
+.as-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+.as-head strong { display: block; color: var(--primary-2); }
+.animated-support.hint .as-head strong { color: var(--warn); }
+.as-head small { display: block; color: var(--muted); margin-top: 0.1rem; }
+.as-replay {
+  flex: none;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  background: var(--surface-2);
+}
+.as-step {
+  margin-top: 0.8rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 11px;
+  background: var(--surface-2);
+  animation: as-reveal 0.35s ease-out;
+}
+.as-step strong { display: block; margin-top: 0.1rem; }
+.as-step p { margin: 0.2rem 0 0; color: #d5daf4; }
+.as-step-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.as-dots { display: flex; gap: 0.3rem; margin-top: 0.55rem; }
+.as-dots span {
+  width: 20px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+.as-dots span.on { background: var(--primary-2); transform: scaleX(1.08); }
+.animated-support.hint .as-dots span.on { background: var(--warn); }
+.as-answer {
+  margin: 0.65rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--good) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--good) 45%, var(--border));
+}
+
+/* Place value */
+.as-place-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 0.45rem;
+}
+.as-place {
+  min-width: 0;
+  text-align: center;
+  padding: 0.55rem 0.35rem;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+.as-place.active {
+  transform: translateY(-3px);
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, var(--surface));
+  animation: as-pulse 0.7s ease-out;
+}
+.as-digit { display: block; font-size: 1.65rem; font-weight: 800; line-height: 1; }
+.as-place small { display: block; color: var(--muted); font-size: 0.68rem; margin-top: 0.3rem; }
+
+/* Column operations */
+.as-column {
+  width: max-content;
+  min-width: 160px;
+  max-width: 100%;
+  margin: 0.2rem auto;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  background: var(--surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  position: relative;
+}
+.as-column-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(28px, auto);
+  justify-content: end;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.as-column-row span:not(.as-operation) {
+  text-align: center;
+  border-radius: 7px;
+  padding: 0.05rem 0.2rem;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+.as-column-row span.active {
+  background: color-mix(in srgb, var(--warn) 20%, var(--surface-2));
+  transform: translateY(-2px);
+}
+.as-operation { width: 28px; color: var(--primary-2); text-align: center; }
+.as-column-line { height: 2px; background: var(--text); opacity: 0.75; margin-top: 0.25rem; }
+.as-regroup {
+  margin-bottom: 0.45rem;
+  color: var(--warn);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  animation: as-reveal 0.35s ease-out;
+}
+
+/* Fractions */
+.as-fractions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  min-height: 90px;
+}
+.as-fraction-wrap { display: flex; align-items: center; gap: 0.55rem; }
+.as-fraction-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.as-fraction-card.active { border-color: color-mix(in srgb, var(--primary-2) 60%, var(--border)); }
+.as-fraction-number {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  width: 34px;
+  text-align: center;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.as-fraction-number span:first-child { border-bottom: 2px solid currentColor; padding-bottom: 0.12rem; }
+.as-fraction-number span:last-child { padding-top: 0.12rem; }
+.as-fraction-bar {
+  display: flex;
+  width: min(160px, 35vw);
+  height: 32px;
+  border: 1px solid var(--primary-2);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.as-fraction-bar span {
+  flex: 1;
+  border-right: 1px solid color-mix(in srgb, var(--primary-2) 55%, var(--border));
+  background: var(--surface-2);
+  animation: as-reveal 0.3s ease-out both;
+}
+.as-fraction-bar span:last-child { border-right: 0; }
+.as-fraction-bar span.filled { background: color-mix(in srgb, var(--primary-2) 42%, var(--surface)); }
+.as-symbol { color: var(--muted); font-size: 1.1rem; font-weight: 800; }
+.as-amount { font-size: 1.45rem; font-weight: 800; color: var(--text); }
+
+/* Multiplication / division */
+.as-groups {
+  display: grid;
+  place-items: center;
+  gap: 0.55rem;
+  min-height: 86px;
+}
+.as-group-row {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+.as-group-chip, .as-group-size {
+  min-width: 42px;
+  text-align: center;
+  padding: 0.38rem 0.5rem;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-weight: 800;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.as-group-chip.active, .as-group-size.active {
+  border-color: var(--primary-2);
+  transform: translateY(-2px);
+  animation: as-pulse 0.7s ease-out;
+}
+.as-more { color: var(--muted); font-size: 0.8rem; }
+.as-equation { color: var(--muted); font-weight: 700; }
+.as-division { display: flex; flex-wrap: wrap; justify-content: center; }
+.as-question-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px dashed var(--warn);
+  color: var(--warn);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+@keyframes as-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes as-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-2) 35%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@media (max-width: 480px) {
+  .as-head { align-items: center; }
+  .as-place-grid { grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); }
+  .as-fraction-bar { width: min(120px, 30vw); }
+  .as-step p { font-size: 0.9rem; }
+}
