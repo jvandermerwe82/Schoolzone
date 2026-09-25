@@ -1,5 +1,41 @@
 # Deploying Schoolzone for a pilot
 
+## Production topology for the Australia pilot
+
+**Do not use a Netlify deploy-preview URL as the persistent SchoolZone app.**
+
+A Netlify deploy preview is a different browser origin for each pull request. Browser storage, cookies and offline state are isolated by origin, so opening a new preview can look like a brand-new installation even when the previous preview still has the learner's local progress.
+
+The production pilot should use one stable HTTPS origin backed by the SchoolZone Node server:
+
+- the Docker image serves both the React app and the `/api` routes;
+- `/data/schoolzone.db` lives on a persistent disk;
+- login sessions are server-side and the browser session cookie lasts up to 30 days;
+- cloud learner profiles are also mirrored into local browser storage on that same stable origin as an offline safety copy;
+- deployments update code without replacing the persistent `/data` volume.
+
+### Render blueprint
+
+The repository includes `render.yaml` for the existing Docker architecture.
+
+Current production baseline:
+
+- Docker web service
+- region: Singapore (closest currently available Render region to Australia)
+- one instance
+- persistent disk mounted at `/data`
+- 1 GB initial disk
+- health check: `/api/health`
+- database: `/data/schoolzone.db`
+- backups: `/data/backups`
+
+A persistent disk requires a paid Render web service. Do not switch this service to Render's free web-service plan: free web services cannot attach a persistent disk.
+
+After the service is created, set `APP_URL` to the service's final HTTPS URL (or the custom SchoolZone domain) and keep that URL stable for parents and learners.
+
+Netlify can remain useful for pull-request previews, but it is not the source of truth for persistent pilot accounts or learning progress.
+
+
 Schoolzone is one Node.js server that serves both the app and the API, with its data in a single SQLite file. It needs:
 
 - a host that can run a Docker container (or Node.js 22+) with a **persistent disk**;
