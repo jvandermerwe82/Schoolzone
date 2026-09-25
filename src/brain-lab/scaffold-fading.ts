@@ -412,3 +412,81 @@ export function compareScaffoldFadePolicies(
     threeSupported: runScaffoldFadeBenchmark('three-supported', common),
   };
 }
+
+
+export const SCAFFOLD_FADING_THRESHOLDS = {
+  minResolutionRate: 0.95,
+  maxMedianTurnsToResolution: 6,
+  maxMeanSupportQuestions: 5,
+  maxPrematureFadeRate: 0.75,
+  maxMeanOverSupportQuestions: 1,
+  minResolutionReadinessPrecision: 0.55,
+  minPostResolutionSuccessRate: 0.65,
+  maxImmediateRelapseRate: 0.35,
+} as const;
+
+export interface ScaffoldFadingGate {
+  pass: boolean;
+  failures: string[];
+}
+
+export function evaluateScaffoldFadingGate(
+  benchmark: ScaffoldFadeBenchmark,
+): ScaffoldFadingGate {
+  const failures: string[] = [];
+
+  if (benchmark.resolutionRate < SCAFFOLD_FADING_THRESHOLDS.minResolutionRate) {
+    failures.push(
+      `resolution rate ${benchmark.resolutionRate.toFixed(3)} is below ${SCAFFOLD_FADING_THRESHOLDS.minResolutionRate}`,
+    );
+  }
+  if (
+    benchmark.medianTurnsToResolution === null
+    || benchmark.medianTurnsToResolution > SCAFFOLD_FADING_THRESHOLDS.maxMedianTurnsToResolution
+  ) {
+    failures.push(
+      `median turns to resolution ${benchmark.medianTurnsToResolution ?? 'none'} exceeds ${SCAFFOLD_FADING_THRESHOLDS.maxMedianTurnsToResolution}`,
+    );
+  }
+  if (benchmark.meanSupportQuestions > SCAFFOLD_FADING_THRESHOLDS.maxMeanSupportQuestions) {
+    failures.push(
+      `mean support questions ${benchmark.meanSupportQuestions.toFixed(3)} exceeds ${SCAFFOLD_FADING_THRESHOLDS.maxMeanSupportQuestions}`,
+    );
+  }
+  if (benchmark.prematureFadeRate > SCAFFOLD_FADING_THRESHOLDS.maxPrematureFadeRate) {
+    failures.push(
+      `premature fade rate ${benchmark.prematureFadeRate.toFixed(3)} exceeds ${SCAFFOLD_FADING_THRESHOLDS.maxPrematureFadeRate}`,
+    );
+  }
+  if (benchmark.meanOverSupportQuestions > SCAFFOLD_FADING_THRESHOLDS.maxMeanOverSupportQuestions) {
+    failures.push(
+      `mean over-support questions ${benchmark.meanOverSupportQuestions.toFixed(3)} exceeds ${SCAFFOLD_FADING_THRESHOLDS.maxMeanOverSupportQuestions}`,
+    );
+  }
+  if (
+    benchmark.resolutionReadinessPrecision
+    < SCAFFOLD_FADING_THRESHOLDS.minResolutionReadinessPrecision
+  ) {
+    failures.push(
+      `resolution readiness precision ${benchmark.resolutionReadinessPrecision.toFixed(3)} is below ${SCAFFOLD_FADING_THRESHOLDS.minResolutionReadinessPrecision}`,
+    );
+  }
+  if (
+    benchmark.postResolutionSuccessRate
+    < SCAFFOLD_FADING_THRESHOLDS.minPostResolutionSuccessRate
+  ) {
+    failures.push(
+      `post-resolution success ${benchmark.postResolutionSuccessRate.toFixed(3)} is below ${SCAFFOLD_FADING_THRESHOLDS.minPostResolutionSuccessRate}`,
+    );
+  }
+  if (
+    benchmark.immediateRelapseRate
+    > SCAFFOLD_FADING_THRESHOLDS.maxImmediateRelapseRate
+  ) {
+    failures.push(
+      `immediate relapse rate ${benchmark.immediateRelapseRate.toFixed(3)} exceeds ${SCAFFOLD_FADING_THRESHOLDS.maxImmediateRelapseRate}`,
+    );
+  }
+
+  return { pass: failures.length === 0, failures };
+}
