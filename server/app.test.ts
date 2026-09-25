@@ -198,6 +198,7 @@ describe('answer events and shared question difficulty', () => {
             eventVersion: 1,
             sessionId: 'm-pilot-1',
             sessionPosition: 3,
+            missionLength: 8,
             planReason: 'help',
             helpEvent: 'resolved',
             diagnostic: false,
@@ -219,7 +220,7 @@ describe('answer events and shared question difficulty', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true, stored: 2 });
 
-    const rows = db.prepare(`SELECT event_version, session_id, session_position, plan_reason, help_event,
+    const rows = db.prepare(`SELECT event_version, session_id, session_position, mission_length, plan_reason, help_event,
       diagnostic, due_review, curriculum_id, canonical_node_id, evidence_strength,
       teacher_target_node_id, teacher_route_reason, p_known_before, p_known_after,
       ability_before, ability_after, mastered_after
@@ -231,6 +232,7 @@ describe('answer events and shared question difficulty', () => {
       event_version: 1,
       session_id: 'm-pilot-1',
       session_position: 3,
+      mission_length: 8,
       plan_reason: 'help',
       help_event: 'resolved',
       diagnostic: 0,
@@ -294,6 +296,7 @@ describe('answer events and shared question difficulty', () => {
           eventVersion: 1,
           sessionId: 'm-export',
           sessionPosition: 1,
+          missionLength: 8,
           planReason: 'continue',
           helpEvent: null,
           diagnostic: true,
@@ -315,6 +318,7 @@ describe('answer events and shared question difficulty', () => {
     const csv = (await app.inject({ method: 'GET', url: '/api/admin/events.csv', headers: { 'x-admin-token': 'admin-secret' } })).body;
     expect(csv.split('\n')).toHaveLength(2);
     expect(csv.split('\n')[0]).toContain('session_id');
+    expect(csv.split('\n')[0]).toContain('mission_length');
     expect(csv.split('\n')[0]).toContain('canonical_node_id');
     expect(csv.split('\n')[0]).toContain('p_known_before');
     expect(csv).toContain('math.fractions.add-subtract-equivalent');
