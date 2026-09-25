@@ -8,13 +8,14 @@ It is intentionally separate from the production database and Brain. It consumes
 
 Place these files in one directory:
 
+- `pilot-version-manifest-v1.json`
 - `events.csv`
 - `checkpoints.csv`
 - `support-preferences.csv`
 - `support-outcomes.csv`
 - `engagement.csv`
 
-They correspond to the admin research exports documented in `pilot-evidence-v1.md`.
+The manifest is the immutable cohort lock created before the first participant starts. The CSV files correspond to the admin research exports documented in `pilot-evidence-v1.md`.
 
 ## Run
 
@@ -32,6 +33,10 @@ Outputs:
 
 - `pilot-analytics-v1.json`
 - `pilot-analytics-v1.md`
+- `cohort-pilot-version-manifest-v1.json`
+- `pilot-analysis-provenance-v1.json`
+
+The provenance file keeps the cohort source git SHA separate from the git SHA of the analytics code used for this report.
 
 ## Stage-0 integrity gate
 
@@ -234,3 +239,16 @@ The output includes:
 `"version": 1`
 
 When the metric contract changes materially, create a new analytics version rather than silently changing the meaning of existing pilot results.
+
+
+## Version-lock requirement
+
+Generate and archive the cohort manifest before pilot recruitment:
+
+```bash
+npm run pilot:manifest -- ./pilot-export
+```
+
+Do not regenerate that manifest after the cohort begins.
+
+See `pilot-version-lock-v1.md` for the full freeze/comparability protocol.
