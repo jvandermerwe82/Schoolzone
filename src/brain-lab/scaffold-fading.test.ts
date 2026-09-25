@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareScaffoldFadePolicies,
+  evaluateScaffoldFadingGate,
   runScaffoldEpisode,
   runScaffoldFadeBenchmark,
   scaffoldFadePopulation,
@@ -56,6 +57,19 @@ describe('Brain Lab scaffold fading and independence', () => {
     if (current.firstFadeTurn !== null && three.firstFadeTurn !== null) {
       expect(three.firstFadeTurn).toBeGreaterThanOrEqual(current.firstFadeTurn);
     }
+  });
+
+  it('passes the locked scaffold-fading regression gate', () => {
+    const benchmark = runScaffoldFadeBenchmark('current', {
+      population: scaffoldFadePopulation(120),
+      maxTurns: 18,
+      postResolutionProbes: 4,
+      seed: 20260925,
+    });
+    expect(evaluateScaffoldFadingGate(benchmark)).toEqual({
+      pass: true,
+      failures: [],
+    });
   });
 
   it('reports post-resolution independent performance separately from resolution', () => {
