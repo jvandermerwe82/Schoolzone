@@ -86,14 +86,34 @@ describe('Pilot Version Manifest v1', () => {
     expect(parsePilotVersionManifest(JSON.stringify(manifest))).toEqual(manifest);
   });
 
-  it('rejects a stored manifest with incompatible contract versions', () => {
+  it('keeps historical cohort contract versions readable', () => {
     const manifest = pilotVersionManifest(SHA);
-    const incompatible = {
+    const historical = {
       ...manifest,
-      contracts: { ...manifest.contracts, pilotEvidenceVersion: 999 },
+      contracts: {
+        ...manifest.contracts,
+        consentVersion: 'historical-consent-v1',
+        pilotEvidenceVersion: 2,
+        pilotAnalyticsVersion: 2,
+      },
     };
-    expect(() => parsePilotVersionManifest(JSON.stringify(incompatible)))
-      .toThrow(/contract versions/);
+    expect(parsePilotVersionManifest(JSON.stringify(historical))).toMatchObject({
+      contracts: {
+        consentVersion: 'historical-consent-v1',
+        pilotEvidenceVersion: 2,
+        pilotAnalyticsVersion: 2,
+      },
+    });
+  });
+
+  it('rejects malformed contract versions rather than rewriting them', () => {
+    const manifest = pilotVersionManifest(SHA);
+    const malformed = {
+      ...manifest,
+      contracts: { ...manifest.contracts, pilotEvidenceVersion: 0 },
+    };
+    expect(() => parsePilotVersionManifest(JSON.stringify(malformed)))
+      .toThrow(/missing or invalid/);
   });
 
   it('records cohort and analysis commits separately', () => {
