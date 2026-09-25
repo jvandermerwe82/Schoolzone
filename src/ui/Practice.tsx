@@ -172,7 +172,12 @@ export function Practice({
   const ladder = useMemo(() => hintLadder(question, Math.random), [question]);
   const words = useMemo(() => wordsIn(question), [question]);
   // Any use of the Problem Solver means the answer counts as practice, not proof.
-  const usedSolver = hintsShown > 0 || showNotes || showWords || solverExample !== null || chat.length > 0;
+  const usedSolver = !!plan.workedExample
+    || hintsShown > 0
+    || showNotes
+    || showWords
+    || solverExample !== null
+    || chat.length > 0;
   const removed = ladder.slice(0, hintsShown).find((h) => h.kind === 'remove');
 
   // Read each new question aloud if the child switched that on.
