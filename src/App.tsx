@@ -117,7 +117,12 @@ export function App() {
     })();
   }, [loadCloud, links.verify]);
 
-  useEffect(() => { if (mode === 'local') saveProfiles(profiles); }, [mode, profiles]);
+  // Mirror both local and cloud profiles into browser storage on the permanent app origin.
+  // The server remains authoritative in cloud mode; this copy prevents a temporary
+  // backend outage or deploy from presenting an empty learner profile.
+  useEffect(() => {
+    if (mode !== 'checking') saveProfiles(profiles);
+  }, [mode, profiles]);
   useEffect(() => saveItems(items), [items]);
 
   const current = profiles.find((p) => p.id === currentId) ?? null;
