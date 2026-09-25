@@ -134,3 +134,97 @@ Changing the Brain, curriculum pack, evidence contract, analytics contract or
 protected thresholds requires a new manifest tied to the new git commit.
 `;
 }
+
+
+export const PILOT_ANALYSIS_PROVENANCE_VERSION = 1 as const;
+
+export interface PilotAnalysisProvenance {
+  version: typeof PILOT_ANALYSIS_PROVENANCE_VERSION;
+  cohort: {
+    manifestVersion: typeof PILOT_VERSION_MANIFEST_VERSION;
+    sourceGitSha: string;
+    pilotEvidenceVersion: number;
+    learningIntelligenceVersion: number;
+    consentVersion: string;
+    curriculumId: string;
+    curriculumVersion: string;
+  };
+  analysis: {
+    sourceGitSha: string;
+    pilotAnalyticsVersion: typeof PILOT_ANALYTICS_VERSION;
+  };
+}
+
+const object = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+
+/** Validate a stored cohort manifest before it is reused by an analysis run. */
+export function parsePilotVersionManifest(json: string): PilotVersionManifest {
+  const parsed = object(JSON.parse(json));
+  if (!parsed || parsed.manifestVersion !== PILOT_VERSION_MANIFEST_VERSION) {
+    throw new Error(`Pilot manifest version must be ${PILOT_VERSION_MANIFEST_VERSION}.`);
+  }
+
+  const sourceGitSha = validateGitSha(String(parsed.sourceGitSha ?? ''));
+  const contracts = object(parsed.contracts);
+  const curriculum = object(parsed.curriculum);
+  const initialScope = curriculum ? object(curriculum.initialScope) : null;
+  const protectedGates = object(parsed.protectedGates);
+
+  if (
+    !contracts
+    || contracts.consentVersion !== CONSENT_VERSION
+    || contracts.learningIntelligenceVersion !== LEARNING_INTELLIGENCE_VERSION
+    || contracts.pilotEvidenceVersion !== PILOT_EVIDENCE_VERSION
+    || typeof contracts.pilotAnalyticsVersion !== 'number'
+  ) {
+    throw new Error('Pilot manifest contract versions are missing or incompatible.');
+  }
+
+  if (
+    !curriculum
+    || typeof curriculum.id !== 'string'
+    || typeof curriculum.name !== 'string'
+    || typeof curriculum.jurisdiction !== 'string'
+    || typeof curriculum.version !== 'string'
+    || typeof curriculum.source !== 'string'
+    || !initialScope
+    || !Array.isArray(initialScope.yearLevels)
+    || !Array.isArray(initialScope.subjects)
+  ) {
+    throw new Error('Pilot manifest curriculum metadata is invalid.');
+  }
+
+  if (!protectedGates) {
+    throw new Error('Pilot manifest protected evaluation gates are missing.');
+  }
+
+  return {
+    ...(parsed as unknown as PilotVersionManifest),
+    sourceGitSha,
+  };
+}
+
+export function pilotAnalysisProvenance(
+  cohortManifest: PilotVersionManifest,
+  analysisSourceGitSha: string,
+): PilotAnalysisProvenance {
+  return {
+    version: PILOT_ANALYSIS_PROVENANCE_VERSION,
+    cohort: {
+      manifestVersion: cohortManifest.manifestVersion,
+      sourceGitSha: cohortManifest.sourceGitSha,
+      pilotEvidenceVersion: cohortManifest.contracts.pilotEvidenceVersion,
+      learningIntelligenceVersion: cohortManifest.contracts.learningIntelligenceVersion,
+      consentVersion: cohortManifest.contracts.consentVersion,
+      curriculumId: cohortManifest.curriculum.id,
+      curriculumVersion: cohortManifest.curriculum.version,
+    },
+    analysis: {
+      sourceGitSha: validateGitSha(analysisSourceGitSha),
+      pilotAnalyticsVersion: PILOT_ANALYTICS_VERSION,
+    },
+  };
+}
