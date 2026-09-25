@@ -7,7 +7,13 @@ const SKILL_ID = 'number-sense';
 const SUBJECT: SubjectId = 'maths';
 const STUCK_LEVEL: Level = 4;
 
-export type ScaffoldFadePolicy = 'current' | 'two-supported' | 'three-supported';
+export type ScaffoldFadePolicy =
+  | 'current'
+  | 'two-supported'
+  | 'three-supported'
+  | 'heavy-two'
+  | 'deep-two'
+  | 'heavy-or-deep-two';
 
 export interface HiddenScaffoldLearner {
   id: string;
@@ -66,6 +72,12 @@ export interface ScaffoldFadeComparison {
   threeSupported: ScaffoldFadeBenchmark;
 }
 
+export interface SelectiveScaffoldComparison {
+  heavyTwo: ScaffoldFadeBenchmark;
+  deepTwo: ScaffoldFadeBenchmark;
+  heavyOrDeepTwo: ScaffoldFadeBenchmark;
+}
+
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const mean = (values: readonly number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -120,9 +132,23 @@ const labQuestion = (level: Level, turn: number): Question => ({
 const strategyIsSupport = (strategy: StrategyId | 'climb' | undefined): strategy is StrategyId =>
   !!strategy && strategy !== 'climb';
 
-const requiredSupportedSuccesses = (policy: ScaffoldFadePolicy): number => {
+const requiredSupportedSuccesses = (
+  policy: ScaffoldFadePolicy,
+  plan: {
+    level: Level;
+    showHint?: boolean;
+    workedExample?: boolean;
+  },
+): number => {
   if (policy === 'two-supported') return 2;
   if (policy === 'three-supported') return 3;
+
+  const heavy = !!plan.showHint || !!plan.workedExample;
+  const deep = plan.level <= Math.max(1, STUCK_LEVEL - 2);
+
+  if (policy === 'heavy-two') return heavy ? 2 : 1;
+  if (policy === 'deep-two') return deep ? 2 : 1;
+  if (policy === 'heavy-or-deep-two') return heavy || deep ? 2 : 1;
   return 1;
 };
 
@@ -244,7 +270,7 @@ export function runScaffoldEpisode(
           strength + (1 - strength) * learner.supportTransferRate,
         );
 
-        const needed = requiredSupportedSuccesses(policy);
+        const needed = requiredSupportedSuccesses(policy, plan);
         const count = supportSuccessByStrategy[activeStrategy!] ?? 0;
         if (
           needed > 1
@@ -489,4 +515,26 @@ export function evaluateScaffoldFadingGate(
   }
 
   return { pass: failures.length === 0, failures };
+}
+
+
+export function compareSelectiveScaffoldPolicies(
+  options: {
+    population?: HiddenScaffoldLearner[];
+    maxTurns?: number;
+    postResolutionProbes?: number;
+    seed?: number;
+  } = {},
+): SelectiveScaffoldComparison {
+  const population = options.population ?? scaffoldFadePopulation();
+  const maxTurns = options.maxTurns ?? 18;
+  const postResolutionProbes = options.postResolutionProbes ?? 4;
+  const seed = options.seed ?? 20260925;
+  const common = { population, maxTurns, postResolutionProbes, seed };
+
+  return {
+    heavyTwo: runScaffoldFadeBenchmark('heavy-two', common),
+    deepTwo: runScaffoldFadeBenchmark('deep-two', common),
+    heavyOrDeepTwo: runScaffoldFadeBenchmark('heavy-or-deep-two', common),
+  };
 }
