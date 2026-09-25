@@ -13,16 +13,16 @@ services:
 
     disk:
       name: schoolzone-data
-      mountPath: /opt/render/project/src/data
+      mountPath: /opt/render/project/src/dat
       sizeGB: 1
 
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_PATH
-        value: /opt/render/project/src/data/schoolzone.db
+        value: /opt/render/project/src/dat/schoolzone.db
       - key: BACKUP_DIR
-        value: /opt/render/project/src/data/backups
+        value: /opt/render/project/src/dat/backups
       - key: BACKUP_KEEP
         value: "14"
       - key: RETENTION_DAYS
