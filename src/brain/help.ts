@@ -39,6 +39,8 @@ export const STRATEGY_LABEL: Record<StrategyId, string> = {
 
 /** Correct answers needed on the earlier skill before returning. */
 const PREREQ_CORRECT_NEEDED = 2;
+/** Heavy/deep scaffolds need a second success before they are faded. */
+export const SELECTIVE_SUPPORT_CORRECT_NEEDED = 2;
 /** Misses on the earlier skill before trying a different way of helping. */
 const PREREQ_WRONG_LIMIT = 3;
 
@@ -128,7 +130,7 @@ export function updateHelp(
         stuck: help.stuck + 1,
         episode: {
           ...start, misconception, phase: strategy, lastLevel: q.level, prereqSkill, helpedBy: null,
-          prereqCorrect: 0, prereqWrong: 0, startedAt: now, attempts: 1,
+          supportCorrect: 0, prereqCorrect: 0, prereqWrong: 0, startedAt: now, attempts: 1,
         },
       },
       event: 'stuck',
@@ -146,7 +148,16 @@ export function updateHelp(
     return {
       help: {
         ...help,
-        episode: { ...e, tried: next.tried, phase: next.strategy, prereqSkill: next.prereqSkill, prereqCorrect: 0, prereqWrong: 0, helpedBy: null },
+        episode: {
+          ...e,
+          tried: next.tried,
+          phase: next.strategy,
+          prereqSkill: next.prereqSkill,
+          supportCorrect: 0,
+          prereqCorrect: 0,
+          prereqWrong: 0,
+          helpedBy: null,
+        },
       },
       event: 'switched',
     };
@@ -190,8 +201,42 @@ export function updateHelp(
 
   // Currently helping with a strategy (not the prerequisite detour).
   if (correct) {
+    // Strong scaffolds carry more of the work for the learner, so one success
+    // is weaker evidence that the skill will transfer independently. Require a
+    // second supported success after a hint/worked example, or when the tutor
+    // had to drop two or more levels. Cleaner support can fade immediately.
+    const heavySupport = e.phase === 'hint' || e.phase === 'worked-example';
+    const deepSupport = q.level <= Math.max(1, e.stuckLevel - 2);
+    const needsConfirmation = heavySupport || deepSupport;
+    const supportCorrect = (e.supportCorrect ?? 0) + 1;
+
+    if (
+      needsConfirmation
+      && supportCorrect < SELECTIVE_SUPPORT_CORRECT_NEEDED
+    ) {
+      return {
+        help: {
+          ...help,
+          episode: { ...e, supportCorrect, lastLevel: q.level },
+        },
+        event: 'helped',
+      };
+    }
+
     if (!hinted && q.level >= e.stuckLevel) return resolve(e.phase);
-    return { help: { ...help, episode: { ...e, phase: 'climb', helpedBy: e.phase, lastLevel: q.level } }, event: 'helped' };
+    return {
+      help: {
+        ...help,
+        episode: {
+          ...e,
+          phase: 'climb',
+          helpedBy: e.phase,
+          supportCorrect,
+          lastLevel: q.level,
+        },
+      },
+      event: 'helped',
+    };
   }
   return switchStrategy(e.phase);
 }
