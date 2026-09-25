@@ -18,6 +18,7 @@ describe('Pilot Evidence v1', () => {
       timeMs: 3200,
       sessionId: 'm-test',
       sessionPosition: 2,
+      missionLength: 8,
       question: {
         id: 'q1',
         skillId: 'fractions-y6',
@@ -67,6 +68,7 @@ describe('Pilot Evidence v1', () => {
       eventVersion: 1,
       sessionId: 'm-test',
       sessionPosition: 2,
+      missionLength: 8,
       planReason: 'continue',
       diagnostic: true,
       dueReview: false,
@@ -101,6 +103,7 @@ describe('Pilot Evidence v1', () => {
       timeMs: 2000,
       sessionId: 'm-review',
       sessionPosition: 1,
+      missionLength: 6,
       question: {
         id: 'q2',
         skillId: 'number-sense',
