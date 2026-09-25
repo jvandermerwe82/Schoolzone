@@ -292,7 +292,10 @@ describe('when a child is stuck', () => {
     plan = planNext(p, 'maths', { focus: 'algebra', answered: 2 }, 0, rng);
     if (plan.reason === 'help') {
       expect(plan.strategy).toBe(first);
-      r = play(p, plan, rng, true);
+      // Keep the confirmation below the original stuck level so a clean
+      // supported answer cannot resolve directly. This forces a genuine
+      // scaffold fade into the unaided climb we want this regression to test.
+      r = play(p, { ...plan, level: 1 }, rng, true);
       expect(r.event).toBe('helped');
       p = r.profile;
       plan = planNext(p, 'maths', { focus: 'algebra', answered: 3 }, 0, rng);
