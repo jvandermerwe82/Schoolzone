@@ -54,7 +54,24 @@ CREATE TABLE IF NOT EXISTS events (
   time_ms INTEGER NOT NULL,
   predicted REAL NOT NULL,
   misconception TEXT,
-  strategy TEXT
+  strategy TEXT,
+  event_version INTEGER NOT NULL DEFAULT 1,
+  session_id TEXT,
+  session_position INTEGER,
+  plan_reason TEXT,
+  help_event TEXT,
+  diagnostic INTEGER,
+  due_review INTEGER,
+  curriculum_id TEXT,
+  canonical_node_id TEXT,
+  evidence_strength TEXT,
+  teacher_target_node_id TEXT,
+  teacher_route_reason TEXT,
+  p_known_before REAL,
+  p_known_after REAL,
+  ability_before REAL,
+  ability_after REAL,
+  mastered_after INTEGER
 );
 CREATE INDEX IF NOT EXISTS events_child ON events(child_id);
 CREATE TABLE IF NOT EXISTS items (
@@ -113,6 +130,23 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ['memberships', 'share_progress', 'INTEGER NOT NULL DEFAULT 0'],
   // Homework topic set by the teacher: {"skillId", "note", "setAt"}.
   ['schools', 'focus_json', 'TEXT'],
+  ['events', 'event_version', 'INTEGER NOT NULL DEFAULT 1'],
+  ['events', 'session_id', 'TEXT'],
+  ['events', 'session_position', 'INTEGER'],
+  ['events', 'plan_reason', 'TEXT'],
+  ['events', 'help_event', 'TEXT'],
+  ['events', 'diagnostic', 'INTEGER'],
+  ['events', 'due_review', 'INTEGER'],
+  ['events', 'curriculum_id', 'TEXT'],
+  ['events', 'canonical_node_id', 'TEXT'],
+  ['events', 'evidence_strength', 'TEXT'],
+  ['events', 'teacher_target_node_id', 'TEXT'],
+  ['events', 'teacher_route_reason', 'TEXT'],
+  ['events', 'p_known_before', 'REAL'],
+  ['events', 'p_known_after', 'REAL'],
+  ['events', 'ability_before', 'REAL'],
+  ['events', 'ability_after', 'REAL'],
+  ['events', 'mastered_after', 'INTEGER'],
 ];
 
 export function openDb(path: string): DB {
@@ -124,6 +158,8 @@ export function openDb(path: string): DB {
     const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
     if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+  db.exec('CREATE INDEX IF NOT EXISTS events_session ON events(child_id, session_id, at);');
+  db.exec('CREATE INDEX IF NOT EXISTS events_canonical ON events(canonical_node_id, at);');
   return db;
 }
 
