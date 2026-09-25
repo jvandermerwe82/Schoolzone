@@ -11,6 +11,7 @@ import { RETENTION_LAB_THRESHOLDS } from './brain-lab/retention';
 import { SESSION_REGULATION_THRESHOLDS } from './brain-lab/session-regulation';
 import { SCAFFOLD_FADING_THRESHOLDS } from './brain-lab/scaffold-fading';
 import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
+import { ANIMATED_SUPPORT_VERSION } from './content/animated-support';
 import {
   PILOT_ANALYSIS_PROVENANCE_VERSION,
   PILOT_VERSION_MANIFEST_VERSION,
@@ -34,6 +35,7 @@ describe('Pilot Version Manifest v1', () => {
         learningIntelligenceVersion: LEARNING_INTELLIGENCE_VERSION,
         pilotEvidenceVersion: PILOT_EVIDENCE_VERSION,
         pilotAnalyticsVersion: PILOT_ANALYTICS_VERSION,
+        animatedSupportVersion: ANIMATED_SUPPORT_VERSION,
       },
       curriculum: {
         id: AUSTRALIAN_CURRICULUM_V9.id,
@@ -92,10 +94,11 @@ describe('Pilot Version Manifest v1', () => {
 
   it('keeps historical cohort contract versions readable', () => {
     const manifest = pilotVersionManifest(SHA);
+    const { animatedSupportVersion: _newerSupportVersion, ...historicalContracts } = manifest.contracts;
     const historical = {
       ...manifest,
       contracts: {
-        ...manifest.contracts,
+        ...historicalContracts,
         consentVersion: 'historical-consent-v1',
         pilotEvidenceVersion: 2,
         pilotAnalyticsVersion: 2,
@@ -108,6 +111,8 @@ describe('Pilot Version Manifest v1', () => {
         pilotAnalyticsVersion: 2,
       },
     });
+    expect(parsePilotVersionManifest(JSON.stringify(historical)).contracts.animatedSupportVersion)
+      .toBeUndefined();
   });
 
   it('rejects malformed contract versions rather than rewriting them', () => {
@@ -115,6 +120,16 @@ describe('Pilot Version Manifest v1', () => {
     const malformed = {
       ...manifest,
       contracts: { ...manifest.contracts, pilotEvidenceVersion: 0 },
+    };
+    expect(() => parsePilotVersionManifest(JSON.stringify(malformed)))
+      .toThrow(/missing or invalid/);
+  });
+
+  it('rejects a malformed Animated Support version when present', () => {
+    const manifest = pilotVersionManifest(SHA);
+    const malformed = {
+      ...manifest,
+      contracts: { ...manifest.contracts, animatedSupportVersion: 0 },
     };
     expect(() => parsePilotVersionManifest(JSON.stringify(malformed)))
       .toThrow(/missing or invalid/);
@@ -149,5 +164,6 @@ describe('Pilot Version Manifest v1', () => {
     expect(markdown).toContain('9.0');
     expect(markdown).toContain(CONSENT_VERSION);
     expect(markdown).toContain('Pilot Evidence schema');
+    expect(markdown).toContain(`Animated Support: **v${ANIMATED_SUPPORT_VERSION}**`);
   });
 });
