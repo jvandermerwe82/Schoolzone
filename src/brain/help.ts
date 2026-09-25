@@ -39,6 +39,8 @@ export const STRATEGY_LABEL: Record<StrategyId, string> = {
 
 /** Correct answers needed on the earlier skill before returning. */
 const PREREQ_CORRECT_NEEDED = 2;
+/** Supported successes needed before fading to an unaided climb. */
+export const SUPPORT_CORRECT_NEEDED = 2;
 /** Misses on the earlier skill before trying a different way of helping. */
 const PREREQ_WRONG_LIMIT = 3;
 
@@ -128,7 +130,7 @@ export function updateHelp(
         stuck: help.stuck + 1,
         episode: {
           ...start, misconception, phase: strategy, lastLevel: q.level, prereqSkill, helpedBy: null,
-          prereqCorrect: 0, prereqWrong: 0, startedAt: now, attempts: 1,
+          supportCorrect: 0, prereqCorrect: 0, prereqWrong: 0, startedAt: now, attempts: 1,
         },
       },
       event: 'stuck',
@@ -146,7 +148,16 @@ export function updateHelp(
     return {
       help: {
         ...help,
-        episode: { ...e, tried: next.tried, phase: next.strategy, prereqSkill: next.prereqSkill, prereqCorrect: 0, prereqWrong: 0, helpedBy: null },
+        episode: {
+          ...e,
+          tried: next.tried,
+          phase: next.strategy,
+          prereqSkill: next.prereqSkill,
+          supportCorrect: 0,
+          prereqCorrect: 0,
+          prereqWrong: 0,
+          helpedBy: null,
+        },
       },
       event: 'switched',
     };
@@ -190,8 +201,34 @@ export function updateHelp(
 
   // Currently helping with a strategy (not the prerequisite detour).
   if (correct) {
-    if (!hinted && q.level >= e.stuckLevel) return resolve(e.phase);
-    return { help: { ...help, episode: { ...e, phase: 'climb', helpedBy: e.phase, lastLevel: q.level } }, event: 'helped' };
+    const supportCorrect = (e.supportCorrect ?? 0) + 1;
+
+    // One supported success says the scaffold helped, but it is not enough
+    // evidence that the learner can generalise independently. Keep the same
+    // scaffold until a second supported success, then fade to an unaided climb.
+    if (supportCorrect < SUPPORT_CORRECT_NEEDED) {
+      return {
+        help: {
+          ...help,
+          episode: { ...e, supportCorrect, lastLevel: q.level },
+        },
+        event: 'helped',
+      };
+    }
+
+    return {
+      help: {
+        ...help,
+        episode: {
+          ...e,
+          phase: 'climb',
+          helpedBy: e.phase,
+          supportCorrect,
+          lastLevel: q.level,
+        },
+      },
+      event: 'helped',
+    };
   }
   return switchStrategy(e.phase);
 }
