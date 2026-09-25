@@ -10,6 +10,8 @@ import { BRAIN_LAB_THRESHOLDS } from './brain-lab/benchmark';
 import { SUPPORT_LAB_THRESHOLDS } from './brain-lab/support-learning';
 import { MISCONCEPTION_LAB_THRESHOLDS } from './brain-lab/misconception-learning';
 import { RETENTION_LAB_THRESHOLDS } from './brain-lab/retention';
+import { SESSION_REGULATION_THRESHOLDS } from './brain-lab/session-regulation';
+import { SCAFFOLD_FADING_THRESHOLDS } from './brain-lab/scaffold-fading';
 import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
 
 export const PILOT_VERSION_MANIFEST_VERSION = 1 as const;
@@ -43,6 +45,8 @@ export interface PilotVersionManifest {
     supportLearning: NumericGate<typeof SUPPORT_LAB_THRESHOLDS>;
     misconceptionLearning: NumericGate<typeof MISCONCEPTION_LAB_THRESHOLDS>;
     retention: NumericGate<typeof RETENTION_LAB_THRESHOLDS>;
+    sessionRegulation: NumericGate<typeof SESSION_REGULATION_THRESHOLDS>;
+    scaffoldFading: NumericGate<typeof SCAFFOLD_FADING_THRESHOLDS>;
     teacherIntent: NumericGate<typeof TEACHER_INTENT_LAB_THRESHOLDS>;
     pilotStage0: NumericGate<typeof PILOT_STAGE0_THRESHOLDS>;
   };
@@ -89,6 +93,8 @@ export function pilotVersionManifest(sourceGitSha: string): PilotVersionManifest
       supportLearning: { ...SUPPORT_LAB_THRESHOLDS },
       misconceptionLearning: { ...MISCONCEPTION_LAB_THRESHOLDS },
       retention: { ...RETENTION_LAB_THRESHOLDS },
+      sessionRegulation: { ...SESSION_REGULATION_THRESHOLDS },
+      scaffoldFading: { ...SCAFFOLD_FADING_THRESHOLDS },
       teacherIntent: { ...TEACHER_INTENT_LAB_THRESHOLDS },
       pilotStage0: { ...PILOT_STAGE0_THRESHOLDS },
     },
@@ -126,6 +132,8 @@ The exact numeric gate values are stored in the JSON manifest alongside this fil
 - support-learning quality
 - misconception detection/recovery
 - retention/spaced review
+- adaptive session regulation
+- scaffold fading / independence
 - teacher-intent routing
 - Stage-0 pilot evidence integrity
 
