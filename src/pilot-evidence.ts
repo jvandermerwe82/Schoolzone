@@ -18,6 +18,7 @@ export interface PilotAnswerEvidenceInput {
   timeMs: number;
   sessionId: string;
   sessionPosition: number;
+  missionLength: number;
   question: Question;
   itemKey: string;
   correct: boolean;
@@ -59,6 +60,7 @@ export function pilotAnswerEvent(input: PilotAnswerEvidenceInput): AnswerEvent {
     strategy: input.plan.strategy ?? null,
     sessionId: input.sessionId,
     sessionPosition: input.sessionPosition,
+    missionLength: input.missionLength,
     planReason: input.plan.reason,
     helpEvent: input.result.event,
     diagnostic: !!input.plan.diagnostic,
