@@ -195,7 +195,8 @@ export function runScaffoldEpisode(
       turn * 60_000,
       () => 0.5,
     );
-    const supported = strategyIsSupport(plan.strategy);
+    const activeStrategy = strategyIsSupport(plan.strategy) ? plan.strategy : null;
+    const supported = activeStrategy !== null;
     const pIndependent = independentProbability(learner, strength, plan.level);
     const p = supported
       ? supportedProbability(learner, strength, plan.level)
@@ -218,7 +219,6 @@ export function runScaffoldEpisode(
     const rng = seededRng(mixSeed(seed, idNumber, turn));
     const correct = rng() < p;
     const question = labQuestion(plan.level, turn);
-    const priorPhase = profile.help.episode?.phase ?? null;
     const result = recordAnswer(
       profile,
       question,
@@ -238,21 +238,21 @@ export function runScaffoldEpisode(
     if (supported) {
       if (correct) {
         supportedCorrect++;
-        supportSuccessByStrategy[plan.strategy] =
-          (supportSuccessByStrategy[plan.strategy] ?? 0) + 1;
+        supportSuccessByStrategy[activeStrategy!] =
+          (supportSuccessByStrategy[activeStrategy!] ?? 0) + 1;
         strength = clamp01(
           strength + (1 - strength) * learner.supportTransferRate,
         );
 
         const needed = requiredSupportedSuccesses(policy);
-        const count = supportSuccessByStrategy[plan.strategy] ?? 0;
+        const count = supportSuccessByStrategy[activeStrategy!] ?? 0;
         if (
           needed > 1
           && count < needed
           && profile.help.episode
           && profile.help.episode.phase === 'climb'
         ) {
-          profile = holdScaffold(profile, plan.strategy);
+          profile = holdScaffold(profile, activeStrategy!);
         }
       } else {
         strength = clamp01(
