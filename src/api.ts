@@ -30,8 +30,36 @@ export interface Consent { version: string; dataProcessing: boolean; aiTutor: bo
 export interface Me { email: string; emailVerified: boolean; hasPin: boolean; consent: Consent | null; tutorAvailable: boolean; /** AI tutor messages flagged for a parent to check, last 30 days. */ safetyFlags: number }
 export interface ServerChild { id: string; version: number; profile: Profile }
 export interface AnswerEvent {
-  at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean; rapid: boolean;
-  timeMs: number; predicted: number; misconception: string | null; strategy: string | null;
+  at: number;
+  skillId: string;
+  level: number;
+  itemKey: string;
+  correct: boolean;
+  hinted: boolean;
+  rapid: boolean;
+  timeMs: number;
+  predicted: number;
+  misconception: string | null;
+  strategy: string | null;
+
+  /** Pilot Evidence v1 structured learning-process telemetry. */
+  eventVersion?: number;
+  sessionId?: string | null;
+  sessionPosition?: number | null;
+  planReason?: 'new' | 'continue' | 'review' | 'help' | 'climb' | null;
+  helpEvent?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
+  diagnostic?: boolean | null;
+  dueReview?: boolean | null;
+  curriculumId?: string | null;
+  canonicalNodeId?: string | null;
+  evidenceStrength?: 'direct' | 'supporting' | null;
+  teacherTargetNodeId?: string | null;
+  teacherRouteReason?: 'target' | 'prerequisite' | null;
+  pKnownBefore?: number | null;
+  pKnownAfter?: number | null;
+  abilityBefore?: number | null;
+  abilityAfter?: number | null;
+  masteredAfter?: boolean | null;
 }
 export type Homework = TeacherHomework;
 export interface SchoolMembership { school: { name: string } | null; codeName?: string; onBoard?: boolean; shareProgress?: boolean; homework?: Homework | null }
