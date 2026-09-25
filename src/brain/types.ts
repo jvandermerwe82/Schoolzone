@@ -114,6 +114,8 @@ export interface HelpEpisode {
   tried: StrategyId[];
   /** The strategy that got the child answering again (credited only once they solve it on their own). */
   helpedBy: StrategyId | null;
+  /** Successful supported attempts with the current strategy before fading to unaided climb. */
+  supportCorrect?: number;
   /** Level of the last question answered correctly in this episode. */
   lastLevel: Level;
   /** For the 'prerequisite' strategy: which earlier skill, and progress on it. */
