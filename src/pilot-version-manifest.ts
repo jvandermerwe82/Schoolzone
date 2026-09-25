@@ -175,12 +175,16 @@ export function parsePilotVersionManifest(json: string): PilotVersionManifest {
 
   if (
     !contracts
-    || contracts.consentVersion !== CONSENT_VERSION
-    || contracts.learningIntelligenceVersion !== LEARNING_INTELLIGENCE_VERSION
-    || contracts.pilotEvidenceVersion !== PILOT_EVIDENCE_VERSION
-    || typeof contracts.pilotAnalyticsVersion !== 'number'
+    || typeof contracts.consentVersion !== 'string'
+    || contracts.consentVersion.length === 0
+    || !Number.isInteger(contracts.learningIntelligenceVersion)
+    || Number(contracts.learningIntelligenceVersion) < 1
+    || !Number.isInteger(contracts.pilotEvidenceVersion)
+    || Number(contracts.pilotEvidenceVersion) < 1
+    || !Number.isInteger(contracts.pilotAnalyticsVersion)
+    || Number(contracts.pilotAnalyticsVersion) < 1
   ) {
-    throw new Error('Pilot manifest contract versions are missing or incompatible.');
+    throw new Error('Pilot manifest contract versions are missing or invalid.');
   }
 
   if (
