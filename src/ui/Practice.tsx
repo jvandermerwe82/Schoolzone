@@ -234,6 +234,7 @@ export function Practice({
       timeMs,
       sessionId: missionEvidenceId.current,
       sessionPosition: answered + 1,
+      missionLength,
       question,
       itemKey: itemKey(question),
       correct,
