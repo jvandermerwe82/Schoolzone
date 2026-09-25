@@ -72,6 +72,14 @@ describe('Pilot Analytics v1', () => {
     expect(parsed.rows).toEqual([{ a: '1', b: 'hello, "world"\nagain' }]);
   });
 
+  it('passes Stage-0 integrity on a complete Pilot Evidence fixture', () => {
+    const analysis = analysePilotCsv(bundle);
+    expect(analysis.integrity.schemaFailures).toEqual([]);
+    expect(analysis.integrity.stage0).toEqual({ pass: true, failures: [] });
+    expect(analysis.integrity.pilotEvidenceV1Rate).toBe(1);
+    expect(analysis.integrity.structuredSessionEventRate).toBe(1);
+  });
+
   it('calculates paired checkpoint gains by learner and subject', () => {
     const analysis = analysePilotCsv(bundle);
     expect(analysis.learning.pairedLearnerSubjects).toBe(2);
@@ -177,6 +185,8 @@ describe('Pilot Analytics v1', () => {
     expect(analysis.learning.overallGainPercentagePoints.median).toBeNull();
     expect(analysis.missions.completionRate).toBeNull();
     expect(analysis.integrity.warnings.length).toBeGreaterThan(0);
+    expect(analysis.integrity.stage0.pass).toBe(false);
+    expect(analysis.integrity.stage0.failures.length).toBeGreaterThan(0);
     expect(JSON.stringify(analysis)).not.toContain('NaN');
   });
 });
