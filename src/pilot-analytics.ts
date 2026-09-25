@@ -1,3 +1,5 @@
+export const PILOT_ANALYTICS_VERSION = 1 as const;
+
 export interface CsvTable {
   header: string[];
   rows: Record<string, string>[];
@@ -46,7 +48,7 @@ export interface PilotStage0Gate {
 }
 
 export interface PilotAnalysis {
-  version: 1;
+  version: typeof PILOT_ANALYTICS_VERSION;
   integrity: {
     eventRows: number;
     checkpointRows: number;
@@ -581,7 +583,7 @@ export function analysePilotCsv(bundle: PilotCsvBundle): PilotAnalysis {
   warnings.push('All results are descriptive unless the pilot study design supplies a valid comparison for causal inference.');
 
   return {
-    version: 1,
+    version: PILOT_ANALYTICS_VERSION,
     integrity: {
       eventRows: events.length,
       checkpointRows: checkpoints.length,
