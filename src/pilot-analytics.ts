@@ -40,6 +40,11 @@ export interface StrategyOutcomeSummary {
   weightedMeanDelta: number | null;
 }
 
+export interface PilotStage0Gate {
+  pass: boolean;
+  failures: string[];
+}
+
 export interface PilotAnalysis {
   version: 1;
   integrity: {
@@ -51,6 +56,8 @@ export interface PilotAnalysis {
     learnersInEvents: number;
     pilotEvidenceV1Rate: number | null;
     structuredSessionEventRate: number | null;
+    schemaFailures: string[];
+    stage0: PilotStage0Gate;
     warnings: string[];
   };
   learning: {
@@ -202,6 +209,76 @@ export function parseCsv(text: string): CsvTable {
 }
 
 const rowsFor = (text: string): Record<string, string>[] => parseCsv(text).rows;
+const REQUIRED_HEADERS: Record<keyof PilotCsvBundle, readonly string[]> = {
+  events: [
+    'learner', 'event_version', 'at', 'session_id', 'session_position', 'mission_length',
+    'skill', 'level', 'correct', 'hinted', 'rapid', 'time_ms', 'predicted',
+    'plan_reason', 'help_event', 'diagnostic', 'due_review',
+    'curriculum_id', 'canonical_node_id', 'evidence_strength',
+    'teacher_target_node_id', 'teacher_route_reason',
+    'p_known_before', 'p_known_after', 'ability_before', 'ability_after', 'mastered_after',
+  ],
+  checkpoints: ['learner', 'year', 'subject', 'form', 'order', 'at', 'skill', 'level', 'correct', 'time_ms'],
+  supportPreferences: ['learner', 'at', 'source', 'strategy', 'value'],
+  supportOutcomes: ['learner', 'at', 'source', 'strategy', 'delta', 'weight', 'subject', 'skill'],
+  engagement: ['learner', 'at', 'kind', 'subject', 'skill', 'value'],
+} as const;
+
+export const PILOT_STAGE0_THRESHOLDS = {
+  minPilotEvidenceV1Rate: 0.95,
+  minStructuredSessionEventRate: 0.95,
+} as const;
+
+export function validatePilotCsvSchemas(bundle: PilotCsvBundle): string[] {
+  const failures: string[] = [];
+  for (const key of Object.keys(REQUIRED_HEADERS) as (keyof PilotCsvBundle)[]) {
+    const header = new Set(parseCsv(bundle[key]).header);
+    for (const required of REQUIRED_HEADERS[key]) {
+      if (!header.has(required)) failures.push(`${key}: missing required column ${required}`);
+    }
+  }
+  return failures;
+}
+
+export function evaluatePilotStage0(
+  input: {
+    schemaFailures: string[];
+    eventRows: number;
+    pilotEvidenceV1Rate: number | null;
+    structuredSessionEventRate: number | null;
+    pairedLearnerSubjects: number;
+    measurableSessions: number;
+  },
+): PilotStage0Gate {
+  const failures = [...input.schemaFailures];
+
+  if (input.eventRows === 0) failures.push('No practice answer events were supplied.');
+  if (
+    input.pilotEvidenceV1Rate === null
+    || input.pilotEvidenceV1Rate < PILOT_STAGE0_THRESHOLDS.minPilotEvidenceV1Rate
+  ) {
+    failures.push(
+      `Pilot Evidence v1 coverage must be at least ${(PILOT_STAGE0_THRESHOLDS.minPilotEvidenceV1Rate * 100).toFixed(0)}%.`,
+    );
+  }
+  if (
+    input.structuredSessionEventRate === null
+    || input.structuredSessionEventRate < PILOT_STAGE0_THRESHOLDS.minStructuredSessionEventRate
+  ) {
+    failures.push(
+      `Structured session/mission coverage must be at least ${(PILOT_STAGE0_THRESHOLDS.minStructuredSessionEventRate * 100).toFixed(0)}%.`,
+    );
+  }
+  if (input.pairedLearnerSubjects === 0) {
+    failures.push('No paired first/second checkpoint learner-subject result is available.');
+  }
+  if (input.measurableSessions === 0) {
+    failures.push('No mission is measurable from session position and planned mission length.');
+  }
+
+  return { pass: failures.length === 0, failures };
+}
+
 
 const pairedCheckpointGains = (
   rows: readonly Record<string, string>[],
@@ -466,6 +543,15 @@ export function analysePilotCsv(bundle: PilotCsvBundle): PilotAnalysis {
   const preferenceComparison = preferenceAgreement(preferences, outcomes);
   const teacher = teacherIntentMetrics(events);
   const missions = missionMetrics(events);
+  const schemaFailures = validatePilotCsvSchemas(bundle);
+  const stage0 = evaluatePilotStage0({
+    schemaFailures,
+    eventRows: events.length,
+    pilotEvidenceV1Rate: rate(v1, events.length),
+    structuredSessionEventRate: rate(structured, events.length),
+    pairedLearnerSubjects: paired.gains.length,
+    measurableSessions: missions.measurableSessions,
+  });
 
   const misconceptionRows = events.filter((row) => !!row.misconception);
   const misconceptionLearners = new Set(misconceptionRows.map((row) => row.learner).filter(Boolean));
@@ -505,6 +591,8 @@ export function analysePilotCsv(bundle: PilotCsvBundle): PilotAnalysis {
       learnersInEvents: eventLearners.size,
       pilotEvidenceV1Rate: rate(v1, events.length),
       structuredSessionEventRate: rate(structured, events.length),
+      schemaFailures,
+      stage0,
       warnings,
     },
     learning: {
@@ -591,6 +679,11 @@ export function pilotAnalysisMarkdown(analysis: PilotAnalysis): string {
 - Support preference rows: **${analysis.integrity.supportPreferenceRows}**
 - Support outcome rows: **${analysis.integrity.supportOutcomeRows}**
 - Engagement rows: **${analysis.integrity.engagementRows}**
+- Stage-0 evidence integrity: **${analysis.integrity.stage0.pass ? 'PASS' : 'FAIL'}**
+
+${analysis.integrity.stage0.failures.length === 0
+  ? ''
+  : `Stage-0 failures:\n${analysis.integrity.stage0.failures.map((failure) => `- ${failure}`).join('\n')}\n`}
 
 ## Learning gain
 
