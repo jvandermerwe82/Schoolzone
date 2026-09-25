@@ -19,6 +19,7 @@ import { useSpeech } from '../speech';
 import { questionSpeech, SpeakButton } from './SpeakButton';
 import { newMissionEvidenceId, pilotAnswerEvent } from '../pilot-evidence';
 import { PassageCard } from './PassageCard';
+import { AnimatedMathSupport } from './AnimatedMathSupport';
 
 
 /**
@@ -346,6 +347,7 @@ export function Practice({
         <div className="card question-card worked">
           <div className="question-meta"><span>{skill.emoji} {skill.name}</span><span>📖 Worked example</span></div>
           <div className="prompt-row"><p className="prompt">{example.prompt}</p><SpeakButton text={`${example.prompt}. ${example.explanation}`} /></div>
+          <AnimatedMathSupport question={example} mode="worked" />
           {example.choices && <p className="muted">Choices: {example.choices.join(' · ')}</p>}
           <div className="steps">
             <p><strong>How to solve it:</strong> {example.explanation}</p>
@@ -454,6 +456,7 @@ export function Practice({
                     {h.kind === 'remove' ? 'One wrong answer has been taken away.' : h.kind === 'step' ? `Start like this: ${h.text}` : h.text}
                   </p>
                 ))}
+                {hintsShown > 0 && <AnimatedMathSupport question={question} mode="hint" />}
                 {showNotes && (
                   <div className="solver-panel">
                     <strong>📘 {skill.name}</strong>
@@ -470,6 +473,7 @@ export function Practice({
                   <div className="solver-panel">
                     <strong>👀 A similar example, solved</strong>
                     <p>{solverExample.prompt}</p>
+                    <AnimatedMathSupport question={solverExample} mode="worked" />
                     <p>{solverExample.explanation}</p>
                     <p><strong>Answer:</strong> {minus(solverExample.answer)}</p>
                   </div>
