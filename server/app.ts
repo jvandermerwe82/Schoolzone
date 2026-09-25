@@ -18,8 +18,8 @@ import { ConsoleMailer, emails, type Mailer } from './mailer';
 import { registerClassRoutes } from './classview';
 import { awardPoints, registerSchoolRoutes } from './leaderboard';
 import { askTutor, type TutorModel, type TutorTurn } from './tutor';
-
-export const CONSENT_VERSION = '2026-09-v1';
+import { CONSENT_VERSION } from '../src/consent-version';
+export { CONSENT_VERSION } from '../src/consent-version';
 
 export interface AppOptions {
   db: DB;
