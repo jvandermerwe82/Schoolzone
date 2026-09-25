@@ -7,7 +7,8 @@ import { SKILLS, getSkill } from '../content/skills';
 import { newProfile } from '../storage';
 import { calibration } from './insights';
 import {
-  bktUpdate, guessRate, initialSkillState, isMastered, levelDifficulty, predictCorrect, updateSkill,
+  bktUpdate, guessRate, initialSkillState, isMastered, levelDifficulty, predictCorrect,
+  REVIEW_INTERVAL_MULTIPLIER, updateSkill,
 } from './model';
 import { chooseLevel, planNext, recordAnswer, skillState } from './tutor';
 import { LEVELS, type Level, type Profile, type SubjectId } from './types';
@@ -56,7 +57,7 @@ describe('model', () => {
     expect(s.nextReviewAt).toBe(now + 24 * 3600 * 1000);
   });
 
-  it('only doubles the review gap when the review was actually due', () => {
+  it('only grows the review gap when the review was actually due', () => {
     let s = initialSkillState(3, 3);
     const t0 = 0;
     for (let i = 0; i < 12; i++) s = updateSkill(s, 4, true, guessRate(4), 3000, t0);
@@ -65,7 +66,7 @@ describe('model', () => {
     expect(s.reviewIntervalDays).toBe(1);
     const day = 24 * 3600 * 1000;
     s = updateSkill(s, 4, true, guessRate(4), 3000, t0 + day + 1); // due
-    expect(s.reviewIntervalDays).toBe(2);
+    expect(s.reviewIntervalDays).toBe(REVIEW_INTERVAL_MULTIPLIER);
   });
 });
 
