@@ -20,6 +20,7 @@ import { questionSpeech, SpeakButton } from './SpeakButton';
 import { newMissionEvidenceId, pilotAnswerEvent } from '../pilot-evidence';
 import { PassageCard } from './PassageCard';
 import { AnimatedMathSupport } from './AnimatedMathSupport';
+import { animatedSupportFor } from '../content/animated-support';
 
 
 /**
@@ -144,6 +145,7 @@ export function Practice({
   const [hintsShown, setHintsShown] = useState(turn.plan.showHint ? 1 : 0);
   const [showNotes, setShowNotes] = useState(false);
   const [showWords, setShowWords] = useState(false);
+  const [showVisualHint, setShowVisualHint] = useState(!!turn.plan.showHint);
   const [solverExample, setSolverExample] = useState<Question | null>(null);
   const [answered, setAnswered] = useState(0);
   const [missionLength, setMissionLength] = useState(() => sessionPolicy(profile, subject).missionLength);
@@ -172,11 +174,13 @@ export function Practice({
     : undefined;
   const ladder = useMemo(() => hintLadder(question, Math.random), [question]);
   const words = useMemo(() => wordsIn(question), [question]);
+  const animatedSupportAvailable = useMemo(() => animatedSupportFor(question) !== null, [question]);
   // Any use of the Problem Solver means the answer counts as practice, not proof.
   const usedSolver = !!plan.workedExample
     || hintsShown > 0
     || showNotes
     || showWords
+    || showVisualHint
     || solverExample !== null
     || chat.length > 0;
   const removed = ladder.slice(0, hintsShown).find((h) => h.kind === 'remove');
@@ -196,6 +200,7 @@ export function Practice({
     setHintsShown(t.plan.showHint ? 1 : 0);
     setShowNotes(false);
     setShowWords(false);
+    setShowVisualHint(!!t.plan.showHint);
     setSolverExample(null);
     setFeedback(null);
     setInput('');
@@ -433,7 +438,7 @@ export function Practice({
         {!feedback && (
           <section className="solver" aria-label="Problem Solver">
             <button className="solver-toggle" onClick={() => setSolverOpen((o) => !o)} aria-expanded={solverOpen}>
-              🧩 Problem Solver {solverOpen ? '▲' : '▼'}
+              🧩 Problem Solver{animatedSupportAvailable ? ' · ✨ Visual guide available' : ''} {solverOpen ? '▲' : '▼'}
             </button>
             {solverOpen && (
               <div className="solver-body">
@@ -441,6 +446,11 @@ export function Practice({
                   <button onClick={() => setHintsShown((n) => Math.min(ladder.length, n + 1))} disabled={hintsShown >= ladder.length}>
                     💡 {hintsShown === 0 ? 'Give me a hint' : hintsShown < ladder.length ? 'Another hint' : 'No more hints'}
                   </button>
+                  {animatedSupportAvailable && (
+                    <button onClick={() => setShowVisualHint((v) => !v)} aria-pressed={showVisualHint}>
+                      ✨ {showVisualHint ? 'Hide visual guide' : 'Show visual guide'}
+                    </button>
+                  )}
                   <button onClick={() => setShowNotes((v) => !v)} aria-pressed={showNotes}>📘 About this topic</button>
                   {words.length > 0 && <button onClick={() => setShowWords((v) => !v)} aria-pressed={showWords}>🔤 What do the words mean?</button>}
                   <button
@@ -456,7 +466,7 @@ export function Practice({
                     {h.kind === 'remove' ? 'One wrong answer has been taken away.' : h.kind === 'step' ? `Start like this: ${h.text}` : h.text}
                   </p>
                 ))}
-                {hintsShown > 0 && <AnimatedMathSupport question={question} mode="hint" />}
+                {(showVisualHint || hintsShown > 0) && <AnimatedMathSupport question={question} mode="hint" />}
                 {showNotes && (
                   <div className="solver-panel">
                     <strong>📘 {skill.name}</strong>
