@@ -123,8 +123,53 @@ describe('misconception tracking', () => {
 function play(p: Profile, plan: Plan, rng: () => number, correct: boolean, items: ItemStats = {}) {
   const q = makeQuestion(plan.skillId, plan.level, p.recentQuestionIds, rng, plan.target);
   const given = correct ? q.answer : q.bugs?.[0]?.[1] ?? 'wrong';
-  return { q, ...recordAnswer(p, q, correct, SLOW, 0, { given, hinted: !!plan.showHint, strategy: plan.strategy, items }) };
+  return {
+    q,
+    ...recordAnswer(p, q, correct, SLOW, 0, {
+      given,
+      hinted: !!plan.showHint || !!plan.workedExample,
+      strategy: plan.strategy,
+      items,
+    }),
+  };
 }
+
+describe('worked-example evidence integrity', () => {
+  it('does not resolve a stuck episode directly from a worked-example-assisted answer', () => {
+    const rng = seeded(513);
+    let p = newProfile('Sim', '🙂', 6);
+    p = {
+      ...p,
+      help: {
+        ...p.help,
+        strategies: {
+          similar: { tried: 5, helped: 0 },
+          'worked-example': { tried: 5, helped: 5 },
+          hint: { tried: 5, helped: 0 },
+          'smaller-steps': { tried: 5, helped: 0 },
+        },
+      },
+    };
+    p = play(
+      p,
+      { skillId: 'number-sense', level: 4, reason: 'continue', message: '' },
+      rng,
+      false,
+    ).profile;
+
+    const plan = planNext(p, 'maths', { focus: 'number-sense', answered: 1 }, 0, rng);
+    expect(plan.strategy).toBe('worked-example');
+    expect(plan.workedExample).toBe(true);
+
+    // Force the supported question back to the original difficulty. Even at
+    // the stuck level it remains assisted evidence and must fade to an unaided
+    // climb rather than resolving immediately.
+    const result = play(p, { ...plan, level: 4 }, rng, true);
+    expect(result.event).toBe('helped');
+    expect(result.profile.help.episode?.phase).toBe('climb');
+    expect(result.profile.help.episode).not.toBeNull();
+  });
+});
 
 describe('when a child is stuck', () => {
   it('stays on the problem, switching to a different way of helping after each miss', () => {
