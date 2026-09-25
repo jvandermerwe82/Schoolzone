@@ -627,3 +627,26 @@ html.calm *, html.calm *::before, html.calm *::after { animation: none !importan
   .as-fraction-bar { width: min(120px, 30vw); }
   .as-step p { font-size: 0.9rem; }
 }
+
+.as-place-guide {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(62px, 1fr));
+  gap: 0.4rem;
+  text-align: center;
+}
+.as-place-guide span {
+  padding: 0.55rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.as-place-guide span:nth-child(2),
+.as-place-guide span:nth-child(3) {
+  border-color: color-mix(in srgb, var(--primary-2) 42%, var(--border));
+}
+@media (max-width: 480px) {
+  .as-place-guide { grid-template-columns: repeat(2, 1fr); }
+}
