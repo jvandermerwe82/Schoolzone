@@ -318,3 +318,16 @@ Pilot Evidence v1 is an instrumentation layer. It does not change:
 - production recommendation policy.
 
 It exists so those systems can later be calibrated with real evidence rather than synthetic tuning alone.
+
+
+## Cohort version lock
+
+Before the first real pilot participant starts, generate and archive the immutable cohort manifest:
+
+```bash
+npm run pilot:manifest -- ./pilot-export
+```
+
+Keep `pilot-version-manifest-v1.json` with the research exports. Pilot Analytics requires this file and records the cohort SHA separately from the later analysis SHA.
+
+See `pilot-version-lock-v1.md`.
