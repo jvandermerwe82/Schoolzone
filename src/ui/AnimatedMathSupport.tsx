@@ -257,6 +257,30 @@ export function AnimatedMathSupport({ question, mode }: Props) {
         ))}
       </div>
 
+      <div className="as-controls">
+        <button
+          type="button"
+          onClick={() => {
+            setPlaying(false);
+            setStep((value) => Math.max(0, value - 1));
+          }}
+          disabled={step === 0}
+        >
+          ← Previous
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            setPlaying(false);
+            setStep((value) => Math.min(support.steps.length - 1, value + 1));
+          }}
+          disabled={finished}
+        >
+          {finished ? 'Complete' : 'Next step →'}
+        </button>
+      </div>
+
       {mode === 'worked' && finished && (
         <p className="as-answer"><strong>Answer:</strong> {minus(question.answer)}</p>
       )}
