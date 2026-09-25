@@ -418,6 +418,7 @@ export function buildApp(opts: AppOptions) {
     eventVersion?: number;
     sessionId?: string | null;
     sessionPosition?: number | null;
+    missionLength?: number | null;
     planReason?: 'new' | 'continue' | 'review' | 'help' | 'climb' | null;
     helpEvent?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
     diagnostic?: boolean | null;
@@ -453,6 +454,7 @@ export function buildApp(opts: AppOptions) {
       eventVersion: { type: 'integer', minimum: 1, maximum: 100 },
       sessionId: { type: ['string', 'null'], maxLength: 64 },
       sessionPosition: { type: ['integer', 'null'], minimum: 1, maximum: 1000 },
+      missionLength: { type: ['integer', 'null'], minimum: 1, maximum: 1000 },
       planReason: { enum: ['new', 'continue', 'review', 'help', 'climb', null] },
       helpEvent: { enum: ['stuck', 'helped', 'switched', 'resolved', null] },
       diagnostic: { type: ['boolean', 'null'] },
@@ -485,10 +487,10 @@ export function buildApp(opts: AppOptions) {
     const research = latestConsent(req.parent!.id)?.research === 1;
     const insert = db.prepare(`INSERT INTO events (
       child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy,
-      event_version, session_id, session_position, plan_reason, help_event, diagnostic, due_review,
+      event_version, session_id, session_position, mission_length, plan_reason, help_event, diagnostic, due_review,
       curriculum_id, canonical_node_id, evidence_strength, teacher_target_node_id, teacher_route_reason,
       p_known_before, p_known_after, ability_before, ability_after, mastered_after
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const upsert = db.prepare('INSERT INTO items (key, offset, n) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET offset = excluded.offset, n = excluded.n');
     let items = loadItems();
     db.exec('BEGIN');
@@ -511,6 +513,7 @@ export function buildApp(opts: AppOptions) {
             e.eventVersion ?? 1,
             e.sessionId ?? null,
             e.sessionPosition ?? null,
+            e.missionLength ?? null,
             e.planReason ?? null,
             e.helpEvent ?? null,
             nullableBool(e.diagnostic),
@@ -632,7 +635,7 @@ export function buildApp(opts: AppOptions) {
     const salt = opts.exportSalt ?? opts.adminToken;
     const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
     const rows = db.prepare(`SELECT
-      child_id, event_version, at, session_id, session_position,
+      child_id, event_version, at, session_id, session_position, mission_length,
       skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted,
       misconception, strategy, plan_reason, help_event, diagnostic, due_review,
       curriculum_id, canonical_node_id, evidence_strength,
@@ -642,7 +645,7 @@ export function buildApp(opts: AppOptions) {
     const esc = (v: string | number | null) =>
       v === null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
     const header = [
-      'learner', 'event_version', 'at', 'session_id', 'session_position',
+      'learner', 'event_version', 'at', 'session_id', 'session_position', 'mission_length',
       'skill', 'level', 'item', 'correct', 'hinted', 'rapid', 'time_ms', 'predicted',
       'misconception', 'strategy', 'plan_reason', 'help_event', 'diagnostic', 'due_review',
       'curriculum_id', 'canonical_node_id', 'evidence_strength',
@@ -655,6 +658,7 @@ export function buildApp(opts: AppOptions) {
       r.at,
       r.session_id,
       r.session_position,
+      r.mission_length,
       r.skill_id,
       r.level,
       r.item_key,
