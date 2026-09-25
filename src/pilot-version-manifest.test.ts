@@ -10,7 +10,10 @@ import { MISCONCEPTION_LAB_THRESHOLDS } from './brain-lab/misconception-learning
 import { RETENTION_LAB_THRESHOLDS } from './brain-lab/retention';
 import { TEACHER_INTENT_LAB_THRESHOLDS } from './brain-lab/teacher-intent';
 import {
+  PILOT_ANALYSIS_PROVENANCE_VERSION,
   PILOT_VERSION_MANIFEST_VERSION,
+  parsePilotVersionManifest,
+  pilotAnalysisProvenance,
   pilotVersionManifest,
   pilotVersionManifestMarkdown,
 } from './pilot-version-manifest';
@@ -76,6 +79,42 @@ describe('Pilot Version Manifest v1', () => {
   it('contains no runtime timestamps, account ids or user data', () => {
     const json = JSON.stringify(pilotVersionManifest(SHA));
     expect(json).not.toMatch(/generatedAt|createdAt|parent|child|email|name":"Stage/i);
+  });
+
+  it('round-trips a stored cohort manifest through validation', () => {
+    const manifest = pilotVersionManifest(SHA);
+    expect(parsePilotVersionManifest(JSON.stringify(manifest))).toEqual(manifest);
+  });
+
+  it('rejects a stored manifest with incompatible contract versions', () => {
+    const manifest = pilotVersionManifest(SHA);
+    const incompatible = {
+      ...manifest,
+      contracts: { ...manifest.contracts, pilotEvidenceVersion: 999 },
+    };
+    expect(() => parsePilotVersionManifest(JSON.stringify(incompatible)))
+      .toThrow(/contract versions/);
+  });
+
+  it('records cohort and analysis commits separately', () => {
+    const cohort = pilotVersionManifest(SHA);
+    const analysisSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    expect(pilotAnalysisProvenance(cohort, analysisSha)).toEqual({
+      version: PILOT_ANALYSIS_PROVENANCE_VERSION,
+      cohort: {
+        manifestVersion: PILOT_VERSION_MANIFEST_VERSION,
+        sourceGitSha: SHA,
+        pilotEvidenceVersion: PILOT_EVIDENCE_VERSION,
+        learningIntelligenceVersion: LEARNING_INTELLIGENCE_VERSION,
+        consentVersion: CONSENT_VERSION,
+        curriculumId: AUSTRALIAN_CURRICULUM_V9.id,
+        curriculumVersion: AUSTRALIAN_CURRICULUM_V9.version,
+      },
+      analysis: {
+        sourceGitSha: analysisSha,
+        pilotAnalyticsVersion: PILOT_ANALYTICS_VERSION,
+      },
+    });
   });
 
   it('renders a human-readable manifest without changing the locked values', () => {
