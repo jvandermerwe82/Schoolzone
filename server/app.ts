@@ -11,6 +11,7 @@ import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { createHmac } from 'node:crypto';
 import { updateItem, type ItemStats } from '../src/brain/items';
 import type { Level, Question } from '../src/brain/types';
+import type { LearningIntelligenceState } from '../src/brain/learning-intelligence';
 import type { DB } from './db';
 import { hashSecret, hashToken, newId, newToken, RateLimiter, verifySecret } from './security';
 import { ConsoleMailer, emails, type Mailer } from './mailer';
@@ -629,11 +630,17 @@ export function buildApp(opts: AppOptions) {
     return { ok: true };
   });
 
-  // ---------- research export (pseudonymised, research-consented events only) ----------
+  // ---------- research export (pseudonymised, research-consented data only) ----------
+  const researchSalt = opts.exportSalt ?? opts.adminToken ?? 'research-disabled';
+  const researchPseudo = (id: string) =>
+    createHmac('sha256', researchSalt).update(id).digest('hex').slice(0, 16);
+  const researchKids = () => db.prepare(`SELECT c.id, c.profile_json FROM children c WHERE c.parent_id IN (
+    SELECT parent_id FROM consents x
+    WHERE x.id = (SELECT MAX(id) FROM consents y WHERE y.parent_id = x.parent_id)
+      AND x.research = 1)`).all() as { id: string; profile_json: string }[];
+
   app.get('/api/admin/events.csv', async (req, reply) => {
     if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
-    const salt = opts.exportSalt ?? opts.adminToken;
-    const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
     const rows = db.prepare(`SELECT
       child_id, event_version, at, session_id, session_position, mission_length,
       skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted,
@@ -653,7 +660,7 @@ export function buildApp(opts: AppOptions) {
       'p_known_before', 'p_known_after', 'ability_before', 'ability_after', 'mastered_after',
     ].join(',');
     const lines = rows.map((r) => [
-      pseudo(String(r.child_id)),
+      researchPseudo(String(r.child_id)),
       r.event_version,
       r.at,
       r.session_id,
@@ -689,16 +696,79 @@ export function buildApp(opts: AppOptions) {
   });
 
   /**
+   * Current explicit support preferences, excluding optional free-text notes.
+   * These are hypotheses/instructions, not claims that the support works.
+   */
+  app.get('/api/admin/support-preferences.csv', async (req, reply) => {
+    if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
+    const lines = ['learner,at,source,strategy,value'];
+    for (const kid of researchKids()) {
+      const profile = JSON.parse(kid.profile_json) as { learningIntelligence?: LearningIntelligenceState };
+      for (const pref of profile.learningIntelligence?.supportPreferences ?? []) {
+        lines.push([
+          researchPseudo(kid.id),
+          pref.at,
+          pref.source,
+          pref.strategy,
+          pref.value,
+        ].join(','));
+      }
+    }
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    return lines.join('\n');
+  });
+
+  /** Structured support-effectiveness evidence; contains no preference notes. */
+  app.get('/api/admin/support-outcomes.csv', async (req, reply) => {
+    if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
+    const lines = ['learner,at,source,strategy,delta,weight,subject,skill'];
+    for (const kid of researchKids()) {
+      const profile = JSON.parse(kid.profile_json) as { learningIntelligence?: LearningIntelligenceState };
+      for (const outcome of profile.learningIntelligence?.supportOutcomes ?? []) {
+        lines.push([
+          researchPseudo(kid.id),
+          outcome.at,
+          outcome.source,
+          outcome.strategy,
+          outcome.delta,
+          outcome.weight,
+          outcome.subject ?? '',
+          outcome.skillId ?? '',
+        ].join(','));
+      }
+    }
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    return lines.join('\n');
+  });
+
+  /** Observable engagement signals only; never diagnostic labels or inferred conditions. */
+  app.get('/api/admin/engagement.csv', async (req, reply) => {
+    if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
+    const lines = ['learner,at,kind,subject,skill,value'];
+    for (const kid of researchKids()) {
+      const profile = JSON.parse(kid.profile_json) as { learningIntelligence?: LearningIntelligenceState };
+      for (const signal of profile.learningIntelligence?.engagement ?? []) {
+        lines.push([
+          researchPseudo(kid.id),
+          signal.at,
+          signal.kind,
+          signal.subject ?? '',
+          signal.skillId ?? '',
+          signal.value ?? '',
+        ].join(','));
+      }
+    }
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    return lines.join('\n');
+  });
+
+  /**
    * Checkpoint results, one row per answer, for children whose parent opted in
    * to research. Same pseudonymous learner ids as the events export.
    */
   app.get('/api/admin/checkpoints.csv', async (req, reply) => {
     if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
-    const salt = opts.exportSalt ?? opts.adminToken;
-    const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
-    const kids = db.prepare(`SELECT c.id, c.profile_json FROM children c WHERE c.parent_id IN (
-      SELECT parent_id FROM consents x WHERE x.id = (SELECT MAX(id) FROM consents y WHERE y.parent_id = x.parent_id) AND x.research = 1)`)
-      .all() as { id: string; profile_json: string }[];
+    const kids = researchKids();
     const lines = ['learner,year,subject,form,order,at,skill,level,correct,time_ms'];
     for (const k of kids) {
       const p = JSON.parse(k.profile_json) as { year?: number; checkpoints?: { subject: string; form: string; at: number; answers: { skillId: string; level: number; correct: boolean; timeMs: number }[] }[] };
@@ -707,7 +777,7 @@ export function buildApp(opts: AppOptions) {
         const order = (bySubject.get(c.subject) ?? 0) + 1;
         bySubject.set(c.subject, order);
         for (const a of c.answers) {
-          lines.push([pseudo(k.id), p.year ?? '', c.subject, c.form, order, c.at, a.skillId, a.level, a.correct ? 1 : 0, a.timeMs].join(','));
+          lines.push([researchPseudo(k.id), p.year ?? '', c.subject, c.form, order, c.at, a.skillId, a.level, a.correct ? 1 : 0, a.timeMs].join(','));
         }
       }
     }
