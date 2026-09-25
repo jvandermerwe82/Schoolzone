@@ -403,17 +403,70 @@ export function buildApp(opts: AppOptions) {
 
   // ---------- answer events and shared question difficulty ----------
   interface EventIn {
-    at: number; skillId: string; level: number; itemKey: string; correct: boolean; hinted: boolean;
-    rapid: boolean; timeMs: number; predicted: number; misconception?: string | null; strategy?: string | null;
+    at: number;
+    skillId: string;
+    level: number;
+    itemKey: string;
+    correct: boolean;
+    hinted: boolean;
+    rapid: boolean;
+    timeMs: number;
+    predicted: number;
+    misconception?: string | null;
+    strategy?: string | null;
+
+    eventVersion?: number;
+    sessionId?: string | null;
+    sessionPosition?: number | null;
+    planReason?: 'new' | 'continue' | 'review' | 'help' | 'climb' | null;
+    helpEvent?: 'stuck' | 'helped' | 'switched' | 'resolved' | null;
+    diagnostic?: boolean | null;
+    dueReview?: boolean | null;
+    curriculumId?: string | null;
+    canonicalNodeId?: string | null;
+    evidenceStrength?: 'direct' | 'supporting' | null;
+    teacherTargetNodeId?: string | null;
+    teacherRouteReason?: 'target' | 'prerequisite' | null;
+    pKnownBefore?: number | null;
+    pKnownAfter?: number | null;
+    abilityBefore?: number | null;
+    abilityAfter?: number | null;
+    masteredAfter?: boolean | null;
   }
+
   const eventSchema = {
     type: 'object', additionalProperties: false,
     required: ['at', 'skillId', 'level', 'itemKey', 'correct', 'hinted', 'rapid', 'timeMs', 'predicted'],
     properties: {
-      at: { type: 'integer' }, skillId: { type: 'string', maxLength: 64 }, level: { type: 'integer', minimum: 1, maximum: 5 },
-      itemKey: { type: 'string', maxLength: 128 }, correct: { type: 'boolean' }, hinted: { type: 'boolean' }, rapid: { type: 'boolean' },
-      timeMs: { type: 'integer', minimum: 0 }, predicted: { type: 'number', minimum: 0, maximum: 1 },
-      misconception: { type: ['string', 'null'], maxLength: 128 }, strategy: { type: ['string', 'null'], maxLength: 32 },
+      at: { type: 'integer' },
+      skillId: { type: 'string', maxLength: 64 },
+      level: { type: 'integer', minimum: 1, maximum: 5 },
+      itemKey: { type: 'string', maxLength: 128 },
+      correct: { type: 'boolean' },
+      hinted: { type: 'boolean' },
+      rapid: { type: 'boolean' },
+      timeMs: { type: 'integer', minimum: 0 },
+      predicted: { type: 'number', minimum: 0, maximum: 1 },
+      misconception: { type: ['string', 'null'], maxLength: 128 },
+      strategy: { type: ['string', 'null'], maxLength: 32 },
+
+      eventVersion: { type: 'integer', minimum: 1, maximum: 100 },
+      sessionId: { type: ['string', 'null'], maxLength: 64 },
+      sessionPosition: { type: ['integer', 'null'], minimum: 1, maximum: 1000 },
+      planReason: { enum: ['new', 'continue', 'review', 'help', 'climb', null] },
+      helpEvent: { enum: ['stuck', 'helped', 'switched', 'resolved', null] },
+      diagnostic: { type: ['boolean', 'null'] },
+      dueReview: { type: ['boolean', 'null'] },
+      curriculumId: { type: ['string', 'null'], maxLength: 64 },
+      canonicalNodeId: { type: ['string', 'null'], maxLength: 160 },
+      evidenceStrength: { enum: ['direct', 'supporting', null] },
+      teacherTargetNodeId: { type: ['string', 'null'], maxLength: 160 },
+      teacherRouteReason: { enum: ['target', 'prerequisite', null] },
+      pKnownBefore: { type: ['number', 'null'], minimum: 0, maximum: 1 },
+      pKnownAfter: { type: ['number', 'null'], minimum: 0, maximum: 1 },
+      abilityBefore: { type: ['number', 'null'], minimum: -20, maximum: 20 },
+      abilityAfter: { type: ['number', 'null'], minimum: -20, maximum: 20 },
+      masteredAfter: { type: ['boolean', 'null'] },
     },
   } as const;
 
@@ -422,22 +475,59 @@ export function buildApp(opts: AppOptions) {
     return Object.fromEntries(rows.map((r) => [r.key, { offset: r.offset, n: r.n }]));
   };
 
+  const nullableBool = (value: boolean | null | undefined): number | null =>
+    value === null || value === undefined ? null : value ? 1 : 0;
+
   app.post<{ Params: { id: string }; Body: { events: EventIn[] } }>('/api/children/:id/events', {
     preHandler: requireChild,
     schema: { body: { type: 'object', required: ['events'], properties: { events: { type: 'array', maxItems: 200, items: eventSchema } } } },
   }, async (req) => {
     const research = latestConsent(req.parent!.id)?.research === 1;
-    const insert = db.prepare(`INSERT INTO events (child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insert = db.prepare(`INSERT INTO events (
+      child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy,
+      event_version, session_id, session_position, plan_reason, help_event, diagnostic, due_review,
+      curriculum_id, canonical_node_id, evidence_strength, teacher_target_node_id, teacher_route_reason,
+      p_known_before, p_known_after, ability_before, ability_after, mastered_after
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const upsert = db.prepare('INSERT INTO items (key, offset, n) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET offset = excluded.offset, n = excluded.n');
     let items = loadItems();
     db.exec('BEGIN');
     try {
       for (const e of req.body.events) {
         if (research) {
-          insert.run(req.params.id, e.at, e.skillId, e.level, e.itemKey, e.correct ? 1 : 0, e.hinted ? 1 : 0, e.rapid ? 1 : 0,
-            e.timeMs, e.predicted, e.misconception ?? null, e.strategy ?? null);
+          insert.run(
+            req.params.id,
+            e.at,
+            e.skillId,
+            e.level,
+            e.itemKey,
+            e.correct ? 1 : 0,
+            e.hinted ? 1 : 0,
+            e.rapid ? 1 : 0,
+            e.timeMs,
+            e.predicted,
+            e.misconception ?? null,
+            e.strategy ?? null,
+            e.eventVersion ?? 1,
+            e.sessionId ?? null,
+            e.sessionPosition ?? null,
+            e.planReason ?? null,
+            e.helpEvent ?? null,
+            nullableBool(e.diagnostic),
+            nullableBool(e.dueReview),
+            e.curriculumId ?? null,
+            e.canonicalNodeId ?? null,
+            e.evidenceStrength ?? null,
+            e.teacherTargetNodeId ?? null,
+            e.teacherRouteReason ?? null,
+            e.pKnownBefore ?? null,
+            e.pKnownAfter ?? null,
+            e.abilityBefore ?? null,
+            e.abilityAfter ?? null,
+            nullableBool(e.masteredAfter),
+          );
         }
+
         // Shared learning of question difficulty uses no personal data; skip hinted or rushed answers.
         // The key must belong to the skill, so one bad client can't disturb other skills' data.
         const keyOk = e.itemKey === `${e.skillId}:L${e.level}` || e.itemKey.startsWith(`${e.skillId}#`);
@@ -447,6 +537,7 @@ export function buildApp(opts: AppOptions) {
           for (const [k, v] of Object.entries(items)) if (before[k] !== v) upsert.run(k, v.offset, v.n);
         }
       }
+
       // Leaderboard effort points (only if the child has joined a school).
       awardPoints(db, req.params.id, req.body.events, now());
       db.exec('COMMIT');
@@ -540,11 +631,55 @@ export function buildApp(opts: AppOptions) {
     if (!opts.adminToken || req.headers['x-admin-token'] !== opts.adminToken) return reply.code(404).send({ error: 'Not found.' });
     const salt = opts.exportSalt ?? opts.adminToken;
     const pseudo = (id: string) => createHmac('sha256', salt).update(id).digest('hex').slice(0, 16);
-    const rows = db.prepare('SELECT child_id, at, skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted, misconception, strategy FROM events ORDER BY id')
-      .all() as Record<string, string | number | null>[];
-    const esc = (v: string | number | null) => (v === null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-    const header = 'learner,at,skill,level,item,correct,hinted,rapid,time_ms,predicted,misconception,strategy';
-    const lines = rows.map((r) => [pseudo(String(r.child_id)), r.at, r.skill_id, r.level, r.item_key, r.correct, r.hinted, r.rapid, r.time_ms, r.predicted, r.misconception, r.strategy].map(esc).join(','));
+    const rows = db.prepare(`SELECT
+      child_id, event_version, at, session_id, session_position,
+      skill_id, level, item_key, correct, hinted, rapid, time_ms, predicted,
+      misconception, strategy, plan_reason, help_event, diagnostic, due_review,
+      curriculum_id, canonical_node_id, evidence_strength,
+      teacher_target_node_id, teacher_route_reason,
+      p_known_before, p_known_after, ability_before, ability_after, mastered_after
+      FROM events ORDER BY id`).all() as Record<string, string | number | null>[];
+    const esc = (v: string | number | null) =>
+      v === null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+    const header = [
+      'learner', 'event_version', 'at', 'session_id', 'session_position',
+      'skill', 'level', 'item', 'correct', 'hinted', 'rapid', 'time_ms', 'predicted',
+      'misconception', 'strategy', 'plan_reason', 'help_event', 'diagnostic', 'due_review',
+      'curriculum_id', 'canonical_node_id', 'evidence_strength',
+      'teacher_target_node_id', 'teacher_route_reason',
+      'p_known_before', 'p_known_after', 'ability_before', 'ability_after', 'mastered_after',
+    ].join(',');
+    const lines = rows.map((r) => [
+      pseudo(String(r.child_id)),
+      r.event_version,
+      r.at,
+      r.session_id,
+      r.session_position,
+      r.skill_id,
+      r.level,
+      r.item_key,
+      r.correct,
+      r.hinted,
+      r.rapid,
+      r.time_ms,
+      r.predicted,
+      r.misconception,
+      r.strategy,
+      r.plan_reason,
+      r.help_event,
+      r.diagnostic,
+      r.due_review,
+      r.curriculum_id,
+      r.canonical_node_id,
+      r.evidence_strength,
+      r.teacher_target_node_id,
+      r.teacher_route_reason,
+      r.p_known_before,
+      r.p_known_after,
+      r.ability_before,
+      r.ability_after,
+      r.mastered_after,
+    ].map(esc).join(','));
     reply.header('content-type', 'text/csv; charset=utf-8');
     return [header, ...lines].join('\n');
   });
