@@ -7,7 +7,7 @@ import { englishQuestions, englishSkillIds } from '../content/english';
 import { scienceQuestions, scienceSkillIds } from '../content/science';
 import { getSkill } from '../content/skills';
 import { newProfile } from '../storage';
-import { nextStrategy, STRATEGIES } from './help';
+import { nextStrategy, SELECTIVE_SUPPORT_CORRECT_NEEDED, STRATEGIES } from './help';
 import { recordSupportOutcome, setSupportPreference } from './learning-intelligence';
 import { itemKey, type ItemStats } from './items';
 import { ACTIVE, allMisconceptionIds, diagnose, getMisconception } from './misconceptions';
@@ -125,6 +125,101 @@ function play(p: Profile, plan: Plan, rng: () => number, correct: boolean, items
   const given = correct ? q.answer : q.bugs?.[0]?.[1] ?? 'wrong';
   return { q, ...recordAnswer(p, q, correct, SLOW, 0, { given, hinted: !!plan.showHint, strategy: plan.strategy, items }) };
 }
+
+describe('selective scaffold fading', () => {
+  it('requires a second success after heavy hint support', () => {
+    const rng = seeded(515);
+    let p = newProfile('Sim', '🙂', 6);
+    p = {
+      ...p,
+      help: {
+        ...p.help,
+        strategies: {
+          similar: { tried: 5, helped: 0 },
+          'worked-example': { tried: 5, helped: 0 },
+          hint: { tried: 5, helped: 5 },
+          'smaller-steps': { tried: 5, helped: 0 },
+        },
+      },
+    };
+    p = play(p, { skillId: 'number-sense', level: 4, reason: 'continue', message: '' }, rng, false).profile;
+
+    let plan = planNext(p, 'maths', { focus: 'number-sense', answered: 1 }, 0, rng);
+    expect(plan.strategy).toBe('hint');
+    expect(plan.showHint).toBe(true);
+
+    let r = play(p, plan, rng, true);
+    p = r.profile;
+    expect(r.event).toBe('helped');
+    expect(p.help.episode?.phase).toBe('hint');
+    expect(p.help.episode?.supportCorrect).toBe(1);
+    expect(p.help.episode?.supportCorrect).toBeLessThan(SELECTIVE_SUPPORT_CORRECT_NEEDED);
+
+    plan = planNext(p, 'maths', { focus: 'number-sense', answered: 2 }, 0, rng);
+    expect(plan.strategy).toBe('hint');
+    r = play(p, plan, rng, true);
+    expect(r.profile.help.episode?.supportCorrect).toBe(SELECTIVE_SUPPORT_CORRECT_NEEDED);
+    expect(r.profile.help.episode?.phase).toBe('climb');
+  });
+
+  it('fades after one clean similar-problem success', () => {
+    const rng = seeded(516);
+    let p = newProfile('Sim', '🙂', 6);
+    p = {
+      ...p,
+      help: {
+        ...p.help,
+        strategies: {
+          similar: { tried: 5, helped: 5 },
+          'worked-example': { tried: 5, helped: 0 },
+          hint: { tried: 5, helped: 0 },
+          'smaller-steps': { tried: 5, helped: 0 },
+        },
+      },
+    };
+    p = play(p, { skillId: 'number-sense', level: 4, reason: 'continue', message: '' }, rng, false).profile;
+
+    const plan = planNext(p, 'maths', { focus: 'number-sense', answered: 1 }, 0, rng);
+    expect(plan.strategy).toBe('similar');
+    expect(plan.level).toBe(3);
+
+    const r = play(p, plan, rng, true);
+    expect(r.event).toBe('helped');
+    expect(r.profile.help.episode?.phase).toBe('climb');
+    expect(r.profile.help.episode?.supportCorrect).toBe(1);
+  });
+
+  it('requires confirmation after a two-level-or-more scaffold drop', () => {
+    const rng = seeded(517);
+    let p = newProfile('Sim', '🙂', 6);
+    p = {
+      ...p,
+      help: {
+        ...p.help,
+        strategies: {
+          similar: { tried: 5, helped: 0 },
+          'worked-example': { tried: 5, helped: 0 },
+          hint: { tried: 5, helped: 0 },
+          'smaller-steps': { tried: 5, helped: 5 },
+        },
+      },
+    };
+    p = play(p, { skillId: 'number-sense', level: 4, reason: 'continue', message: '' }, rng, false).profile;
+
+    let plan = planNext(p, 'maths', { focus: 'number-sense', answered: 1 }, 0, rng);
+    expect(plan.strategy).toBe('smaller-steps');
+    expect(plan.level).toBe(1);
+
+    let r = play(p, plan, rng, true);
+    p = r.profile;
+    expect(p.help.episode?.phase).toBe('smaller-steps');
+    expect(p.help.episode?.supportCorrect).toBe(1);
+
+    plan = planNext(p, 'maths', { focus: 'number-sense', answered: 2 }, 0, rng);
+    r = play(p, plan, rng, true);
+    expect(r.profile.help.episode?.phase).toBe('climb');
+  });
+});
 
 describe('when a child is stuck', () => {
   it('stays on the problem, switching to a different way of helping after each miss', () => {
