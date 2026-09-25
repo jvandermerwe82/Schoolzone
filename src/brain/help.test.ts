@@ -272,15 +272,30 @@ describe('when a child is stuck', () => {
     p = play(p, { skillId: 'algebra', level: 4, reason: 'continue', message: '' }, rng, false).profile;
     let plan = planNext(p, 'maths', { focus: 'algebra', answered: 1 }, 0, rng);
     const first = plan.strategy as StrategyId;
-    // Force an easier question so the child is helped but hasn't solved it yet.
+
+    // Get the learner moving with the selected scaffold.
     let r = play(p, { ...plan, level: 1 }, rng, true);
     expect(r.event).toBe('helped');
-    plan = planNext(r.profile, 'maths', { focus: 'algebra', answered: 2 }, 0, rng);
+    p = r.profile;
+
+    // Some selective scaffolds deliberately require one confirming success
+    // before they fade. Keep following the same support until the unaided
+    // climb actually starts.
+    plan = planNext(p, 'maths', { focus: 'algebra', answered: 2 }, 0, rng);
+    if (plan.reason === 'help') {
+      expect(plan.strategy).toBe(first);
+      r = play(p, plan, rng, true);
+      expect(r.event).toBe('helped');
+      p = r.profile;
+      plan = planNext(p, 'maths', { focus: 'algebra', answered: 3 }, 0, rng);
+    }
+
     expect(plan.reason).toBe('climb');
-    r = play(r.profile, plan, rng, false); // slips on the way back up
+    r = play(p, plan, rng, false); // slips after the scaffold is faded
     expect(r.event).toBe('switched');
-    plan = planNext(r.profile, 'maths', { focus: 'algebra', answered: 3 }, 0, rng);
-    expect(plan.strategy).not.toBe(first);
+
+    const next = planNext(r.profile, 'maths', { focus: 'algebra', answered: 4 }, 0, rng);
+    expect(next.strategy).not.toBe(first);
     expect(r.profile.help.strategies[first]).toEqual({ tried: 1, helped: 0 });
   });
 
