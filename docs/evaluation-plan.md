@@ -148,11 +148,11 @@ Before starting:
 1. define the primary endpoint;
 2. choose a comparison design;
 3. calculate the sample size needed for that endpoint;
-4. freeze Brain/model versions;
+4. freeze the exact cohort git SHA and generate `pilot-version-manifest-v1.json`;
 5. pre-specify missing-data handling;
 6. pre-specify exclusions;
 7. pre-specify subgroup analyses;
-8. document curriculum/content version.
+8. archive the curriculum/content and software version lock with the study record.
 
 A waitlist, stepped-wedge or other suitable comparison design is stronger than a simple pre/post study.
 
