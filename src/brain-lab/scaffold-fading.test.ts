@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareScaffoldFadePolicies,
+  compareSelectiveScaffoldPolicies,
+  compareStateAwareScaffoldPolicies,
   evaluateScaffoldFadingGate,
   runScaffoldEpisode,
   runScaffoldFadeBenchmark,
@@ -85,6 +87,29 @@ describe('Brain Lab scaffold fading and independence', () => {
     expect(benchmark.postResolutionSuccessRate).toBeLessThanOrEqual(1);
     expect(benchmark.immediateRelapseRate).toBeGreaterThanOrEqual(0);
     expect(benchmark.immediateRelapseRate).toBeLessThanOrEqual(1);
+  });
+
+  it('compares state-aware fading without changing the locked production baseline', () => {
+    const population = scaffoldFadePopulation(40);
+    const selective = compareSelectiveScaffoldPolicies({
+      population,
+      maxTurns: 18,
+      postResolutionProbes: 4,
+      seed: 306,
+    });
+    const stateAware = compareStateAwareScaffoldPolicies({
+      population,
+      maxTurns: 18,
+      postResolutionProbes: 4,
+      seed: 306,
+    });
+
+    expect(selective.heavyTwo.learnerCount).toBe(40);
+    expect(selective.deepTwo.learnerCount).toBe(40);
+    expect(selective.heavyOrDeepTwo.learnerCount).toBe(40);
+    expect(stateAware.stateAware.learnerCount).toBe(40);
+    expect(stateAware.stateAware.resolutionRate).toBeGreaterThanOrEqual(0);
+    expect(stateAware.stateAware.resolutionRate).toBeLessThanOrEqual(1);
   });
 
   it('compares current fading with two- and three-supported challengers', () => {
