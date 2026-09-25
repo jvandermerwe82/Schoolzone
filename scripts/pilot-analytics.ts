@@ -40,3 +40,12 @@ if (analysis.integrity.warnings.length > 0) {
   console.log('Warnings:');
   for (const warning of analysis.integrity.warnings) console.log(`- ${warning}`);
 }
+
+
+if (!analysis.integrity.stage0.pass) {
+  console.error('Stage-0 evidence integrity: FAIL');
+  for (const failure of analysis.integrity.stage0.failures) console.error(`- ${failure}`);
+  process.exitCode = 1;
+} else {
+  console.log('Stage-0 evidence integrity: PASS');
+}
