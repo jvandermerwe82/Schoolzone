@@ -239,14 +239,28 @@ describe('when a child is stuck', () => {
     p = play(p, { skillId: 'algebra', level: 4, reason: 'continue', message: '' }, rng, false).profile;
     let plan = planNext(p, 'maths', { focus: 'algebra', answered: 1 }, 0, rng);
     const first = plan.strategy as StrategyId;
-    // Force an easier question so the child is helped but hasn't solved it yet.
+
+    // The first supported success is useful evidence, but the two-success
+    // fading rule deliberately keeps the same scaffold in place.
     let r = play(p, { ...plan, level: 1 }, rng, true);
     expect(r.event).toBe('helped');
+    expect(r.profile.help.episode?.phase).toBe(first);
+    expect(r.profile.help.episode?.supportCorrect).toBe(1);
+
+    // A second supported success is enough to fade into the unaided climb.
     plan = planNext(r.profile, 'maths', { focus: 'algebra', answered: 2 }, 0, rng);
-    expect(plan.reason).toBe('climb');
-    r = play(r.profile, plan, rng, false); // slips on the way back up
-    expect(r.event).toBe('switched');
+    expect(plan.reason).toBe('help');
+    expect(plan.strategy).toBe(first);
+    r = play(r.profile, { ...plan, level: 1 }, rng, true);
+    expect(r.event).toBe('helped');
+    expect(r.profile.help.episode?.phase).toBe('climb');
+
     plan = planNext(r.profile, 'maths', { focus: 'algebra', answered: 3 }, 0, rng);
+    expect(plan.reason).toBe('climb');
+    r = play(r.profile, plan, rng, false); // slips after the scaffold was faded
+    expect(r.event).toBe('switched');
+
+    plan = planNext(r.profile, 'maths', { focus: 'algebra', answered: 4 }, 0, rng);
     expect(plan.strategy).not.toBe(first);
     expect(r.profile.help.strategies[first]).toEqual({ tried: 1, helped: 0 });
   });
