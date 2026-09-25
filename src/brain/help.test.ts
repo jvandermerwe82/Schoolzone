@@ -123,7 +123,15 @@ describe('misconception tracking', () => {
 function play(p: Profile, plan: Plan, rng: () => number, correct: boolean, items: ItemStats = {}) {
   const q = makeQuestion(plan.skillId, plan.level, p.recentQuestionIds, rng, plan.target);
   const given = correct ? q.answer : q.bugs?.[0]?.[1] ?? 'wrong';
-  return { q, ...recordAnswer(p, q, correct, SLOW, 0, { given, hinted: !!plan.showHint, strategy: plan.strategy, items }) };
+  return {
+    q,
+    ...recordAnswer(p, q, correct, SLOW, 0, {
+      given,
+      hinted: !!plan.showHint || !!plan.workedExample,
+      strategy: plan.strategy,
+      items,
+    }),
+  };
 }
 
 describe('selective scaffold fading', () => {
