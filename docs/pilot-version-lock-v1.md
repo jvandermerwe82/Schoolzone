@@ -53,6 +53,8 @@ The JSON manifest records:
   - support-learning gate;
   - misconception gate;
   - retention gate;
+  - adaptive session-regulation gate;
+  - scaffold-fading/independence gate;
   - teacher-intent gate;
 - exact Stage-0 evidence-integrity thresholds.
 
