@@ -1,6 +1,6 @@
 /**
- * Profiles are saved in the browser (localStorage) for now, so the app works
- * offline with no account. A backend can replace this module later.
+ * Browser persistence used by local/offline mode and as a resilience mirror in
+ * cloud mode. The server remains authoritative when cloud mode is active.
  */
 import type { ItemStats } from './brain/items';
 import { emptyHelp } from './brain/help';

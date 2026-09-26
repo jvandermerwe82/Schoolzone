@@ -1,8 +1,10 @@
-# Schoolzone
+# SchoolZone
 
 Extra maths, English and science practice for kids, with a **brain** that learns each child's skill set as they go.
 
-**Focus: Year 6** (age 10–11), following the [national curriculum in England](https://www.gov.uk/government/collections/national-curriculum) (2014). Earlier-year skills stay in the app as foundations. A Year 6 child confirms each of them in a question or two, and the brain steps back to them if the child is stuck on Year 6 work.
+**Current launch direction: Australia first.** The active curriculum registry uses Australian Curriculum v9, with Years 4–6 as the initial mapped scope. The repository deliberately retains the original England Year 6 content, SATs features and earlier-year foundations as legacy/reuse assets; they are not automatically treated as Australian curriculum evidence. Australian mastery and teacher-routing claims are made only through the verified AC v9 curriculum mapping and canonical-evidence modules.
+
+Some sections below document the original England baseline because that content still exists in the product. Treat those sections as legacy-content documentation, not as the canonical launch-market definition.
 
 ## Run it
 
