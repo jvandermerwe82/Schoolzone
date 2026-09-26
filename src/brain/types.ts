@@ -16,7 +16,7 @@ export interface Skill {
   description: string;
   /** Skills that should be solid before this one is introduced. */
   prerequisites: string[];
-  /** School year (England) where this is usually taught; only a starting guess. */
+  /** Legacy content-year heuristic only; curriculum authority comes from the active external curriculum mapping. */
   typicalYear: number;
   /** Number of choices when the skill is multiple choice; absent for typed answers. */
   choices?: number;
@@ -150,7 +150,7 @@ export interface Profile {
   id: string;
   name: string;
   avatar: string;
-  /** School year (1-7, England) chosen at sign-up; used only as a starting guess. */
+  /** Learner school year/grade number chosen at sign-up; jurisdiction and curriculum authority are external. */
   year: number;
   createdAt: number;
   skills: Record<string, SkillState>;
