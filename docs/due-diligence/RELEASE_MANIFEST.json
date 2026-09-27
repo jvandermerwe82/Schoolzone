@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "product": "SchoolZone",
+  "canonical_repository": "jvandermerwe82/Schoolzone",
+  "status": "sale_readiness_candidate_partial_pass",
+  "production_branch": "claude/adaptive-school-app-skills-i93pd7",
+  "last_recorded_runtime_baseline": "accf5b23d3146befa3bb2f4a4e2baf310ba9e9ea",
+  "audit_candidate_pr30": "1819524574c2215da2a2ef1da00fc5ea21c51a1f",
+  "production_provider": "Render",
+  "persistence": "persistent_disk_plus_server_authority",
+  "dependency_authority": [
+    "package.json",
+    "package-lock.json"
+  ],
+  "blockers": [
+    "pilot_candidate_consolidation",
+    "restore_redeploy_evidence",
+    "open_pr_stack_classification",
+    "sbom_license_evidence",
+    "safeguarding_consent_data_room_evidence"
+  ]
+}

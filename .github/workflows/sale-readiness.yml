@@ -1,0 +1,31 @@
+name: SchoolZone sale readiness
+
+on:
+  pull_request:
+    paths:
+      - "ARCHITECTURE.md"
+      - "RUNBOOK.md"
+      - "RELEASE_STATE.md"
+      - "TECH_DEBT.md"
+      - "DECISIONS.md"
+      - "docs/due-diligence/**"
+      - ".github/workflows/sale-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diligence-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify diligence authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in README.md HANDOFF.md ARCHITECTURE.md RUNBOOK.md RELEASE_STATE.md TECH_DEBT.md DECISIONS.md             docs/due-diligence/README.md docs/due-diligence/SECURITY.md docs/due-diligence/DEPENDENCIES.md             docs/due-diligence/IP_DATA_RIGHTS.md docs/due-diligence/MOCK_HANDOVER.md docs/due-diligence/RELEASE_MANIFEST.json; do
+            test -s "$file" || { echo "Missing diligence authority: $file"; exit 1; }
+          done
+          test -s package-lock.json
+          grep -Fq "PARTIAL PASS" docs/due-diligence/MOCK_HANDOVER.md
