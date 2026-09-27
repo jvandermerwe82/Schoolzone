@@ -6,8 +6,10 @@
 ## Source-of-truth state
 
 - Default / current production code branch: `claude/adaptive-school-app-skills-i93pd7`
-- Verified default-branch SHA: `accf5b23d3146befa3bb2f4a4e2baf310ba9e9ea`
-- Current audit cleanup: PR #30 — `audit/schoolzone-clean-code-safety-20260927`
+- Current default repository SHA: `c94ab6844f4c581f008c8b52d67456fb48b02e4f` (handoff documentation merge only)
+- Last runtime/product-code baseline before the handoff merge: `accf5b23d3146befa3bb2f4a4e2baf310ba9e9ea`
+- Production runtime behavior was not changed by the handoff merge.
+- Current audit cleanup: PR #30 — `audit/schoolzone-clean-code-safety-20260927` (exact-head CI green, but it predates the handoff merge and must be refreshed against the current default before merge consideration)
 - PR #30 verified head: `1819524574c2215da2a2ef1da00fc5ea21c51a1f`
 - PR #30 changes are documentation/comment authority cleanup only; no learner/runtime logic is changed.
 - Older open Brain Lab / feature-stack PRs must not be assumed to represent production. Their open status is historical/experimental until explicitly reconciled.
