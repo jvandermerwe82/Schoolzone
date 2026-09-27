@@ -6,7 +6,7 @@
 ## Source-of-truth state
 
 - Default / current production code branch: `claude/adaptive-school-app-skills-i93pd7`
-- Current default repository SHA: `c94ab6844f4c581f008c8b52d67456fb48b02e4f` (handoff documentation merge only)
+- Current default repository head: verify live from GitHub at session start; intentionally not hard-coded in this file.
 - Last runtime/product-code baseline before the handoff merge: `accf5b23d3146befa3bb2f4a4e2baf310ba9e9ea`
 - Production runtime behavior was not changed by the handoff merge.
 - Current audit cleanup: PR #30 — `audit/schoolzone-clean-code-safety-20260927` (exact-head CI green, but it predates the handoff merge and must be refreshed against the current default before merge consideration)
