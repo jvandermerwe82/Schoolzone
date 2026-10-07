@@ -4,6 +4,7 @@ import { MATHS_GENERATORS, type Rng } from './maths';
 import { MATHS_Y6_GENERATORS } from './maths-y6';
 import { pickScienceQuestion } from './science';
 import { getSkill } from './skills';
+import { sameCoordinatePointSet } from './coordinates';
 
 const GENERATORS = { ...MATHS_GENERATORS, ...MATHS_Y6_GENERATORS };
 
@@ -78,6 +79,7 @@ export function parseNumber(input: string): number | null {
  * answer; other numeric answers accept any equal value (2/4 for 1/2, 0.5, 50%).
  */
 export function checkAnswer(question: Question, input: string): boolean {
+  if (question.interaction?.kind === 'coordinate-plot') return sameCoordinatePointSet(input, question.answer);
   if (tidy(input) === tidy(question.answer)) return true;
   if (question.choices || question.exact) return false;
   const a = parseNumber(input);

@@ -4,6 +4,7 @@
  */
 import type { Level, Question } from '../brain/types';
 import { addNoCarry, subBorrowNoDecrement, subSmallerFromLarger, withBugs } from './bugs';
+import { coordinates } from './coordinates';
 
 export type Rng = () => number;
 
@@ -265,4 +266,5 @@ export const MATHS_GENERATORS: Record<string, (level: Level, rng: Rng) => Questi
   multiplication,
   division,
   fractions,
+  coordinates,
 };

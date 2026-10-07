@@ -20,7 +20,9 @@ import { questionSpeech, SpeakButton } from './SpeakButton';
 import { newMissionEvidenceId, pilotAnswerEvent } from '../pilot-evidence';
 import { PassageCard } from './PassageCard';
 import { AnimatedMathSupport } from './AnimatedMathSupport';
+import { CoordinatePlotQuestion } from './CoordinatePlotQuestion';
 import { animatedSupportFor } from '../content/animated-support';
+import { formatCoordinatePoints } from '../content/coordinates';
 
 
 /**
@@ -352,11 +354,15 @@ export function Practice({
         <div className="card question-card worked">
           <div className="question-meta"><span>{skill.emoji} {skill.name}</span><span>📖 Worked example</span></div>
           <div className="prompt-row"><p className="prompt">{example.prompt}</p><SpeakButton text={`${example.prompt}. ${example.explanation}`} /></div>
-          <AnimatedMathSupport question={example} mode="worked" />
+          {example.interaction?.kind === 'coordinate-plot' ? (
+            <CoordinatePlotQuestion interaction={example.interaction} disabled showSolution />
+          ) : (
+            <AnimatedMathSupport question={example} mode="worked" />
+          )}
           {example.choices && <p className="muted">Choices: {example.choices.join(' · ')}</p>}
           <div className="steps">
             <p><strong>How to solve it:</strong> {example.explanation}</p>
-            <p><strong>Answer:</strong> {minus(example.answer)}</p>
+            <p><strong>Answer:</strong> {example.interaction?.kind === 'coordinate-plot' ? formatCoordinatePoints(example.answer) : minus(example.answer)}</p>
             {m && <p><strong>Watch out:</strong> {m.fix}</p>}
           </div>
           <button className="primary" onClick={() => { setStudying(false); setTurn((t) => ({ ...t, shownAt: Date.now() })); }} autoFocus>
@@ -410,7 +416,16 @@ export function Practice({
         </div>
         <div className="prompt-row"><p className="prompt">{question.prompt}</p><SpeakButton text={questionSpeech(question.prompt, shownChoices)} /></div>
 
-        {shownChoices ? (
+        {question.interaction?.kind === 'coordinate-plot' ? (
+          <CoordinatePlotQuestion
+            key={question.id}
+            interaction={question.interaction}
+            disabled={!!feedback}
+            feedbackCorrect={feedback?.correct}
+            showSolution={!!feedback && !feedback.correct}
+            onSubmit={submit}
+          />
+        ) : shownChoices ? (
           <div className="choices">
             {shownChoices.map((c) => {
               let cls = 'choice';
@@ -483,9 +498,13 @@ export function Practice({
                   <div className="solver-panel">
                     <strong>👀 A similar example, solved</strong>
                     <p>{solverExample.prompt}</p>
-                    <AnimatedMathSupport question={solverExample} mode="worked" />
+                    {solverExample.interaction?.kind === 'coordinate-plot' ? (
+                      <CoordinatePlotQuestion interaction={solverExample.interaction} disabled showSolution />
+                    ) : (
+                      <AnimatedMathSupport question={solverExample} mode="worked" />
+                    )}
                     <p>{solverExample.explanation}</p>
-                    <p><strong>Answer:</strong> {minus(solverExample.answer)}</p>
+                    <p><strong>Answer:</strong> {solverExample.interaction?.kind === 'coordinate-plot' ? formatCoordinatePoints(solverExample.answer) : minus(solverExample.answer)}</p>
                   </div>
                 )}
                 {tutorPanel}
@@ -498,7 +517,11 @@ export function Practice({
         {feedback && (
           <div className={`feedback ${feedback.correct ? 'good' : 'bad'}`}>
             <p className="feedback-title">
-              {feedback.correct ? `✓ ${RIGHT[answered % RIGHT.length]}` : `✗ Not quite. The answer is ${minus(question.answer)}.`}
+              {feedback.correct
+                ? `✓ ${RIGHT[answered % RIGHT.length]}`
+                : question.interaction?.kind === 'coordinate-plot'
+                  ? '✗ Not quite. The correct points are shown on the grid.'
+                  : `✗ Not quite. The answer is ${minus(question.answer)}.`}
               {feedback.xp > 0 && <span className="xp-pop">+{feedback.xp} XP</span>}
             </p>
             {feedback.rapid && <p>⏱️ That was very quick! Take your time and read the question carefully.</p>}

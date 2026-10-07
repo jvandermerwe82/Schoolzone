@@ -25,6 +25,8 @@ export const SKILLS: Skill[] = [
     description: 'Sharing equally, the inverse of times tables.', prerequisites: ['multiplication', 'subtraction'] },
   { id: 'fractions', subject: 'maths', name: 'Fractions', emoji: '🍕', typicalYear: 4,
     description: 'Parts of a whole, comparing and adding fractions.', prerequisites: ['division'] },
+  { id: 'coordinates', subject: 'maths', name: 'Coordinates & Graphs', emoji: '📍', typicalYear: 5,
+    description: 'Plotting ordered pairs, moving across grids and reading the Cartesian plane.', prerequisites: ['number-sense'] },
 
   // ---- Maths: Year 6 ----
   { id: 'negative-numbers', subject: 'maths', name: 'Negative Numbers', emoji: '🌡️', typicalYear: 6,
