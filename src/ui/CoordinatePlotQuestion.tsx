@@ -1,5 +1,5 @@
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { Question } from '../brain/types';
+import type { CoordinatePlotInteraction, Question } from '../brain/types';
 import {
   encodeCoordinatePoints,
   type CoordinatePoint,
@@ -7,9 +7,11 @@ import {
 
 interface Props {
   question: Question;
+  interaction: CoordinatePlotInteraction;
   disabled: boolean;
   feedbackCorrect?: boolean;
-  onSubmit: (answer: string) => void;
+  showSolution?: boolean;
+  onSubmit?: (answer: string) => void;
 }
 
 const VIEW = 500;
@@ -22,14 +24,13 @@ const pointKey = ([x, y]: CoordinatePoint) => `${x},${y}`;
 
 export function CoordinatePlotQuestion({
   question,
+  interaction,
   disabled,
   feedbackCorrect,
+  showSolution = false,
   onSubmit,
 }: Props) {
-  const interaction = question.interaction;
   const [points, setPoints] = useState<CoordinatePoint[]>([]);
-
-  if (!interaction || interaction.kind !== 'coordinate-plot') return null;
 
   const targets = useMemo<CoordinatePoint[]>(
     () => interaction.xValues.map((x, index) => [x, interaction.yValues[index]] as const),
@@ -113,11 +114,13 @@ export function CoordinatePlotQuestion({
           </table>
 
           <div className="coordinate-progress" aria-live="polite">
-            <strong>{points.length} of {targetCount}</strong> {targetCount === 1 ? 'point' : 'points'} plotted
+            {showSolution ? <strong>Worked solution</strong> : <><strong>{points.length} of {targetCount}</strong> {targetCount === 1 ? 'point' : 'points'} plotted</>}
           </div>
-          <p className="coordinate-instruction">
-            Tap an intersection on the grid. Tap a selected point again to remove it.
-          </p>
+          {!showSolution && (
+            <p className="coordinate-instruction">
+              Tap an intersection on the grid. Tap a selected point again to remove it.
+            </p>
+          )}
 
           {points.length > 0 && (
             <div className="coordinate-selected" aria-label="Selected points">
@@ -198,7 +201,7 @@ export function CoordinatePlotQuestion({
               <polyline points={selectedPolyline} className={disabled && feedbackCorrect ? 'cg-line correct' : 'cg-line'} />
             )}
 
-            {disabled && feedbackCorrect === false && interaction.connect && targets.length > 1 && (
+            {disabled && showSolution && interaction.connect && targets.length > 1 && (
               <polyline points={targetPolyline} className="cg-line target" />
             )}
 
@@ -209,7 +212,7 @@ export function CoordinatePlotQuestion({
               </g>
             ))}
 
-            {disabled && feedbackCorrect === false && targets.map(([x, y]) => (
+            {disabled && showSolution && targets.map(([x, y]) => (
               <g key={`target-${x}-${y}`} className="cg-point target">
                 <circle cx={sx(x)} cy={sy(y)} r="10" />
                 <path d={`M ${sx(x) - 4} ${sy(y)} L ${sx(x) + 4} ${sy(y)} M ${sx(x)} ${sy(y) - 4} L ${sx(x)} ${sy(y) + 4}`} />
@@ -219,7 +222,7 @@ export function CoordinatePlotQuestion({
         </div>
       </div>
 
-      {!disabled && (
+      {!disabled && !showSolution && (
         <div className="coordinate-actions">
           <button
             type="button"
@@ -235,7 +238,7 @@ export function CoordinatePlotQuestion({
             type="button"
             className="primary"
             disabled={!canCheck}
-            onClick={() => onSubmit(encodeCoordinatePoints(points))}
+            onClick={() => onSubmit?.(encodeCoordinatePoints(points))}
           >
             Check points
           </button>
