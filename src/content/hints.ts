@@ -9,6 +9,7 @@ const TIPS: Record<string, string> = {
   multiplication: 'Use your times tables, or split the bigger number into tens and ones and multiply each part.',
   division: 'Division undoes multiplication: what times the number you\'re dividing by makes the big number?',
   fractions: 'To find a fraction of a number, divide by the bottom number, then multiply by the top number.',
+  coordinates: 'Read an ordered pair as (x, y): move along the x-axis first, then move up or down to the y-value.',
   'negative-numbers': 'Picture a number line or a thermometer. Count to 0 first, then carry on past it.',
   'factors-primes': 'Factors divide exactly into a number and come in pairs. A prime has exactly two factors: 1 and itself.',
   'order-of-operations': 'Brackets first, then × and ÷, then + and −. Don\'t just go left to right.',
