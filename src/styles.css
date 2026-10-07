@@ -664,3 +664,179 @@ html.calm *, html.calm *::before, html.calm *::after { animation: none !importan
 @media (max-width: 480px) {
   .as-controls { flex-direction: column; }
 }
+
+
+/* ---------- interactive question visuals ---------- */
+.coordinate-question {
+  margin: 0.35rem 0 0.25rem;
+}
+.coordinate-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(320px, 1.25fr);
+  gap: 1rem;
+  align-items: start;
+}
+.coordinate-data-panel {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+.coordinate-kicker {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.coordinate-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.coordinate-table th,
+.coordinate-table td {
+  min-width: 2.7rem;
+  padding: 0.72rem 0.55rem;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.coordinate-table th {
+  width: 2.8rem;
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface));
+  color: var(--primary-2);
+}
+.coordinate-table tr:last-child th,
+.coordinate-table tr:last-child td { border-bottom: 0; }
+.coordinate-table th:last-child,
+.coordinate-table td:last-child { border-right: 0; }
+
+.coordinate-progress {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.coordinate-progress strong { color: var(--text); }
+.coordinate-instruction {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.coordinate-selected {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.coordinate-selected button {
+  padding: 0.42rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--surface-2);
+}
+
+.coordinate-grid-shell {
+  min-width: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #f8fbff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72);
+}
+.coordinate-grid {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}
+.coordinate-grid.locked { cursor: default; }
+.cg-paper { fill: #fbfdff; }
+.cg-grid-line {
+  stroke: #c9d7e8;
+  stroke-width: 1;
+}
+.cg-axis {
+  stroke: #263449;
+  stroke-width: 2.4;
+}
+.cg-tick,
+.cg-origin {
+  fill: #5c6b7d;
+  font-size: 11px;
+  font-weight: 650;
+  pointer-events: none;
+}
+.cg-axis-label {
+  fill: #263449;
+  font-size: 16px;
+  font-weight: 850;
+  font-style: italic;
+  pointer-events: none;
+}
+.cg-point circle:first-child {
+  fill: #2f7de1;
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 3px 6px rgba(26, 73, 128, 0.24));
+}
+.cg-point-core { fill: #ffffff; }
+.cg-point.correct circle:first-child { fill: #2f9a62; }
+.cg-point.submitted circle:first-child { fill: #d56a5a; }
+.cg-point.target circle {
+  fill: #2f9a62;
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+.cg-point.target path {
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.cg-line {
+  fill: none;
+  stroke: #2f7de1;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+}
+.cg-line.correct,
+.cg-line.target { stroke: #2f9a62; }
+.cg-line.target {
+  stroke-dasharray: 7 6;
+  opacity: 0.95;
+}
+
+.coordinate-actions {
+  display: grid;
+  grid-template-columns: auto auto minmax(150px, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+.coordinate-actions .primary { justify-self: stretch; }
+
+@media (max-width: 760px) {
+  .coordinate-layout { grid-template-columns: 1fr; }
+  .coordinate-data-panel { order: 2; }
+  .coordinate-grid-shell { order: 1; }
+}
+@media (max-width: 480px) {
+  .coordinate-actions { grid-template-columns: 1fr 1fr; }
+  .coordinate-actions .primary { grid-column: 1 / -1; }
+  .coordinate-table th,
+  .coordinate-table td {
+    min-width: 2.25rem;
+    padding: 0.58rem 0.35rem;
+    font-size: 0.95rem;
+  }
+}
