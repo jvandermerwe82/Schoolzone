@@ -22,6 +22,23 @@ export interface Skill {
   choices?: number;
 }
 
+export interface CoordinatePlotInteraction {
+  kind: 'coordinate-plot';
+  /** Values shown in the x row of the table. Pairs with yValues by index. */
+  xValues: number[];
+  /** Values shown in the y row of the table. Pairs with xValues by index. */
+  yValues: number[];
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  /** Join the learner's plotted points when the task is about forming a line. */
+  connect?: boolean;
+}
+
+/** Interactive response surfaces. Add new kinds here instead of special-casing Practice. */
+export type QuestionInteraction = CoordinatePlotInteraction;
+
 export interface Question {
   skillId: string;
   level: Level;
@@ -43,6 +60,8 @@ export interface Question {
   passageId?: string;
   /** Reading questions: the KS2 reading content domain tested, e.g. "2d" (inference). */
   domain?: string;
+  /** Optional structured interaction used by visual/interactive question renderers. */
+  interaction?: QuestionInteraction;
 }
 
 /** What the brain knows about one child on one skill. */
