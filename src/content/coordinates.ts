@@ -32,6 +32,12 @@ export function sameCoordinatePointSet(a: string, b: string): boolean {
   return encodeCoordinatePoints(left) === encodeCoordinatePoints(right);
 }
 
+export function formatCoordinatePoints(value: string): string {
+  const points = decodeCoordinatePoints(value);
+  if (!points) return value;
+  return points.map(([x, y]) => `(${x}, ${y})`).join(', ').replace(/-/g, '−');
+}
+
 function coordinateBugs(points: readonly CoordinatePoint[], answer: string): [string, string][] {
   const candidates: [string, CoordinatePoint[]][] = [
     ['coord-swap-xy', points.map(([x, y]) => [y, x] as const)],
