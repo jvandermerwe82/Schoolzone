@@ -1,12 +1,11 @@
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { CoordinatePlotInteraction, Question } from '../brain/types';
+import type { CoordinatePlotInteraction } from '../brain/types';
 import {
   encodeCoordinatePoints,
   type CoordinatePoint,
 } from '../content/coordinates';
 
 interface Props {
-  question: Question;
   interaction: CoordinatePlotInteraction;
   disabled: boolean;
   feedbackCorrect?: boolean;
@@ -23,7 +22,6 @@ const pointLabel = ([x, y]: CoordinatePoint) => `(${displayNumber(x)}, ${display
 const pointKey = ([x, y]: CoordinatePoint) => `${x},${y}`;
 
 export function CoordinatePlotQuestion({
-  question,
   interaction,
   disabled,
   feedbackCorrect,
