@@ -46,6 +46,12 @@ const NOTES: Record<string, string[]> = {
     'To find a fraction of an amount, divide by the denominator, then multiply by the numerator: ¾ of 20 = 20 ÷ 4 × 3 = 15.',
     'If the denominators are the same, add the numerators and keep the denominator: 2/7 + 3/7 = 5/7.',
   ],
+  coordinates: [
+    'Coordinates are written (x, y). Read x first, then y.',
+    'Start at the origin. Move left or right along the x-axis, then move up or down to the y-value.',
+    'Negative x-values are left of zero. Negative y-values are below zero.',
+    'When a table gives x and y values, each column makes one ordered pair.',
+  ],
   'negative-numbers': [
     'Negative numbers are less than zero, like temperatures below freezing: −5 °C is colder than 0 °C.',
     'On a number line, numbers get bigger to the right and smaller to the left.',
