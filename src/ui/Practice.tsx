@@ -20,6 +20,7 @@ import { questionSpeech, SpeakButton } from './SpeakButton';
 import { newMissionEvidenceId, pilotAnswerEvent } from '../pilot-evidence';
 import { PassageCard } from './PassageCard';
 import { AnimatedMathSupport } from './AnimatedMathSupport';
+import { CoordinatePlotQuestion } from './CoordinatePlotQuestion';
 import { animatedSupportFor } from '../content/animated-support';
 
 
@@ -410,7 +411,15 @@ export function Practice({
         </div>
         <div className="prompt-row"><p className="prompt">{question.prompt}</p><SpeakButton text={questionSpeech(question.prompt, shownChoices)} /></div>
 
-        {shownChoices ? (
+        {question.interaction?.kind === 'coordinate-plot' ? (
+          <CoordinatePlotQuestion
+            key={question.id}
+            question={question}
+            disabled={!!feedback}
+            feedbackCorrect={feedback?.correct}
+            onSubmit={submit}
+          />
+        ) : shownChoices ? (
           <div className="choices">
             {shownChoices.map((c) => {
               let cls = 'choice';
