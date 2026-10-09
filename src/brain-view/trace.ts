@@ -21,11 +21,12 @@ import type { Profile, Question } from '../brain/types';
 import { checkAnswer, makeQuestion } from '../content';
 import { getSkill } from '../content/skills';
 import { seededRng } from '../brain-lab/rng';
+import { parentCardFor, teacherCardFor } from './audience';
 import { classifyAttempt } from './evidence-mode';
 import { assertSyntheticProfile } from './provenance';
 import {
-  explainAnswer, selectCanonicalNode, selectDecision, selectHelpEpisode, selectMisconceptions,
-  selectRoute, selectStrategyChoice, snapshotSkill,
+  explainAnswer, selectCanonicalNode, selectConceptGraph, selectDecision, selectHelpEpisode, selectMisconceptions,
+  selectReviews, selectRoute, selectStrategyChoice, selectSupport, snapshotSkill,
 } from './selectors';
 import type { ScenarioMeta, StrategyChoiceView, TraceBreakView, TraceEntry, TraceStepView } from './views';
 
@@ -210,6 +211,13 @@ export function runTrace(scenario: Scenario): TraceResult {
         attempt,
         strategy: chosen.strategy ?? null,
       }),
+      graph: selectConceptGraph(profile, route.targetCanonicalNodeId, route.activeCanonicalNodeId, 3),
+      support: selectSupport(profile, question.skillId, now),
+      reviews: selectReviews(profile, now),
+      adults: {
+        parent: parentCardFor(profile, { homework: scenario.homework, now, activeNodeId: route.activeCanonicalNodeId }),
+        teacher: teacherCardFor(profile, { homework: scenario.homework, now, shared: true }),
+      },
     };
     entries.push(step);
 

@@ -15,6 +15,7 @@ import type { Level, StrategyId } from '../brain/types';
 import type { EvidenceMode } from '../curriculum/types';
 import type { AttemptModeInfo } from './evidence-mode';
 import type { DataSource } from './provenance';
+import type { ParentCard, TeacherCard } from './audience';
 
 export type StatusTone = 'none' | 'developing' | 'needs-support' | 'strong' | 'broader' | 'mastered';
 
@@ -261,6 +262,13 @@ export interface TraceStepView {
   /** The teacher's goal. Same as activeNode unless a foundation is being strengthened first. */
   targetNode: CanonicalNodeView | null;
   explain: ExplainRow[];
+  /** Prerequisite structure and real status of each concept after this answer. */
+  graph: ConceptGraphView;
+  /** Stated preferences versus measured results after this answer. */
+  support: SupportView;
+  reviews: ReviewView;
+  /** What a parent, and a teacher the parent has shared with, would see after this answer. */
+  adults: { parent: ParentCard; teacher: TeacherCard };
 }
 
 export interface TraceBreakView {
