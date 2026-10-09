@@ -10,6 +10,7 @@ import { checkpointDue } from '../content/checkpoint';
 import { getSkill, SUBJECTS } from '../content/skills';
 import { isStructuredHomework } from '../curriculum/australia-teacher-objectives';
 import { structuredHomeworkRoute, type AustralianPracticeRoute } from '../curriculum/australia-intent-routing';
+import { selectCanonicalNode } from '../brain-view/selectors';
 
 interface Props {
   profile: Profile;
@@ -106,6 +107,8 @@ export function Home({ profile, offline, homework, onPractice, onDashboard, onPa
         if (isStructuredHomework(homework)) {
           const route = structuredHomeworkRoute(profile, homework);
           const targetDone = route.targetProgress?.status === 'mastered';
+          // Strong evidence that mostly came from helped answers is practice, not proof.
+          const leansOnHelp = targetDone && !!selectCanonicalNode(profile, route.targetCanonicalNodeId)?.reliesOnAssistedEvidence;
           return (
             <button
               className="homework-banner"
@@ -119,7 +122,11 @@ export function Home({ profile, offline, homework, onPractice, onDashboard, onPa
                     ? `SchoolZone is strengthening ${route.activeTitle} first, then will bring you back to the teacher's goal. `
                     : (homework.note || 'SchoolZone has chosen your personal route to this objective. ')}
                   {homework.dueAt ? `Due ${new Date(homework.dueAt).toLocaleDateString()}. ` : ''}
-                  {targetDone ? 'You already have strong evidence of mastery.' : ''}
+                  {targetDone
+                    ? (leansOnHelp
+                      ? 'Most of your results so far had help. Try some on your own to show what you can do.'
+                      : 'You already have strong evidence of mastery.')
+                    : ''}
                 </small>
               </span>
               <span className="zone-play">{route.reason === 'prerequisite' ? 'Build ▶' : 'Go ▶'}</span>

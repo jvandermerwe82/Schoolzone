@@ -40,6 +40,16 @@ describe('coordinate visual questions', () => {
     expect(diagnose(question, swap![1], false)).toBe('coord-swap-xy');
   });
 
+  it('never hangs when the RNG cannot produce enough distinct points', () => {
+    // Regression: a constant or short-cycle RNG used to loop forever at level 2.
+    for (const rng of [() => 0.15, seeded([0.15, 0.35, 0.55, 0.75]), seeded([0.5])]) {
+      const question = coordinates(2, rng);
+      const points = decodeCoordinatePoints(question.answer)!;
+      expect(points).toHaveLength(3);
+      expect(new Set(points.map(([x, y]) => `${x},${y}`)).size).toBe(3);
+    }
+  });
+
   it('uses a stable canonical encoding for plotted points', () => {
     expect(encodeCoordinatePoints([[2, -1], [-3, 4], [0, 0]])).toBe('-3,4;0,0;2,-1');
   });

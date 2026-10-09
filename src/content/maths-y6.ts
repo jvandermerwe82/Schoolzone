@@ -37,6 +37,15 @@ const isPrime = (n: number) => {
 const factorsOf = (n: number) => Array.from({ length: n }, (_, i) => i + 1).filter((i) => n % i === 0);
 const nextPrime = (n: number) => { let p = n + 1; while (!isPrime(p)) p++; return p; };
 
+/**
+ * The "add the tops and add the bottoms" mistake for a fraction addition.
+ * Returns null when that wrong rule would happen to give the correct value
+ * (so it is never recorded as a mistake the question can actually reveal).
+ */
+function addAcrossBug(a: number, d1: number, b: number, d2: number, top: number, denominator: number): string | null {
+  return (a + b) * denominator === top * (d1 + d2) ? null : `${a + b}/${d1 + d2}`;
+}
+
 function negativeNumbers(level: Level, rng: Rng): Question {
   const id = 'negative-numbers';
   switch (level) {
@@ -216,9 +225,10 @@ function fractionsY6(level: Level, rng: Rng): Question {
       const d1 = pick(rng, [2, 3, 4, 5]), m = pick(rng, [2, 3]), d2 = d1 * m;
       const a = int(rng, 1, d1 - 1), b = int(rng, 1, d2 - 1);
       const top = a * m + b;
-      return q(id, level, `${a}/${d1} + ${b}/${d2} = ?`, mixed(top, d2),
+      return withBugs(q(id, level, `${a}/${d1} + ${b}/${d2} = ?`, mixed(top, d2),
         `Make the denominators the same: ${a}/${d1} = ${a * m}/${d2}. Then ${a * m}/${d2} + ${b}/${d2} = ${top}/${d2}` +
-        (mixed(top, d2) === `${top}/${d2}` ? '.' : ` = ${mixed(top, d2)}.`));
+        (mixed(top, d2) === `${top}/${d2}` ? '.' : ` = ${mixed(top, d2)}.`)),
+      [['frac-add-across', addAcrossBug(a, d1, b, d2, top, d2)]]);
     }
     case 3: {
       const [d1, d2] = pick(rng, [[2, 3], [3, 4], [2, 5], [3, 5], [4, 5], [5, 6], [4, 3]] as const);
@@ -230,9 +240,13 @@ function fractionsY6(level: Level, rng: Rng): Question {
       let [p1, p2] = [`${a}/${d1}`, `${b}/${d2}`];
       if (op === '−' && x < y) { [x, y] = [y, x]; [p1, p2] = [p2, p1]; }
       const top = op === '+' ? x + y : x - y;
-      return q(id, level, `${p1} ${op} ${p2} = ?`, mixed(top, common),
+      const question = q(id, level, `${p1} ${op} ${p2} = ?`, mixed(top, common),
         `Use a common denominator of ${common}: ${x}/${common} ${op} ${y}/${common} = ${top}/${common}` +
         (mixed(top, common) === `${top}/${common}` ? '.' : ` = ${mixed(top, common)}.`));
+      // Only addition has a catalogued "tops and bottoms" mistake; subtraction keeps no bug entry.
+      return op === '+'
+        ? withBugs(question, [['frac-add-across', addAcrossBug(a, d1, b, d2, top, common)]])
+        : question;
     }
     case 4: {
       const b = int(rng, 2, 6), d = int(rng, 2, 6);

@@ -1,0 +1,32 @@
+.lesson-status {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: grid;
+  gap: 0.5rem;
+}
+.ls-top { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; }
+.ls-chip {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 99px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+}
+.ls-chip.assisted-practice { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); }
+.ls-chip.unaided-demonstration { border-color: var(--primary-2); background: color-mix(in srgb, var(--primary-2) 12%, var(--surface)); }
+.ls-chip.independent-delayed-check { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+.ls-chip.due-review { border-color: var(--epic); }
+.ls-help { color: var(--muted); font-size: 0.95rem; }
+.ls-ribbon { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; font-size: 0.9rem; color: var(--muted); }
+.ls-ribbon li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ls-ribbon .ls-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; border: 2px solid var(--muted); }
+.ls-ribbon li.done { color: var(--text); }
+.ls-ribbon li.done .ls-dot { background: var(--good); border-color: var(--good); }
+.ls-ribbon li.now { color: var(--text); font-weight: 700; }
+.ls-ribbon li.now .ls-dot { border-color: var(--primary-2); background: var(--primary-2); }
+.ls-after { margin: 0; }

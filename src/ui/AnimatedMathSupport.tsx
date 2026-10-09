@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Question } from '../brain/types';
 import { animatedSupportFor, type AnimatedSupport } from '../content/animated-support';
+import { fractionBarsFor } from '../content/fraction-bars';
+import { FractionBars } from './FractionBars';
 
 interface Props {
   question: Question;
@@ -170,10 +172,12 @@ function SupportVisual({
   support,
   step,
   mode,
+  question,
 }: {
   support: AnimatedSupport;
   step: number;
   mode: 'hint' | 'worked';
+  question: Question;
 }) {
   switch (support.kind) {
     case 'place-value':
@@ -190,6 +194,11 @@ function SupportVisual({
     case 'column':
       return <ColumnVisual support={support} step={step} />;
     case 'fraction':
+      // Same-size-piece bars the child can cut, when this question can be drawn exactly.
+      // Anything else keeps the existing static visual.
+      if ((support.operation === '+' || support.operation === '−') && fractionBarsFor(question)) {
+        return <FractionBars key={question.id} question={question} mode={mode} />;
+      }
       return <FractionVisual support={support} step={step} />;
     case 'groups':
       return <GroupsVisual support={support} step={step} />;
@@ -243,7 +252,7 @@ export function AnimatedMathSupport({ question, mode }: Props) {
         </button>
       </div>
 
-      <SupportVisual support={support} step={step} mode={mode} />
+      <SupportVisual support={support} step={step} mode={mode} question={question} />
 
       <div className="as-step" aria-live="polite">
         <span className="as-step-count">Step {step + 1}/{support.steps.length}</span>

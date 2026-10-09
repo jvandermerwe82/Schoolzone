@@ -153,6 +153,7 @@ export const AUSTRALIAN_V9_EXISTING_SKILL_AUDIT: readonly ExistingSkillAudit[] =
   { skillId: 'multiplication', status: 'partial-reuse', note: 'Reusable foundation for Year 4 and later number work.' },
   { skillId: 'division', status: 'partial-reuse', note: 'Reusable foundation for Year 4 and later number work.' },
   { skillId: 'fractions', status: 'partial-reuse', note: 'Reusable foundation; Australian Year 4 fraction outcomes require a separate verified mapping pass.' },
+  { skillId: 'coordinates', status: 'partial-reuse', note: 'Plotting ordered pairs from a table of values is covered. Grid movement, pathways and transformations are not, and no skill-to-descriptor mapping has been verified yet, so no Australian coverage is claimed beyond the teacher-objective routes.' },
   { skillId: 'negative-numbers', status: 'partial-reuse', note: 'Maps into Australian Year 6 integer work but does not cover coordinates.' },
   { skillId: 'factors-primes', status: 'partial-reuse', note: 'Strong reuse, with composite/square number and divisibility extensions needed.' },
   { skillId: 'order-of-operations', status: 'partial-reuse', note: 'Reusable, but the Australian outcome is framed around unknown values and combinations of operations.' },

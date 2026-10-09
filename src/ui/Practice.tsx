@@ -22,6 +22,8 @@ import { PassageCard } from './PassageCard';
 import { AnimatedMathSupport } from './AnimatedMathSupport';
 import { CoordinatePlotQuestion } from './CoordinatePlotQuestion';
 import { animatedSupportFor } from '../content/animated-support';
+import { lessonStatusFor } from '../brain-view/lesson-status';
+import { LessonStatus } from './LessonStatus';
 import { formatCoordinatePoints } from '../content/coordinates';
 
 
@@ -77,6 +79,8 @@ interface Turn {
   /** A solved example shown first, when the tutor is teaching with one. */
   example: Question | null;
   shownAt: number;
+  /** When this skill was last practised, as it stood when the question was chosen. */
+  previousPracticedAt: number | null;
 }
 
 interface Feedback {
@@ -118,7 +122,7 @@ function nextTurn(
     example = makeQuestion(plan.skillId, plan.level, avoid, Math.random, plan.target);
     if (example.id === question.id) example = null;
   }
-  return { plan, question, example, shownAt: Date.now() };
+  return { plan, question, example, shownAt: Date.now(), previousPracticedAt: skillState(profile, question.skillId).lastPracticed };
 }
 
 export function Practice({
@@ -405,6 +409,16 @@ export function Practice({
       {header}
 
       {plan.message && !feedback && <p className={`banner ${plan.reason}`}>{plan.message}</p>}
+      {(teacherRoute || plan.reason === 'help' || plan.reason === 'climb') && (
+        <LessonStatus
+          status={lessonStatusFor({
+            plan,
+            helped: usedSolver,
+            msSincePreviousAttempt: turn.previousPracticedAt === null ? null : turn.shownAt - turn.previousPracticedAt,
+          })}
+          result={feedback ? { correct: feedback.correct } : null}
+        />
+      )}
       {question.passageId && <PassageCard key={question.passageId} passageId={question.passageId} />}
 
       <div className="card question-card">
