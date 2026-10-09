@@ -90,8 +90,8 @@ describe('concept graph and route', () => {
     expect(byId.get('math.fractions.compare-order-related')!.hasExecutableRoute).toBe(false);
     expect(byId.get('math.number.factors-multiples-divisibility')!.hasExecutableRoute).toBe(true);
     for (const edge of graph.edges) {
-      // Shortest distance from the goal can shrink by at most one step along an edge.
-      expect(byId.get(edge.from)!.depth).toBeLessThanOrEqual(byId.get(edge.to)!.depth + 1);
+      // Every arrow points towards the goal, so a foundation always sits further out than what it supports.
+      expect(byId.get(edge.from)!.depth).toBeGreaterThan(byId.get(edge.to)!.depth);
     }
     expect(new Set(graph.nodes.map((n) => n.nodeId)).size).toBe(graph.nodes.length);
   });

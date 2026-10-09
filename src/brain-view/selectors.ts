@@ -156,6 +156,17 @@ export function selectConceptGraph(
       queue.push({ id: pre, depth: depth + 1 });
     }
   }
+  // Lay out by the longest path to the goal, so every arrow points forward.
+  const depth = new Map(nodes.map((n) => [n.nodeId, n.depth]));
+  for (let pass = 0; pass < nodes.length; pass++) {
+    let changed = false;
+    for (const edge of edges) {
+      const need = (depth.get(edge.to) ?? 0) + 1;
+      if ((depth.get(edge.from) ?? 0) < need) { depth.set(edge.from, need); changed = true; }
+    }
+    if (!changed) break;
+  }
+  for (const node of nodes) node.depth = depth.get(node.nodeId) ?? node.depth;
   return { targetId, nodes, edges, maxDepth: Math.max(0, ...nodes.map((n) => n.depth)) };
 }
 
@@ -328,7 +339,10 @@ export function selectStrategyChoice(
   if (winner.learnerPreference) parts.push(`learner preference ${winner.learnerPreference > 0 ? '+' : ''}${winner.learnerPreference.toFixed(2)}`);
   if (winner.parentPreference) parts.push(`parent preference ${winner.parentPreference > 0 ? '+' : ''}${winner.parentPreference.toFixed(2)}`);
   if (winner.observedApplied) parts.push(`measured results ${winner.observed > 0 ? '+' : ''}${winner.observed.toFixed(2)}`);
-  const because = untried <= 1 && decided.tried.length === 0 && episode.tried.length > 0
+  const tied = options.filter((o) => !o.tried && !o.chosen && Math.abs(o.score - winner.score) < 1e-9).length;
+  const because = tied > 0
+    ? `${winner.label} comes first. ${tied === 1 ? 'Another way scores the same' : `${tied} other ways score the same`} (${parts.join(', ')}), so the engine's fixed order decides.`
+    : untried <= 1 && decided.tried.length === 0 && episode.tried.length > 0
     ? `Every way of helping had been tried, so a new round starts. Highest score: ${winner.label}.`
     : `${winner.label} has the highest score among the ways not yet tried this time (${parts.join(', ')}).`;
 
