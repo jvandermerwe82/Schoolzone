@@ -83,11 +83,22 @@ function makeCoordinateQuestion(
   };
 }
 
+/** Random draws allowed before falling back to a deterministic scan. */
+const UNIQUE_POINT_ATTEMPTS = 200;
+
 function uniqueFirstQuadrantPoints(rng: Rng, count: number): CoordinatePoint[] {
   const points: CoordinatePoint[] = [];
-  while (points.length < count) {
+  const has = (px: number, py: number) => points.some(([x, y]) => x === px && y === py);
+  for (let attempt = 0; attempt < UNIQUE_POINT_ATTEMPTS && points.length < count; attempt++) {
     const point: CoordinatePoint = [int(rng, 1, 6), int(rng, 1, 6)];
-    if (!points.some(([x, y]) => x === point[0] && y === point[1])) points.push(point);
+    if (!has(point[0], point[1])) points.push(point);
+  }
+  // A short-cycle or constant RNG (as used in tests) can never produce enough
+  // distinct points. Fill the remainder deterministically so a lesson can never hang.
+  for (let x = 1; x <= 6 && points.length < count; x++) {
+    for (let y = 1; y <= 6 && points.length < count; y++) {
+      if (!has(x, y)) points.push([x, y]);
+    }
   }
   return points;
 }
